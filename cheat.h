@@ -165,7 +165,7 @@ static int run_test(struct cheat_test_s const *test, struct cheat_test_suite *su
     return suite->last_test_status;
 }
 
-#ifdef unix
+#if _POSIX_C_SOURCE >= 200112L
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -181,7 +181,7 @@ static void run_isolated_test(
         struct cheat_test_s const *test,
         struct cheat_test_suite *suite)
 {
-#ifdef unix
+#if _POSIX_C_SOURCE >= 200112L
     pid_t pid;
     int pipefd[2];
 

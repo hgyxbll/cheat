@@ -47,7 +47,7 @@ int cheat_stream_contains(FILE *stream, char const *contents)
     return result;
 }
 
-#ifdef unix
+#if _POSIX_C_SOURCE >= 200112L
 
 #include <unistd.h>
 
