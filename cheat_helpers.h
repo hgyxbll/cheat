@@ -31,9 +31,12 @@ int cheat_stream_contains(FILE *stream, char const *contents)
 {
     char *buffer;
     int result;
-    int len;
+    size_t len;
 
-    len = ftell(stream);
+    const long int what = ftell(stream);
+    if (what == -1)
+        exit(42);
+    len = (size_t )what;
     fseek(stream, 0, SEEK_SET);
 
     buffer = malloc(len + 1);

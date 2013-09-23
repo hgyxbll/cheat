@@ -5,8 +5,11 @@
 #error "The __BASE_FILE__ macro is not defined. Check the README for help."
 #endif
 
-#include <stdlib.h>
-#include <stdio.h>
+#include <stddef.h> /* size_t */
+#include <stdbool.h> /* bool */
+#include <string.h> /* memset() */
+#include <stdio.h> /* fputs() */
+#include <stdlib.h> /* free(), malloc() */
 #include <stdarg.h>
 
 enum cheat_test_status {
@@ -17,13 +20,13 @@ enum cheat_test_status {
 };
 
 struct cheat_test_suite {
-    int test_count;
-    int test_failures;
+    size_t test_count;
+    size_t test_failures;
     enum cheat_test_status last_test_status;
     char **log;
     char *argv0;
     size_t log_size;
-    int nofork;
+    bool nofork;
     FILE *captured_stdout;
 };
 
@@ -40,7 +43,7 @@ struct cheat_test_s {
 
 /* First pass: Function declarations. */
 
-#define TEST(test_name, test_body) static void test_##test_name(struct cheat_test_suite *suite);
+#define TEST(name, body) static void test_##name(struct cheat_test_suite *suite);
 #define SET_UP(body) static void cheat_set_up(void);
 #define TEAR_DOWN(body) static void cheat_tear_down(void);
 #define GLOBALS(body)
@@ -54,7 +57,7 @@ struct cheat_test_s {
 
 static void cheat_suite_init(struct cheat_test_suite *suite, char *argv0)
 {
-    memset(suite, 0, sizeof(struct cheat_test_suite));
+    memset(suite, 0, sizeof (struct cheat_test_suite));
     suite->captured_stdout = stdout;
     suite->argv0 = argv0;
 }
@@ -73,7 +76,7 @@ static void cheat_suite_summary(struct cheat_test_suite *suite)
         free(suite->log);
     }
 
-    fprintf(suite->captured_stdout, "\n%d failed tests of %d tests run.\n", suite->test_failures, suite->test_count);
+    fprintf(suite->captured_stdout, "\n%zu failed tests of %zu tests run.\n", suite->test_failures, suite->test_count);
 }
 
 static void cheat_test_end(struct cheat_test_suite *suite)
@@ -100,7 +103,7 @@ static void cheat_test_end(struct cheat_test_suite *suite)
     }
 }
 
-static void cheat_log_append(struct cheat_test_suite *suite, char *message, int len)
+static void cheat_log_append(struct cheat_test_suite *suite, char *message, size_t len)
 {
     char *buf;
 
@@ -114,7 +117,7 @@ static void cheat_log_append(struct cheat_test_suite *suite, char *message, int 
     buf[len] = '\0';
 
     suite->log_size++;
-    suite->log = realloc(suite->log, (suite->log_size + 1) * sizeof(char *));
+    suite->log = realloc(suite->log, (suite->log_size + 1) * sizeof (char *));
     suite->log[suite->log_size - 1] = buf; /* We give up our buffer! */
 }
 
@@ -131,17 +134,20 @@ static void cheat_test_assert(
     suite->last_test_status = CHEAT_FAILURE;
     if (suite->nofork) {
         char *buffer = NULL;
-        int len = 255;
-        int bufsize;
+        size_t len = 255;
+        size_t bufsize;
 
         do {
             bufsize = (len + 1);
             buffer = realloc(buffer, bufsize);
-            len = snprintf(buffer, bufsize,
+            const int what = snprintf(buffer, bufsize,
                     "%s:%d: Assertion failed: '%s'.\n",
                     filename,
                     line,
                     assertion);
+            if (what == -1)
+                exit(42);
+            len = (size_t )what;
         } while (bufsize != (len + 1));
 
         cheat_log_append(suite, buffer, bufsize);
@@ -199,12 +205,14 @@ static void run_isolated_test(
     } else {
         int status;
         char buf[255];
-        int len;
+        ssize_t len;
 
         close(pipefd[1]);
         while ((len = read(pipefd[0], buf, 255)) != 0) {
+            if (len == -1)
+                exit(42);
             buf[len] = 0;
-            cheat_log_append(suite, buf, len + 1);
+            cheat_log_append(suite, buf, (size_t )len + 1);
         }
 
         waitpid(pid, &status, 0);
@@ -216,7 +224,7 @@ static void run_isolated_test(
 #elif defined _WIN32
 
     SECURITY_ATTRIBUTES sa;
-    sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+    sa.nLength = sizeof (SECURITY_ATTRIBUTES);
     sa.bInheritHandle = TRUE;
     sa.lpSecurityDescriptor = NULL;
 
@@ -225,7 +233,7 @@ static void run_isolated_test(
     CreatePipe(&stdoutPipe_read, &stdoutPipe_write, &sa, 0);
 
     STARTUPINFO si = {
-        .cb = sizeof(STARTUPINFO),
+        .cb = sizeof (STARTUPINFO),
         .dwFlags = STARTF_USESTDHANDLES,
         .hStdOutput = stdoutPipe_write
     };
@@ -288,7 +296,7 @@ static struct cheat_test_s const cheat_tests[] = {
 #include __BASE_FILE__
 };
 
-static int const cheat_test_count = sizeof(cheat_tests) / sizeof (struct cheat_test_s);
+static const size_t cheat_test_count = sizeof (cheat_tests) / sizeof (struct cheat_test_s);
 
 #undef TEST
 #undef SET_UP
@@ -298,7 +306,7 @@ static int const cheat_test_count = sizeof(cheat_tests) / sizeof (struct cheat_t
 int main(int argc, char *argv[])
 {
     struct cheat_test_suite suite;
-    int i;
+    size_t i;
 
     cheat_suite_init(&suite, argv[0]);
 
@@ -336,7 +344,7 @@ int main(int argc, char *argv[])
 
     cheat_suite_summary(&suite);
 
-    return suite.test_failures;
+    return (int )suite.test_failures; /* TODO truncate */
 }
 
 /* Third pass: Function definitions */
