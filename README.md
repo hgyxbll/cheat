@@ -1,6 +1,4 @@
-[![Build Status](https://secure.travis-ci.org/Tordek/cheat.png)](http://travis-ci.org/Tordek/cheat)
-
-CHEAT - The sillily-named C testing framework
+CHEAT - a silly C unit testing framework
 =============================================
 
 CHEAT is a minimal testing framework which tries to avoid making you write
@@ -30,7 +28,6 @@ Windows and Linux), so all tests still run, even if one segfaults. You can
 specify the `--nofork` flag, to make it run everything in the same process, if
 you need to.
 
-
 Why?
 ----
 
@@ -50,6 +47,8 @@ project directory.
 
 ---
 
-CHEAT is Copyrighted (c) 2012 Guillermo "Tordek" Freschi.
+CHEAT is copyrighted 2012 Guillermo "Tordek" Freschi and another contributor.
 
-CHEAT is provided under a 2-clause BSD license.
+CHEAT is provided under a two clause BSD license.
+
+See the attached `LICENSE` for more details.
