@@ -1,5 +1,5 @@
 language: c
 compiler:
-  - gcc
-  - clang
-script: $CC sampletest.c && $CC .travistest.c && ./a.out
+ - gcc
+ - clang
+script: $CC example.c && $CC .travis.c && ./a.out
