@@ -6,7 +6,6 @@
 #endif
 
 #include <stddef.h> /* size_t */
-#include <stdbool.h> /* bool */
 #include <stdio.h> /* FILE, stdout, fputs(), fprintf(), fputc(), snprintf(), perror(), stderr */
 #include <string.h> /* memset(), memcpy() */
 #include <stdlib.h> /* free(), exit(), malloc(), realloc(), EXIT_FAILURE */
@@ -25,7 +24,7 @@ struct cheat_test_suite {
 	char** log;
 	char* argv0;
 	size_t log_size;
-	bool nofork;
+	int fork;
 	FILE* captured_stdout;
 };
 
@@ -128,7 +127,13 @@ static void cheat_test_assert(
 		return;
 
 	suite->last_test_status = CHEAT_FAILURE;
-	if (suite->nofork) {
+	if (suite->fork) {
+		fprintf(suite->captured_stdout,
+				"%s:%d: Assertion failed: '%s'.\n",
+				filename,
+				line,
+				assertion);
+	} else {
 		char* buffer = NULL;
 		size_t len = 255;
 		size_t bufsize;
@@ -147,12 +152,6 @@ static void cheat_test_assert(
 		} while (bufsize != (len + 1));
 
 		cheat_log_append(suite, buffer, bufsize);
-	} else {
-		fprintf(suite->captured_stdout,
-				"%s:%d: Assertion failed: '%s'.\n",
-				filename,
-				line,
-				assertion);
 	}
 }
 
@@ -303,13 +302,13 @@ int main(int argc, char* argv[]) {
 
 	cheat_suite_init(&suite, argv[0]);
 
-	suite.nofork = 0;
+	suite.fork = 1;
 
 	if (argc > 1) {
 		if (argv[1][0] == '-') {
 			if (strcmp(argv[1], "-n") == 0
 					|| strcmp(argv[1], "--nofork") == 0) {
-				suite.nofork = 1;
+				suite.fork = 0;
 			}
 		} else {
 			for (i = 0; i < cheat_test_count; ++i) {
@@ -327,10 +326,10 @@ int main(int argc, char* argv[]) {
 	for (i = 0; i < cheat_test_count; ++i) {
 		struct cheat_test_s const current_test = cheat_tests[i];
 
-		if (suite.nofork) {
-			run_test(&current_test, &suite);
-		} else {
+		if (suite.fork) {
 			run_isolated_test(&current_test, &suite);
+		} else {
+			run_test(&current_test, &suite);
 		}
 
 		cheat_test_end(&suite);
