@@ -41,7 +41,7 @@ The core components are defined in a single header file, so
  the only necessary step is to download it.
 
     [user@computer ~]$ cd /usr/include
-    [user@computer /usr/include]$ sudo wget https://github.com/Tuplanolla/cheat/blob/master/cheat.h
+    [user@computer /usr/include]$ sudo wget -q https://github.com/Tuplanolla/cheat/blob/master/cheat.h
 
 ### Writing Tests
 
@@ -71,10 +71,16 @@ Examples can be found in
 
 ### Running Tests
 
-Tests compile into an executable, which
- takes care of the testing and the reporting.
+Tests compile into an executable
 
-    [user@computer ~]$
+    [user@computer ~/project]$ gcc -o tests tests.c
+
+ that takes care of running the tests and reporting their outcomes.
+
+    [user@computer ~/project]$ ./tests
+    .F..S...
+    tests.c:42: Assertion failed: '2 + 2 == 5'.
+    2 failed tests of 8 tests run.
 
 The executable runs tests in
  an isolated subprocess, so
