@@ -97,4 +97,5 @@ Additional features are naturally fickle and
 
 If `cheat.h` is placed in a global include directory (like `/usr/include`) and
  `__BASE_FILE__` is a relative path, then
- CHEAT has to be copied into the project directory.
+ CHEAT will not work unless
+ `cheat.h` is copied into the project directory.
