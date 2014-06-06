@@ -1,3 +1,11 @@
+/*
+Copyright (c) 2012, Guillermo "Tordek" Freschi
+Copyright (c) 2013, Sampsa "Tuplanolla" Kiiskinen
+All rights reserved.
+
+The full license can be found in the LICENSE file that
+ resides in the same directory as this file.
+*/
 #ifndef CHEAT_H
 #define CHEAT_H
 

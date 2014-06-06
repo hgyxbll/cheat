@@ -1,54 +1,100 @@
-CHEAT - a silly C unit testing framework
-=============================================
+# CHEAT
 
-CHEAT is a minimal testing framework which tries to avoid making you write
-anything more than your tests.
+CHEAT is a minimal unit testing framework for the C programming language.
+Its primary use cases are small projects and systems for embedded platforms.
+It has no dependencies and requires no installation or configuration.
+The design philosophy is that time spent not writing tests is time wasted.
+Only a header file and a statement block is needed.
 
-To use it, you simply `#include "cheat.h"`. If you're not using GCC, you may
-need this guard:
+    #include <cheat.h>
+
+    TEST(mathematics_still_work, {
+        cheat_assert(2 + 2 == 4);
+        cheat_assert(2 + 2 != 5);
+    })
+
+## History
+
+The project was started on 2012-08-07 and
+ is currently in passive development.
+It was originally written by Guillermo "Tordek" Freschi for
+ the entertainment and education of everyone in
+ the ISO/IEC 9899 community on Freenode.
+It was later picked up by Sampsa "Tuplanolla" Kiiskinen who
+ grew tired of unit testing frameworks that suck and
+ wondered what happened to the one that did not.
+
+## License
+
+CHEAT is free software and as such
+ licensed under the simplified BSD license with two clauses.
+The full license can be found in the `LICENSE` file that
+ resides in the same directory as this file.
+In short, copies and derivative works are permitted
+ as long as they use the same license.
+
+## Usage
+
+### Installation
+
+The core components are defined in a single header file, so
+ the only necessary step is to download it.
+
+    [user@computer ~]$ cd /usr/include
+    [user@computer /usr/include]$ sudo wget https://github.com/Tuplanolla/cheat/blob/master/cheat.h
+
+### Writing Tests
+
+Tests should be put in their own source file, which
+ has to include `cheat.h`
+
+    #include <cheat.h>
+
+ and define `__BASE_FILE__`
 
     #ifndef __BASE_FILE__
     #define __BASE_FILE__ __FILE__
     #endif
 
-Tests are defined with the `TEST` macro. You may also use the `GLOBALS`,
-`SET_UP` and `TEAR_DOWN` macros to centralize your initializations.
+ if the compiler does not (for example GCC does).
 
-There are additional helpers in the `cheat_helpers.h` file, which provide
-stuff to help you test some harder to test stuff.
+Tests can then be defined with `TEST(name, block)`,
+ global variables with `GLOBALS(declarations)`,
+ initialization with `SET_UP(block)` and
+ finalization with `TEAR_DOWN(block)`.
 
-Running
--------
+Examples can be found in
+ the `example.c` file.
 
-When you compile your test file, you get a complete executable. It shows a
-pretty progress bar thingie and all.
+### Running Tests
 
-By default, it runs each test in an isolated subprocess (tested, so far, in
-Windows and Linux), so all tests still run, even if one segfaults. You can
-specify the `--nofork` flag, to make it run everything in the same process, if
-you need to.
+Tests compile into an executable.
 
-Why?
-----
+The executable runs tests in
+ an isolated subprocess, so
+ the framework does not crash if
+ one of the tests does.
+The `--no-fork` flag allows
+ running everything in the same process if
+ `fork()` is unsupported, fails or
+ something else equally fun happens.
 
-Because abusing systems for hackish results is fun. This was an exercise in
-how far I could push the C preprocessor to build a "framework" with a simple
-syntax for the user.
+### Complicated Tests
 
-It's not meant for serious work, and it's easy to run into issues (do report
-them and send patches!), but if it works for you, more power to you!
+More complicated tests can be defined with
+ the help of `cheat-helpers.h`.
 
-Known Issues (don't say I didn't warn you)
-------------------------------------------
+    #include <cheat-helpers.h>
 
-If `cheat.h` is placed in a global include directory (like, say `/usr/include`),
-and `__BASE_FILE__` is a relative path, CHEAT won't work. Put `cheat.h` in your
-project directory.
+It provides things like
+ stream redirection and
+ signal handlers.
 
----
+Additional features are naturally fickle and
+ subject to change.
 
-CHEAT is copyrighted 2012 Guillermo "Tordek" Freschi and another contributor.
+## Bugs and Limitations
 
-CHEAT is provided under a two clause BSD license.
-
-See the attached `LICENSE` for more details.
+If `cheat.h` is placed in a global include directory (like `/usr/include`) and
+ `__BASE_FILE__` is a relative path, then
+ CHEAT has to be copied into the project directory.

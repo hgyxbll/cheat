@@ -7,7 +7,7 @@
 #endif
 
 #include "cheat.h"
-#include "cheat_helpers.h"
+#include "cheat-helpers.h"
 #include <string.h>
 
 GLOBALS(
