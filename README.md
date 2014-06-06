@@ -67,7 +67,8 @@ Tests can then be defined with `TEST(name, block)`,
  initialization with `SET_UP(block)` and
  finalization with `TEAR_DOWN(block)`.
 
-Examples are in the `example.c` file.
+Examples are in the `cheat-example.c` file, which
+ can be compiled with `make` and run with `make test`.
 
 ### Running Tests
 
