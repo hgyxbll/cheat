@@ -6,8 +6,8 @@
 #define __BASE_FILE__ __FILE__
 #endif
 
-#include "cheat.h"
-#include "cheat-helpers.h"
+#include <cheat.h>
+#include <cheat-helpers.h>
 #include <string.h>
 
 GLOBALS(
