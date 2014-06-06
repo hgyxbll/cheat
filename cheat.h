@@ -280,8 +280,8 @@ static void run_isolated_test(
 	CloseHandle(pi.hThread);
 
 #else
-#warning "Running isolated tests isn't supported in this environment. You'll have to use --nofork." /* TODO move */
-	fputs("Running isolated tests isn't supported in this environment. Please use --nofork.\n", stderr);
+#warning "Running isolated tests isn't supported in this environment. You'll have to use --no-fork." /* TODO move */
+	fputs("Running isolated tests isn't supported in this environment. Please use --no-fork.\n", stderr);
 	exit(EXIT_FAILURE);
 #endif
 }
@@ -315,7 +315,7 @@ int main(int argc, char* argv[]) {
 	if (argc > 1) {
 		if (argv[1][0] == '-') {
 			if (strcmp(argv[1], "-n") == 0
-					|| strcmp(argv[1], "--nofork") == 0) {
+					|| strcmp(argv[1], "--no-fork") == 0) {
 				suite.fork = 0;
 			}
 		} else {

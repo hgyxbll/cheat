@@ -45,8 +45,11 @@ The core components are defined in a single header file, so
 
 ### Writing Tests
 
-Tests should be put in their own source file, which
- has to include `cheat.h`
+Tests should be put in their own source file,
+
+    [user@computer ~/project]$ cat > tests.c
+
+ which has to include `cheat.h`
 
     #include <cheat.h>
 
@@ -68,7 +71,10 @@ Examples can be found in
 
 ### Running Tests
 
-Tests compile into an executable.
+Tests compile into an executable, which
+ takes care of the testing and the reporting.
+
+    [user@computer ~]$
 
 The executable runs tests in
  an isolated subprocess, so
@@ -81,21 +87,33 @@ The `--no-fork` flag allows
 
 ### Complicated Tests
 
-More complicated tests can be defined with
- the help of `cheat-helpers.h`.
+More complicated tests are easy to define with
+ the assistance of CHEAT helpers that
+ exist in `cheat-helpers.h`.
 
     #include <cheat-helpers.h>
 
-It provides things like
+Helpers cover things like
  stream redirection and
  signal handlers.
 
-Additional features are naturally fickle and
- subject to change.
-
 ## Bugs and Limitations
+
+CHEAT is naturally fickle, because
+ it is built on preprocessor abuse.
+Some problems that are impossible to fix are
+ collected into the list below.
+
+### Include Path
 
 If `cheat.h` is placed in a global include directory (like `/usr/include`) and
  `__BASE_FILE__` is a relative path, then
  CHEAT will not work unless
  `cheat.h` is copied into the project directory.
+
+### Base File
+
+If `__BASE_FILE__` is defined in a file
+ included by a source file that includes `cheat.h`, then
+ CHEAT will refuse to cooperate until
+ the conflicting definitions are removed.
