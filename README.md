@@ -59,15 +59,15 @@ Tests should be put in their own source file,
     #define __BASE_FILE__ __FILE__
     #endif
 
- if the compiler does not (for example GCC does).
+ if the compiler does not (for example GCC does, but
+ use it anyway for portability).
 
 Tests can then be defined with `TEST(name, block)`,
  global variables with `GLOBALS(declarations)`,
  initialization with `SET_UP(block)` and
  finalization with `TEAR_DOWN(block)`.
 
-Examples can be found in
- the `example.c` file.
+Examples are in the `example.c` file.
 
 ### Running Tests
 
@@ -120,6 +120,6 @@ If `cheat.h` is placed in a global include directory (like `/usr/include`) and
 ### Base File
 
 If `__BASE_FILE__` is defined in a file
- included by a source file that includes `cheat.h`, then
+ that does not directly include `cheat.h`, then
  CHEAT will refuse to cooperate until
- the conflicting definitions are removed.
+ the definition is moved.
