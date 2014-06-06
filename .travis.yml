@@ -1,5 +1,0 @@
-language: c
-compiler:
- - gcc
- - clang
-script: $CC example.c && $CC .travis.c && ./a.out
