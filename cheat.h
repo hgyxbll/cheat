@@ -6,17 +6,18 @@ All rights reserved.
 The full license can be found in the LICENSE file that
  resides in the same directory as this file.
 */
+
 #ifndef CHEAT_H
 #define CHEAT_H
 
 #ifndef __BASE_FILE__
-#error "The __BASE_FILE__ macro isn't defined. Check the README for help."
+#error "The __BASE_FILE__ macro is not defined. Check the README file for help."
 #endif
 
 #include <stddef.h> /* size_t */
-#include <stdio.h> /* FILE, stdout, fputs(), fprintf(), fputc(), snprintf(), perror(), stderr */
-#include <string.h> /* memset(), memcpy() */
-#include <stdlib.h> /* free(), exit(), malloc(), realloc(), EXIT_FAILURE */
+#include <stdio.h> /* FILE, fprintf(), fputc(), fputs(), perror(), snprintf(), stderr, stdout */
+#include <stdlib.h> /* EXIT_FAILURE, exit(), free(), malloc(), realloc() */
+#include <string.h> /* memcpy(), memset() */
 
 enum cheat_test_status {
 	CHEAT_SUCCESS,
@@ -43,13 +44,13 @@ struct cheat_test_s {
 	cheat_test* test;
 };
 
-/* public interface: helpers */
+/* Public interface: helpers. */
 
-#define TEST_IGNORE(test_name, test_body) TEST(test_name, {\
-	suite->last_test_status = CHEAT_IGNORE;\
+#define TEST_IGNORE(test_name, test_body) TEST(test_name, { \
+	suite->last_test_status = CHEAT_IGNORE; \
 })
 
-/* first pass: function declarations */
+/* First pass: function declarations. */
 
 #define TEST(name, body) static void test_##name(struct cheat_test_suite* suite);
 #define SET_UP(body) static void cheat_set_up(void);
@@ -74,7 +75,9 @@ static void cheat_suite_summary(struct cheat_test_suite* suite) {
 		size_t i;
 
 		fputs("\n", suite->captured_stdout);
-		for (i = 0; i < suite->log_size; ++i) {
+		for (i = 0;
+				i < suite->log_size;
+				++i) {
 			fputs(suite->log[i], suite->captured_stdout);
 			free(suite->log[i]);
 		}
@@ -121,7 +124,7 @@ static void cheat_log_append(struct cheat_test_suite* suite, char* message, size
 	buf[len] = '\0';
 
 	suite->log_size++;
-	suite->log = realloc(suite->log, (suite->log_size + 1) * sizeof (char*));
+	suite->log = realloc(suite->log, (suite->log_size + 1) * sizeof (char*)); /* TODO What char*? */
 	suite->log[suite->log_size - 1] = buf; /* We give up our buffer! */
 }
 
@@ -175,13 +178,13 @@ static int run_test(struct cheat_test_s const* test, struct cheat_test_suite* su
 
 #if _POSIX_C_SOURCE >= 200112L
 
-#include <unistd.h> /* pipe(), fork(), close(), STDOUT_FILENO, dup2(), execl(), read() */
+#include <unistd.h> /* STDOUT_FILENO, close(), dup2(), execl(), fork(), pipe(), read() */
 #include <sys/types.h> /* pid_t, ssize_t */
-#include <sys/wait.h> /* waitpid(), WIFEXITED(), WEXITSTATUS() */
+#include <sys/wait.h> /* WIFEXITED(), WEXITSTATUS(), waitpid() */
 
 #elif defined _WIN32
 
-#include <windows.h> /* ... */
+#include <windows.h> /* CloseHandle(), CloseHandle(), CreatePipe(), CreateProcess(), GetExitCodeProcess(), ReadFile(), WaitForSingleObject() */
 
 #endif
 
@@ -279,14 +282,14 @@ static void run_isolated_test(
 	CloseHandle(pi.hProcess);
 	CloseHandle(pi.hThread);
 
-#else
-#warning "Running isolated tests isn't supported in this environment. You'll have to use --no-fork." /* TODO move */
-	fputs("Running isolated tests isn't supported in this environment. Please use --no-fork.\n", stderr);
+#else /* TODO Move. */
+#warning "Running isolated tests is not supported in this environment. You will have to use --no-fork."
+	fputs("Running isolated tests is not supported in this environment. You will have to use --no-fork.\n", stderr);
 	exit(EXIT_FAILURE);
 #endif
 }
 
-/* second pass: listing functions */
+/* Second pass: listing functions. */
 
 #define TEST(test_name, body) { #test_name, test_##test_name },
 #define SET_UP(body)
@@ -304,7 +307,7 @@ static const size_t cheat_test_count = sizeof cheat_tests / sizeof *cheat_tests;
 #undef TEAR_DOWN
 #undef GLOBALS
 
-int main(int argc, char* argv[]) {
+int main(int argc, char** argv) {
 	struct cheat_test_suite suite;
 	size_t i;
 
@@ -319,7 +322,9 @@ int main(int argc, char* argv[]) {
 				suite.fork = 0;
 			}
 		} else {
-			for (i = 0; i < cheat_test_count; ++i) {
+			for (i = 0;
+					i < cheat_test_count;
+					++i) {
 				struct cheat_test_s const current_test = cheat_tests[i];
 
 				if (strcmp(argv[1], current_test.name) == 0) {
@@ -331,7 +336,9 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
-	for (i = 0; i < cheat_test_count; ++i) {
+	for (i = 0;
+			i < cheat_test_count;
+			++i) {
 		struct cheat_test_s const current_test = cheat_tests[i];
 
 		if (suite.fork) {
@@ -345,10 +352,10 @@ int main(int argc, char* argv[]) {
 
 	cheat_suite_summary(&suite);
 
-	return (int )suite.test_failures; /* TODO truncate */
+	return (int )suite.test_failures; /* TODO Truncate. */
 }
 
-/* third pass: function definitions */
+/* Third pass: function definitions. */
 
 /* This is a part of the public interface. The other part is for the helpers. */
 
