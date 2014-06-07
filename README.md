@@ -60,7 +60,7 @@ Tests should be put in their own source file,
     #endif
 
  if the compiler does not (for example GCC does, but
- use it anyway for portability).
+ the condition should be used anyway for portability).
 
 Tests can then be defined with `TEST(name, block)`,
  global variables with `GLOBALS(declarations)`,
