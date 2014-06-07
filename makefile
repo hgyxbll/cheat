@@ -1,5 +1,5 @@
 size=`getconf PAGESIZE`
-warnings=$(subst 4096,$(size),`cat gcc-Weverything-4.7.0`) -Wno-system-headers -Wno-traditional
+warnings=`cat gcc-4_7_0-release` -Wno-error -Wno-system-headers -Wno-traditional -Wno-traditional-conversion
 debug=-g -O0 $(warnings)
 deploy=-s -O3
 CFLAGS=-std=c89 -D__STDC_VERSION__=199409L \
