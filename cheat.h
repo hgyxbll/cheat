@@ -213,17 +213,17 @@ static void cheat_test_end(struct cheat_suite* const suite) {
 	++suite->test_count;
 }
 
-static void* cheat_malloc_total(size_t const size1, size_t const size2) {
-	if (size2 > SIZE_MAX - size1)
+static void* cheat_malloc_total(size_t const size, size_t const extra_size) {
+	if (extra_size > SIZE_MAX - size)
 		return NULL;
-	return malloc(size1 + size2);
+	return malloc(size + extra_size);
 }
 
-static void* cheat_realloc_array(void* const ptr,
-		size_t const nmemb, size_t const size) {
-	if (nmemb > SIZE_MAX / size)
+static void* cheat_realloc_array(void* const pointer,
+		size_t const count, size_t const size) {
+	if (count > SIZE_MAX / size)
 		return NULL;
-	return realloc(ptr, nmemb * size);
+	return realloc(pointer, count * size);
 }
 
 static void cheat_log_append(struct cheat_suite* const suite,
