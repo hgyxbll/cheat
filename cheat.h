@@ -98,19 +98,23 @@ enum cheat_type {
 	CHEAT_DOWN_TEARER /* Something to do after tests. */
 };
 
+typedef void (cheat_procedure)(void); /* An untyped procedure. */
+
 typedef void (cheat_test)(struct cheat_suite*); /* A test procedure. */
 
 typedef void (cheat_utility)(void); /* A utility procedure. */
 
 struct cheat_procedure {
-	char const* identifier; /* The name to use for
+	char const* name; /* The name to use for
 			generating identifiers and
 			reporting test results. */
+
 	enum cheat_type type; /* The type of the procedure. */
-	union {
-		cheat_test* test;
-		cheat_utility* utility;
-	} procedure; /* The procedure to call. */
+
+	cheat_procedure* procedure; /* The procedure to call would be
+			a union of cheat_test and cheat_utility, but
+			initializing such a thing would be impossible if
+			it was qualified const. */
 };
 
 #define CHEAT_PASS 1 /* This is informational. */
@@ -284,7 +288,7 @@ static void cheat_assert_(struct cheat_suite* const suite,
 			int what;
 			bufsize = len + 1;
 			buffer = realloc(buffer, bufsize);
-			what = snprintf(buffer, bufsize,
+			what = snprintf(buffer, bufsize, /* TODO Only in C99. */
 					"%s:%d: Assertion failed: '%s'.\n",
 					filename,
 					line,
@@ -328,7 +332,7 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 			exit(EXIT_FAILURE);
 		}
 		/* Why exec? */
-		if (execl(suite->program, suite->program, test->identifier, NULL) == -1)
+		if (execl(suite->program, suite->program, test->name, NULL) == -1)
 			perror("execl");
 		exit(EXIT_FAILURE);
 	} else {
@@ -385,7 +389,7 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 	PROCESS_INFORMATION pi = {0};
 
 	CHAR command[255];
-	snprintf(command, 255, "%s %s", suite->program, test->identifier);
+	snprintf(command, 255, "%s %s", suite->program, test->name); /* TODO Only in C99. */
 
 	CreateProcess(
 		NULL,
@@ -435,25 +439,21 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 
 #define CHEAT_TEST(name, body) \
 		{ \
-			.identifier = #name, \
-			.type = CHEAT_TESTER, \
-			.procedure = { \
-				.test = cheat_test_##name \
-			} \
+			#name, \
+			CHEAT_TESTER, \
+			(cheat_procedure* )cheat_test_##name \
 		},
 #define CHEAT_SET_UP(body) \
 		{ \
-			.type = CHEAT_UP_SETTER, \
-			.procedure = { \
-				.utility = cheat_set_up \
-			} \
+			NULL, \
+			CHEAT_UP_SETTER, \
+			(cheat_procedure* )cheat_set_up \
 		},
 #define CHEAT_TEAR_DOWN(body) \
 		{ \
-			.type = CHEAT_DOWN_TEARER, \
-			.procedure = { \
-				.utility = cheat_tear_down \
-			} \
+			NULL, \
+			CHEAT_DOWN_TEARER, \
+			(cheat_procedure* )cheat_tear_down \
 		},
 #define CHEAT_DECLARE(body)
 
@@ -486,15 +486,15 @@ static int cheat_run_test(struct cheat_procedure const* const test,
 			index < cheat_procedure_count;
 			++index)
 		if (cheat_procedures[index].type == CHEAT_UP_SETTER)
-			cheat_procedures[index].procedure.utility();
+			((cheat_utility* )cheat_procedures[index].procedure)();
 
-	(test->procedure.test)(suite);
+	((cheat_test* )test->procedure)(suite);
 
 	for (index = 0;
 			index < cheat_procedure_count;
 			++index)
 		if (cheat_procedures[index].type == CHEAT_DOWN_TEARER)
-			cheat_procedures[index].procedure.utility();
+			((cheat_utility* )cheat_procedures[index].procedure)();
 
 	return suite->outcome;
 }
@@ -541,7 +541,7 @@ int main(int const count, char** const arguments) {
 				struct cheat_procedure const* procedure = &cheat_procedures[index];
 
 				if (procedure->type == CHEAT_TESTER
-						&& strcmp(arguments[1], procedure->identifier) == 0)
+						&& strcmp(arguments[1], procedure->name) == 0)
 					return cheat_run_test(procedure, &suite);
 					/* TODO Return a value that is suitable for WEXITSTATUS. */
 			}
