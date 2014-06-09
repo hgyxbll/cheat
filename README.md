@@ -80,9 +80,12 @@ Tests compile into an executable
  that takes care of running the tests and reporting their outcomes.
 
     [user@computer ~/project]$ ./tests
-    .F..S...
+    [.:..!.??]
     tests.c:42: Assertion failed: '2 + 2 == 5'.
-    2 failed tests of 8 tests run.
+    Total: 8
+    Successful: 4
+    Failed: 2
+    Ratio: 50 %
 
 The executable runs tests in
  an isolated subprocess, so
