@@ -13,6 +13,17 @@ Only a header file and a statement block is needed.
         cheat_assert(2 + 2 != 5);
     })
 
+## Explanation
+
+The working principle is best explained by a thought experiment.
+
+> Imagine a source file including a header file.
+> Then imagine the header file including the source file that included it.
+> Now imagine doing that three times in a row within the same header file.
+> Proceed to imagine redefining all of the identifiers each time.
+> Finally imagine doing all of that with preprocessor directives.
+> What you ended up with is CHEAT.
+
 ## History
 
 The project was started on 2012-08-07 and
