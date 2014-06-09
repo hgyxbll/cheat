@@ -1,0 +1,10 @@
+#! /bin/sh
+
+for i in tests/*
+do
+	printf "%s\n" "$i"
+	o=`mktemp` && {
+		gcc -I . -o "$o" "$i" && "$o"
+		rm "$o"
+	}
+done
