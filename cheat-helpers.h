@@ -20,15 +20,15 @@ int cheat_stream_contains(FILE* stream, char const* contents);
 	fflush(stream); \
 	dup2(original_stream, stream_fd); /* TODO Move. */
 
-#define TEST_WITH_CAPTURED_STDOUT(name, body) TEST(name, { \
+#define CHEAT_TEST_WITH_CAPTURED_STDOUT(name, body) CHEAT_TEST(name, { \
 	CHEAT_WRAP_STREAM(stdout, STDOUT_FILENO, name, body) \
 })
 
-#define TEST_WITH_CAPTURED_STDERR(name, body) TEST(name, { \
+#define CHEAT_TEST_WITH_CAPTURED_STDERR(name, body) CHEAT_TEST(name, { \
 	CHEAT_WRAP_STREAM(stderr, STDERR_FILENO, name, body) \
 })
 
-#define TEST_WITH_CAPTURED_OUTPUT(name, body) TEST(name, { \
+#define CHEAT_TEST_WITH_CAPTURED_OUTPUT(name, body) CHEAT_TEST(name, { \
 	CHEAT_WRAP_STREAM(stderr, STDERR_FILENO, name, \
 	CHEAT_WRAP_STREAM(stdout, STDOUT_FILENO, name, body) \
 ))
@@ -96,12 +96,12 @@ int mkstemp(char* pattern) {
 
 #warning "Capturing output isn't supported on this platform. Capturing tests will be ignored."
 
-#undef TEST_WITH_CAPTURED_STDOUT
-#undef TEST_WITH_CAPTURED_STDERR
-#undef TEST_WITH_CAPTURED_OUTPUT
-#define TEST_WITH_CAPTURED_STDOUT(name, body) TEST_IGNORE(name, {})
-#define TEST_WITH_CAPTURED_STDERR(name, body) TEST_IGNORE(name, {})
-#define TEST_WITH_CAPTURED_OUTPUT(name, body) TEST_IGNORE(name, {})
+#undef CHEAT_TEST_WITH_CAPTURED_STDOUT
+#undef CHEAT_TEST_WITH_CAPTURED_STDERR
+#undef CHEAT_TEST_WITH_CAPTURED_OUTPUT
+#define CHEAT_TEST_WITH_CAPTURED_STDOUT(name, body) CHEAT_TEST_IGNORE(name, {})
+#define CHEAT_TEST_WITH_CAPTURED_STDERR(name, body) CHEAT_TEST_IGNORE(name, {})
+#define CHEAT_TEST_WITH_CAPTURED_OUTPUT(name, body) CHEAT_TEST_IGNORE(name, {})
 
 #endif
 

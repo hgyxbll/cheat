@@ -6,24 +6,31 @@ All rights reserved.
 The full license can be found in the LICENSE file.
 */
 
-#ifndef CHEAT_H
-#define CHEAT_H
-
 /*
 Identifiers starting with
  CHEAT_ and cheat_ are
  reserved for internal use.
 */
+#ifndef CHEAT_H
+#define CHEAT_H
 
 #ifndef __BASE_FILE__
 #error "The __BASE_FILE__ symbol is not defined. See the README file for help."
 #endif
 
+/*
+These headers are available to the user even though
+ they should not be.
+*/
+#include <limits.h> /* INT_MAX */
 #include <stddef.h> /* NULL, size_t */
-#include <stdio.h> /* FILE, fprintf(), fputc(), fputs(), perror(), snprintf(),
-		stderr, stdout */
+#include <stdint.h> /* SIZE_MAX */
+#include <stdio.h> /* BUFSIZ, FILE, fprintf(), fputc(), fputs(), perror(),
+		snprintf(), stderr, stdout */
+#include <stdlib.h> /* EXIT_FAILURE, exit(), free(), malloc(), realloc() */
+#include <string.h> /* memcpy() */
 
-enum cheat_status {
+enum cheat_outcome {
 	CHEAT_INDETERMINATE, /* Nothing happened. */
 	CHEAT_SUCCESS, /* A success happened. */
 	CHEAT_FAILURE, /* A failure happened. */
@@ -44,15 +51,18 @@ struct cheat_suite {
 	size_t test_successes; /* The amount of successful tests so far. */
 	size_t test_failures; /* The amount of failed tests so far. */
 
-	enum cheat_status status; /* The outcome of
+	enum cheat_outcome outcome; /* The outcome of
 			the most recently completed test. */
+	int status; /* The return value of
+			the most recently completed test in case it returned or
+			an undefined value in case it was aborted. */
 
 	size_t message_count; /* The amount of messages so far. */
 	size_t message_capacity; /* The amount of messages until
 			more memory has to be allocated. */
 	char** messages; /* The messages so far. */
 
-	char* program; /* The program name given to main(). */
+	char const* program; /* The program name given to main(). */
 
 	enum cheat_harness harness; /* The security measures to use. */
 
@@ -68,54 +78,51 @@ struct cheat_test {
 	cheat_test* test; /* The procedure to call. */
 };
 
-#define CHEAT_PASS 1
+#define CHEAT_PASS 1 /* This is informational. */
 
 /*
-The system headers
- stddef.h and
- stdio.h are
- available to the user even though
- they should not be.
+Some of the symbols used here are defined in the third pass.
 */
 
-#define TEST_IGNORE(name, body) TEST(name, { \
-	cheat_suite->status = CHEAT_IGNORE; \
-}) /* TODO What? */
-
-#define TEST(name, body) \
+#define CHEAT_TEST(name, body) \
 		static void test_##name(struct cheat_suite*);
-#define SET_UP(body) \
+#define CHEAT_SET_UP(body) \
 		static void cheat_set_up(void);
-#define TEAR_DOWN(body) \
+#define CHEAT_TEAR_DOWN(body) \
 		static void cheat_tear_down(void);
-#define GLOBALS(body)
+#define CHEAT_DECLARE(body)
+
+#define CHEAT_TEST_IGNORE(name, body) \
+		CHEAT_TEST(name, { \
+			cheat_suite->outcome = CHEAT_IGNORE; \
+		})
 
 #include __BASE_FILE__
 
-#undef TEST
-#undef SET_UP
-#undef TEAR_DOWN
-#undef GLOBALS
+#undef CHEAT_TEST
+#undef CHEAT_SET_UP
+#undef CHEAT_TEAR_DOWN
+#undef CHEAT_DECLARE
 
 #undef CHEAT_PASS
 
-#include <limits.h> /* INT_MAX */
-#include <stdlib.h> /* EXIT_FAILURE, exit(), free(), malloc(), realloc() */
-#include <string.h> /* memcpy() */
-
-static void cheat_suite_init(struct cheat_suite* suite, char* program) {
+static void cheat_suite_init(struct cheat_suite* suite,
+		char const* program,
+		enum cheat_harness harness) {
 	suite->test_count = 0;
 	suite->test_successes = 0;
 	suite->test_failures = 0;
 
-	suite->status = CHEAT_INDETERMINATE;
+	suite->outcome = CHEAT_INDETERMINATE;
 
 	suite->message_count = 0;
 	suite->message_capacity = 0;
 	suite->messages = NULL;
 
 	suite->program = program;
-	suite->harness = CHEAT_CALL;
+
+	suite->harness = harness;
+
 	suite->captured_stdout = stdout;
 }
 
@@ -134,48 +141,77 @@ static void cheat_suite_summary(struct cheat_suite* suite) {
 		free(suite->messages);
 	}
 
-	fprintf(suite->captured_stdout, "\n%zu failed tests of %zu tests run.\n",
+	fprintf(suite->captured_stdout, "%zu failed tests of %zu tests run.\n",
 			suite->test_failures, suite->test_count);
 }
 
 static void cheat_test_end(struct cheat_suite* suite) {
 	++suite->test_count;
 
-	switch (suite->status) {
+	switch (suite->outcome) {
 		case CHEAT_SUCCESS:
 			fputc('.', suite->captured_stdout);
 			break;
 		case CHEAT_FAILURE:
-			fputc('F', suite->captured_stdout);
+			fputc(':', suite->captured_stdout);
 			++suite->test_failures;
 			break;
 		case CHEAT_IGNORE:
-			fputc('I', suite->captured_stdout);
+			fputc('?', suite->captured_stdout);
 			break;
 		case CHEAT_SIGNAL_SEGV:
-			fputc('S', suite->captured_stdout);
+			fputc('!', suite->captured_stdout);
 			++suite->test_failures;
 			break;
 		default:
 			exit(-1);
-	}
+	} /* TODO Print summary. */
 }
 
-static void cheat_log_append(struct cheat_suite* suite, char* message, size_t len) {
-	char* buf;
+static void* cheat_malloc_total(size_t const size1, size_t const size2) {
+	if (size2 > SIZE_MAX - size1)
+		return NULL;
+	return malloc(size1 + size2);
+}
 
-	if (len == 0) {
+static void* cheat_realloc_array(void* const ptr,
+		size_t const nmemb, size_t const size) {
+	if (nmemb > SIZE_MAX / size)
+		return NULL;
+	return realloc(ptr, nmemb * size);
+}
+
+static void cheat_log_append(struct cheat_suite* const suite,
+		unsigned char* const data, size_t const size) {
+	size_t message_count;
+	void* messages;
+	char* message;
+
+	if (size == 0)
 		return;
+
+	if (suite->message_count == SIZE_MAX)
+		exit(EXIT_FAILURE);
+	message_count = suite->message_count + 1;
+
+	message = cheat_malloc_total(size, 1);
+	if (message == NULL) {
+		perror("malloc");
+		exit(EXIT_FAILURE);
 	}
+	memcpy(message, data, size);
+	message[size] = '\0';
 
-	buf = malloc(len + 1);
-	memcpy(buf, message, len);
+	messages = cheat_realloc_array(suite->messages,
+			message_count, sizeof *suite->messages);
+	if (messages == NULL) {
+		perror("realloc");
+		exit(EXIT_FAILURE);
+	}
+	suite->messages = messages;
+	suite->messages[suite->message_count] = message;
 
-	buf[len] = '\0';
-
-	++suite->message_count;
-	suite->messages = realloc(suite->messages, (suite->message_count + 1) * sizeof (char*)); /* TODO What char*? */
-	suite->messages[suite->message_count - 1] = buf; /* We give up our buffer! */
+	suite->message_count = message_count;
 }
 
 static void cheat_test_assert(struct cheat_suite* suite,
@@ -186,7 +222,7 @@ static void cheat_test_assert(struct cheat_suite* suite,
 	if (result != 0)
 		return;
 
-	suite->status = CHEAT_FAILURE;
+	suite->outcome = CHEAT_FAILURE;
 	if (suite->harness == CHEAT_FORK) {
 		fprintf(suite->captured_stdout,
 				"%s:%d: Assertion failed: '%s'.\n",
@@ -194,13 +230,13 @@ static void cheat_test_assert(struct cheat_suite* suite,
 				line,
 				assertion);
 	} else {
-		char* buffer = NULL;
+		unsigned char* buffer = NULL;
 		size_t len = 255;
 		size_t bufsize;
 
 		do {
 			int what;
-			bufsize = (len + 1);
+			bufsize = len + 1;
 			buffer = realloc(buffer, bufsize);
 			what = snprintf(buffer, bufsize,
 					"%s:%d: Assertion failed: '%s'.\n",
@@ -210,20 +246,20 @@ static void cheat_test_assert(struct cheat_suite* suite,
 			if (what == -1)
 				exit(42);
 			len = (size_t )what;
-		} while (bufsize != (len + 1));
+		} while (bufsize != len + 1);
 
 		cheat_log_append(suite, buffer, bufsize);
 	}
 }
 
 static int run_test(struct cheat_test const* test, struct cheat_suite* suite) {
-	suite->status = CHEAT_SUCCESS;
+	suite->outcome = CHEAT_SUCCESS;
 
 	cheat_set_up();
 	(test->test)(suite);
 	cheat_tear_down();
 
-	return suite->status;
+	return suite->outcome;
 }
 
 #if _POSIX_C_SOURCE >= 200112L
@@ -241,8 +277,22 @@ static int run_test(struct cheat_test const* test, struct cheat_suite* suite) {
 
 #endif
 
-static void run_isolated_test(
-		struct cheat_test const* test,
+/**
+Prints an error message and exits if
+ a procedure indicates failure by returning the value -1.
+**/
+#define EXIT_ON_FAILURE(procedure, ...) do {\
+		if (procedure(__VA_ARGS__) == -1) { \
+			perror(#procedure); \
+			exit(EXIT_FAILURE); \
+		} \
+	} while (0) /* TODO Use, but only if necessary. */
+
+/**
+Creates a subprocess and
+ runs a test from a test suite in it.
+**/
+static void run_isolated_test(struct cheat_test const* test,
 		struct cheat_suite* suite) {
 
 #if _POSIX_C_SOURCE >= 200112L
@@ -250,34 +300,57 @@ static void run_isolated_test(
 	pid_t pid;
 	int pipefd[2];
 
-	pipe(pipefd);
+	if (pipe(pipefd) == -1) {
+		perror("pipe");
+		exit(EXIT_FAILURE);
+	}
 	pid = fork();
-
 	if (pid == -1) {
 		perror("fork");
 		exit(EXIT_FAILURE);
-	} else if (pid == 0) {
-		close(pipefd[0]);
-		dup2(pipefd[1], STDOUT_FILENO);
-		execl(suite->program, suite->program, test->name, NULL);
+	} else if (pid == 0) { /* This is the subprocess. */
+		if (close(pipefd[0]) == -1) {
+			perror("close");
+			exit(EXIT_FAILURE);
+		}
+		if (dup2(pipefd[1], STDOUT_FILENO) == -1) {
+			perror("dup2");
+			exit(EXIT_FAILURE);
+		}
+		if (execl(suite->program, suite->program, test->name, NULL) == -1)
+			perror("execl");
 		exit(EXIT_FAILURE);
 	} else {
+		ssize_t size;
+		unsigned char buf[BUFSIZ];
 		int status;
-		char buf[255];
-		ssize_t len;
 
-		close(pipefd[1]);
-		while ((len = read(pipefd[0], buf, 255)) != 0) {
-			if (len == -1)
-				exit(42);
-			buf[len] = 0;
-			cheat_log_append(suite, buf, (size_t )len + 1);
+		if (close(pipefd[1]) == -1) {
+			perror("close");
+			exit(EXIT_FAILURE);
+		}
+		while ((size = read(pipefd[0], buf, sizeof buf)) != 0) {
+			if (size == -1) {
+				perror("read");
+				exit(EXIT_FAILURE);
+			}
+			cheat_log_append(suite, buf, (size_t )size);
 		}
 
-		waitpid(pid, &status, 0);
-		close(pipefd[0]);
-		suite->status = WIFEXITED(status) ? WEXITSTATUS(status)
-		                                            : CHEAT_SIGNAL_SEGV;
+		if (waitpid(pid, &status, 0) == -1) {
+			perror("waitpid");
+			exit(EXIT_FAILURE);
+		}
+		if (close(pipefd[0]) == -1) {
+			perror("close");
+			exit(EXIT_FAILURE);
+		}
+		/* TODO This is extremely suspicious. */
+		if (WIFEXITED(status)) {
+			suite->outcome = WEXITSTATUS(status);
+			suite->status = WEXITSTATUS(status);
+		} else
+			suite->outcome = CHEAT_SIGNAL_SEGV;
 	}
 
 #elif defined _WIN32
@@ -322,7 +395,7 @@ static void run_isolated_test(
 
 	do {
 		ReadFile(stdoutPipe_read, buffer, maxlen, &len, NULL);
-		buffer[len] = '\0';
+		buffer[len] = '\0'; /* TODO This is probably wrong. */
 		cheat_log_append(suite, buffer, len);
 	} while (len > 0);
 
@@ -331,8 +404,7 @@ static void run_isolated_test(
 	DWORD status;
 	GetExitCodeProcess(pi.hProcess, &status);
 
-	suite->status = (status & 0x80000000) ? CHEAT_SIGNAL_SEGV
-													: status;
+	suite->status = (status & 0x80000000) ? CHEAT_SIGNAL_SEGV : status;
 
 	CloseHandle(pi.hProcess);
 	CloseHandle(pi.hThread);
@@ -349,10 +421,11 @@ static void run_isolated_test(
 
 #define CHEAT_PASS 2
 
-#define TEST(name, body) { #name, test_##name },
-#define SET_UP(body)
-#define TEAR_DOWN(body)
-#define GLOBALS(body)
+#define CHEAT_TEST(name, body) \
+		{#name, test_##name},
+#define CHEAT_SET_UP(body)
+#define CHEAT_TEAR_DOWN(body)
+#define CHEAT_DECLARE(body)
 
 static struct cheat_test const cheat_tests[] = {
 #include __BASE_FILE__
@@ -360,10 +433,10 @@ static struct cheat_test const cheat_tests[] = {
 
 static size_t const cheat_test_count = sizeof cheat_tests / sizeof *cheat_tests;
 
-#undef TEST
-#undef SET_UP
-#undef TEAR_DOWN
-#undef GLOBALS
+#undef CHEAT_TEST
+#undef CHEAT_SET_UP
+#undef CHEAT_TEAR_DOWN
+#undef CHEAT_DECLARE
 
 #undef CHEAT_PASS
 
@@ -395,9 +468,7 @@ int main(int count, char** arguments) {
 	struct cheat_suite suite;
 	size_t index;
 
-	cheat_suite_init(&suite, arguments[0]);
-
-	suite.harness = CHEAT_FORK;
+	cheat_suite_init(&suite, arguments[0], CHEAT_FORK);
 
 	if (count > 1) { /* TODO Use a proper parser. */
 		if (arguments[1][0] == '-') {
@@ -410,15 +481,14 @@ int main(int count, char** arguments) {
 					++index) {
 				struct cheat_test const current_test = cheat_tests[index];
 
-				if (strcmp(arguments[1], current_test.name) == 0) {
+				if (strcmp(arguments[1], current_test.name) == 0)
 					return run_test(&current_test, &suite);
-				}
 			}
-
-			cheat_print_usage(&suite); /* TODO Add --help. */
 
 			return -1;
 		}
+
+		cheat_print_usage(&suite); /* TODO Add --help somewhere. */
 	}
 
 	for (index = 0;
@@ -432,6 +502,8 @@ int main(int count, char** arguments) {
 			run_test(&current_test, &suite);
 
 		cheat_test_end(&suite);
+
+		/* TODO Return a value that is suitable for WEXITSTATUS. */
 	}
 
 	cheat_suite_summary(&suite);
@@ -442,20 +514,20 @@ int main(int count, char** arguments) {
 #define CHEAT_PASS 3
 
 /*
-The symbols defined here are used in the first pass.
+Some of the symbols defined here are used in the first pass.
 */
 
-#define TEST(name, body) \
+#define CHEAT_TEST(name, body) \
 		static void test_##name(struct cheat_suite* cheat_suite) body
-#define SET_UP(body) \
+#define CHEAT_SET_UP(body) \
 		static void cheat_set_up(void) body
-#define TEAR_DOWN(body) \
+#define CHEAT_TEAR_DOWN(body) \
 		static void cheat_tear_down(void) body
-#define GLOBALS(body) \
+#define CHEAT_DECLARE(body) \
 		body
 
-#define cheat_assert(boolean) \
-		cheat_test_assert(cheat_suite, boolean, #boolean, __FILE__, __LINE__)
+#define cheat_assert(expression) \
+		cheat_test_assert(cheat_suite, expression, #expression, __FILE__, __LINE__)
 
 #undef CHEAT_PASS
 

@@ -8,7 +8,7 @@ Only a header file and a statement block is needed.
 
     #include <cheat.h>
 
-    TEST(mathematics_still_work, {
+    CHEAT_TEST(mathematics_still_work, {
         cheat_assert(2 + 2 == 4);
         cheat_assert(2 + 2 != 5);
     })
@@ -41,7 +41,7 @@ The core components are defined in a single header file, so
  the only necessary step is to download it.
 
     [user@computer ~]$ cd /usr/include
-    [user@computer /usr/include]$ sudo wget -q https://github.com/Tuplanolla/cheat/blob/master/cheat.h
+    [user@computer /usr/include]$ sudo wget -q https://github.com/Tuplanolla/cheat/raw/master/cheat.h
 
 ### Writing Tests
 
@@ -49,23 +49,24 @@ Tests should be put in their own source file,
 
     [user@computer ~/project]$ cat > tests.c
 
- which has to include `cheat.h`
-
-    #include <cheat.h>
-
- and define `__BASE_FILE__`
+ which has to define `__BASE_FILE__`,
 
     #ifndef __BASE_FILE__
     #define __BASE_FILE__ __FILE__
     #endif
 
- if the compiler does not (for example GCC does, but
- the condition should be used anyway for portability).
+ if the compiler does not, and
+ include `cheat.h`.
 
-Tests can then be defined with `TEST(name, block)`,
- global variables with `GLOBALS(declarations)`,
- initialization with `SET_UP(block)` and
- finalization with `TEAR_DOWN(block)`.
+    #include <cheat.h>
+
+For example GCC defines `__BASE_FILE__`, but
+ the condition should be used anyway for portability.
+
+Tests can then be defined with `CHEAT_TEST(name, block)`,
+ global variables with `CHEAT_DECLARE(declarations)`,
+ initialization with `CHEAT_SET_UP(block)` and
+ finalization with `CHEAT_TEAR_DOWN(block)`.
 
 Examples are in the `cheat-example.c` file, which
  can be compiled with `make` and run with `make test`.
@@ -107,9 +108,16 @@ Helpers cover things like
 ## Bugs and Limitations
 
 CHEAT is naturally fickle, because
- it is built on preprocessor abuse.
+ it is built with C and
+ heavy preprocessor abuse.
 Some problems that are impossible to fix are
- collected into the list below.
+ collected into the following sections.
+
+### Identifiers
+
+Identifiers starting with
+ `CHEAT_` and `cheat_` are
+ reserved for internal use.
 
 ### Include Path
 
