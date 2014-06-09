@@ -33,23 +33,19 @@ Headers used here are also
 #include <limits.h> /* INT_MAX */
 #include <stddef.h> /* NULL, size_t */
 #include <stdint.h> /* SIZE_MAX */
-#include <stdio.h> /* BUFSIZ, FILE, fprintf(), fputc(), fputs(), perror(),
-		snprintf(), stderr, stdout */
-#include <stdlib.h> /* EXIT_FAILURE, exit(), free(), malloc(), realloc() */
-#include <string.h> /* memcpy() */
+#include <stdio.h> /* BUFSIZ, FILE, stderr, stdout */
+#include <stdlib.h> /* EXIT_FAILURE */
+#include <string.h>
 
 #if _POSIX_C_SOURCE >= 200112L
 
-#include <unistd.h> /* STDOUT_FILENO, close(), dup2(), execl(), fork(), pipe(),
-		read() */
+#include <unistd.h> /* STDOUT_FILENO */
 #include <sys/types.h> /* pid_t, ssize_t */
-#include <sys/wait.h> /* WIFEXITED(), WEXITSTATUS(), waitpid() */
+#include <sys/wait.h>
 
 #elif defined _WIN32
 
-#include <windows.h> /* CloseHandle(), CloseHandle(), CreatePipe(),
-		CreateProcess(), GetExitCodeProcess(), ReadFile(),
-		WaitForSingleObject() and more such spaghetti */
+#include <windows.h> /* spaghetti */
 
 #endif
 
