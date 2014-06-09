@@ -9,10 +9,6 @@ CHEAT_SET_UP({
 	puts("Set up!");
 })
 
-CHEAT_TEAR_DOWN({
-	puts("Tear down!");
-})
-
 CHEAT_TEST(test, {
 	puts("Test!");
 })
