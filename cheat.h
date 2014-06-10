@@ -113,6 +113,16 @@ struct cheat_procedure {
 			it was qualified const. */
 };
 
+/**
+Computes the compiled size of an array (not a pointer) and returns it.
+**/
+#define CHEAT_ARRAY_SIZE(array) \
+		(sizeof array / sizeof *array)
+
+/*
+The first pass starts here.
+*/
+
 #define CHEAT_PASS 1 /* This is informational. */
 
 /*
@@ -141,7 +151,119 @@ Some of the symbols used here are defined in the third pass.
 
 #undef CHEAT_PASS
 
-static void cheat_suite_init(struct cheat_suite* const suite,
+#define CHEAT_PASS 2
+
+#define CHEAT_TEST(name, body) \
+		{ \
+			#name, \
+			CHEAT_TESTER, \
+			(cheat_procedure* )cheat_test_##name \
+		},
+#define CHEAT_SET_UP(body) \
+		{ \
+			NULL, \
+			CHEAT_UP_SETTER, \
+			(cheat_procedure* )cheat_set_up \
+		},
+#define CHEAT_TEAR_DOWN(body) \
+		{ \
+			NULL, \
+			CHEAT_DOWN_TEARER, \
+			(cheat_procedure* )cheat_tear_down \
+		},
+#define CHEAT_DECLARE(body)
+
+static struct cheat_procedure const cheat_procedures[] = {
+#include __BASE_FILE__
+};
+
+static size_t const cheat_procedure_count = CHEAT_ARRAY_SIZE(cheat_procedures);
+
+#undef CHEAT_TEST
+#undef CHEAT_SET_UP
+#undef CHEAT_TEAR_DOWN
+#undef CHEAT_DECLARE
+
+#undef CHEAT_PASS
+
+#define CHEAT_PASS 3
+
+/*
+Some of the symbols defined here are used in the first pass.
+*/
+
+#define CHEAT_TEST(name, body) \
+		static void cheat_test_##name(struct cheat_suite* cheat_suite) body
+#define CHEAT_SET_UP(body) \
+		static void cheat_set_up(void) body
+#define CHEAT_TEAR_DOWN(body) \
+		static void cheat_tear_down(void) body
+#define CHEAT_DECLARE(body) \
+		body
+
+#define cheat_assert(expression) \
+		cheat_check(cheat_suite, expression, #expression, __FILE__, __LINE__)
+
+/*
+The third pass continues past the end of this file, but
+ the definitions for it end here.
+*/
+
+/**
+Converts a size into an integer and
+ returns it or
+ the value -1 in case of an overflow.
+**/
+static int cheat_narrow(size_t const x) {
+	return x > INT_MAX ? -1 : (int )x;
+}
+
+/**
+Safely allocates memory for
+ a block of size (size + extra_size) and
+ returns a pointer to the allocated region or
+ returns NULL in case of a failure.
+**/
+static void* cheat_malloc_total(size_t const size, size_t const extra_size) {
+	if (extra_size > SIZE_MAX - size)
+		return NULL;
+	return malloc(size + extra_size);
+}
+
+/**
+Safely reallocates memory for
+ an array of size (count * size) and
+ returns a pointer to the allocated region or
+ returns NULL in case of a failure.
+**/
+static void* cheat_realloc_array(void* const pointer,
+		size_t const count, size_t const size) {
+	if (count > SIZE_MAX / size)
+		return NULL;
+	return realloc(pointer, count * size);
+}
+
+/**
+Calculates the ratio (magnitude * numerator / denominator) and returns it.
+**/
+static size_t cheat_ratio(size_t const numerator, size_t const denominator,
+		size_t const magnitude) { /* TODO Fix overflows. */
+	return (numerator * magnitude + denominator / 2) / denominator;
+}
+
+/**
+Prints a usage summary and
+ returns the value 0 or
+ the value -1 in case of an error.
+**/
+static int cheat_print_usage(struct cheat_suite const* const suite) {
+	return printf("Usage: %s --no-fork\n", suite->program) < 0;
+}
+
+/**
+Initializes a test suite.
+**/
+static void cheat_initialize(struct cheat_suite* const suite,
 		char const* const program,
 		enum cheat_harness const harness) {
 	suite->test_count = 0;
@@ -161,36 +283,10 @@ static void cheat_suite_init(struct cheat_suite* const suite,
 	suite->captured_stdout = stdout;
 }
 
-static size_t cheat_round(size_t const numerator, size_t const denominator,
-		size_t const magnitude) { /* TODO Check overflows. */
-	return (numerator * magnitude + denominator / 2) / denominator;
-}
-
-static void cheat_suite_summary(struct cheat_suite* const suite) {
-	fputs("]\n", suite->captured_stdout);
-	if (suite->messages != NULL) {
-		size_t index;
-
-		for (index = 0;
-				index < suite->message_count;
-				++index) {
-			fputs(suite->messages[index], suite->captured_stdout);
-			free(suite->messages[index]);
-		}
-
-		free(suite->messages);
-	}
-
-	fprintf(suite->captured_stdout,
-			"Total: %zu\nSuccessful: %zu\nFailed: %zu\n",
-			suite->test_count, suite->test_successes, suite->test_failures);
-	if (suite->test_count != 0)
-		fprintf(suite->captured_stdout,
-				"Ratio: %zu %%\n",
-				cheat_round(suite->test_successes, suite->test_count, 100));
-}
-
-static void cheat_test_end(struct cheat_suite* const suite) {
+/**
+Prints the outcome of a single test.
+**/
+static void cheat_print_outcome(struct cheat_suite* const suite) {
 	switch (suite->outcome) {
 		case CHEAT_SUCCESS:
 			fputc('.', suite->captured_stdout);
@@ -213,20 +309,39 @@ static void cheat_test_end(struct cheat_suite* const suite) {
 	++suite->test_count;
 }
 
-static void* cheat_malloc_total(size_t const size, size_t const extra_size) {
-	if (extra_size > SIZE_MAX - size)
-		return NULL;
-	return malloc(size + extra_size);
+/**
+Prints a summary of all tests.
+**/
+static void cheat_print_summary(struct cheat_suite* const suite) {
+	fputs("]\n", suite->captured_stdout);
+	if (suite->messages != NULL) {
+		size_t index;
+
+		for (index = 0;
+				index < suite->message_count;
+				++index) {
+			fputs(suite->messages[index], suite->captured_stdout);
+			free(suite->messages[index]);
+		}
+
+		free(suite->messages);
+	}
+
+	fprintf(suite->captured_stdout,
+			"Total: %zu\nSuccessful: %zu\nFailed: %zu\n",
+			suite->test_count, suite->test_successes, suite->test_failures);
+	if (suite->test_count != 0)
+		fprintf(suite->captured_stdout,
+				"Ratio: %zu %%\n",
+				cheat_ratio(suite->test_successes, suite->test_count, 100));
 }
 
-static void* cheat_realloc_array(void* const pointer,
-		size_t const count, size_t const size) {
-	if (count > SIZE_MAX / size)
-		return NULL;
-	return realloc(pointer, count * size);
-}
-
-static void cheat_log_append(struct cheat_suite* const suite,
+/**
+Adds a message in
+ the form of a byte buffer to
+ the queue of a test suite.
+**/
+static void cheat_append_message(struct cheat_suite* const suite,
 		unsigned char const* const data, size_t const size) {
 	size_t message_count;
 	void* messages;
@@ -260,7 +375,11 @@ static void cheat_log_append(struct cheat_suite* const suite,
 	suite->message_count = message_count;
 }
 
-static void cheat_assert_(struct cheat_suite* const suite,
+/**
+Checks a single assertion and
+ prints an error message if it fails.
+**/
+static void cheat_check(struct cheat_suite* const suite,
 		int const result,
 		char const* const assertion,
 		char const* const filename,
@@ -290,17 +409,17 @@ static void cheat_assert_(struct cheat_suite* const suite,
 					line,
 					assertion);
 			if (what == -1)
-				exit(42);
+				exit(EXIT_FAILURE);
 			len = (size_t )what;
 		} while (bufsize != len + 1);
 
-		cheat_log_append(suite, (unsigned char *)buffer, bufsize);
+		cheat_append_message(suite, (unsigned char *)buffer, bufsize);
 	}
 }
 
 /**
 Creates a subprocess and
- runs a test from a test suite in it.
+ runs a test in it.
 **/
 static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 		struct cheat_suite* const suite) {
@@ -345,7 +464,7 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 				perror("read");
 				exit(EXIT_FAILURE);
 			}
-			cheat_log_append(suite, buf, (size_t )size);
+			cheat_append_message(suite, buf, (size_t )size);
 			/* This should contain the outcome, not the low bits of status. */
 		}
 
@@ -357,7 +476,7 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 			perror("close");
 			exit(EXIT_FAILURE);
 		}
-		/* TODO This is extremely suspicious. */
+		/* TODO The outcome should be sent through the pipe instead. */
 		if (WIFEXITED(status)) {
 			suite->outcome = WEXITSTATUS(status);
 			suite->status = WEXITSTATUS(status);
@@ -408,7 +527,7 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 	do {
 		ReadFile(stdoutPipe_read, buffer, maxlen, &len, NULL);
 		buffer[len] = '\0'; /* TODO This is probably wrong. */
-		cheat_log_append(suite, buffer, len);
+		cheat_append_message(suite, buffer, len);
 	} while (len > 0);
 
 	WaitForSingleObject(pi.hProcess, INFINITE);
@@ -431,47 +550,9 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 
 }
 
-#define CHEAT_PASS 2
-
-#define CHEAT_TEST(name, body) \
-		{ \
-			#name, \
-			CHEAT_TESTER, \
-			(cheat_procedure* )cheat_test_##name \
-		},
-#define CHEAT_SET_UP(body) \
-		{ \
-			NULL, \
-			CHEAT_UP_SETTER, \
-			(cheat_procedure* )cheat_set_up \
-		},
-#define CHEAT_TEAR_DOWN(body) \
-		{ \
-			NULL, \
-			CHEAT_DOWN_TEARER, \
-			(cheat_procedure* )cheat_tear_down \
-		},
-#define CHEAT_DECLARE(body)
-
 /**
-Computes the compiled size of an array (not a pointer) and returns it.
+Runs a test.
 **/
-#define CHEAT_ARRAY_SIZE(array) \
-		(sizeof array / sizeof *array)
-
-static struct cheat_procedure const cheat_procedures[] = {
-#include __BASE_FILE__
-};
-
-static size_t const cheat_procedure_count = CHEAT_ARRAY_SIZE(cheat_procedures);
-
-#undef CHEAT_TEST
-#undef CHEAT_SET_UP
-#undef CHEAT_TEAR_DOWN
-#undef CHEAT_DECLARE
-
-#undef CHEAT_PASS
-
 static int cheat_run_test(struct cheat_procedure const* const test,
 		struct cheat_suite* const suite) {
 	size_t index;
@@ -496,24 +577,6 @@ static int cheat_run_test(struct cheat_procedure const* const test,
 }
 
 /**
-Converts a size type into an integer and
- returns it or
- the value -1 in case of an overflow.
-**/
-static int cheat_narrow(size_t const x) {
-	return x > INT_MAX ? -1 : (int )x;
-}
-
-/**
-Prints a usage summary and
- returns the value 0 or
- the value -1 in case of an error.
-**/
-static int cheat_print_usage(struct cheat_suite const* const suite) {
-	return printf("Usage: %s --no-fork\n", suite->program) < 0;
-}
-
-/**
 Parses options,
  runs test cases with them and
  returns the total amount of failures or
@@ -523,7 +586,7 @@ int main(int const count, char** const arguments) {
 	struct cheat_suite suite;
 	size_t index;
 
-	cheat_suite_init(&suite, arguments[0], CHEAT_FORK);
+	cheat_initialize(&suite, arguments[0], CHEAT_FORK);
 
 	if (count > 1) { /* TODO Use a proper parser. */
 		if (arguments[1][0] == '-') {
@@ -563,32 +626,12 @@ int main(int const count, char** const arguments) {
 		else
 			cheat_run_test(procedure, &suite);
 
-		cheat_test_end(&suite);
+		cheat_print_outcome(&suite);
 	}
 
-	cheat_suite_summary(&suite);
+	cheat_print_summary(&suite);
 
 	return cheat_narrow(suite.test_failures);
 }
-
-#define CHEAT_PASS 3
-
-/*
-Some of the symbols defined here are used in the first pass.
-*/
-
-#define CHEAT_TEST(name, body) \
-		static void cheat_test_##name(struct cheat_suite* cheat_suite) body
-#define CHEAT_SET_UP(body) \
-		static void cheat_set_up(void) body
-#define CHEAT_TEAR_DOWN(body) \
-		static void cheat_tear_down(void) body
-#define CHEAT_DECLARE(body) \
-		body
-
-#define cheat_assert(expression) \
-		cheat_assert_(cheat_suite, expression, #expression, __FILE__, __LINE__)
-
-#undef CHEAT_PASS
 
 #endif
