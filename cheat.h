@@ -298,6 +298,7 @@ static void cheat_print_outcome(struct cheat_suite* const suite) {
 		default:
 			exit(EXIT_FAILURE);
 	} /* TODO Print summary. */
+	fflush(suite->captured_stdout);
 	++suite->test_count;
 }
 
