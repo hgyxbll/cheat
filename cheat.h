@@ -244,14 +244,6 @@ static void* cheat_realloc_array(void* const pointer,
 }
 
 /**
-Calculates the ratio (magnitude * numerator / denominator) and returns it.
-**/
-static size_t cheat_ratio(size_t const numerator, size_t const denominator,
-		size_t const magnitude) { /* TODO Fix overflows. */
-	return (numerator * magnitude + denominator / 2) / denominator;
-}
-
-/**
 Prints a usage summary and
  returns the value 0 or
  the value -1 in case of an error.
@@ -328,12 +320,9 @@ static void cheat_print_summary(struct cheat_suite* const suite) {
 	}
 
 	fprintf(suite->captured_stdout,
-			"Total: %zu\nSuccessful: %zu\nFailed: %zu\n",
+			"%s!\nTests: %zu\nSuccessful: %zu\nFailed: %zu\n",
+			suite->test_failures == 0 ? "SUCCESS" : "FAILURE",
 			suite->test_count, suite->test_successes, suite->test_failures);
-	if (suite->test_count != 0)
-		fprintf(suite->captured_stdout,
-				"Ratio: %zu %%\n",
-				cheat_ratio(suite->test_successes, suite->test_count, 100));
 }
 
 /**
