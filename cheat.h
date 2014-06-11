@@ -65,6 +65,11 @@ enum cheat_harness {
 			are monitored. */
 };
 
+enum cheat_style {
+	CHEAT_PLAIN, /* Messages are printed without decorations. */
+	CHEAT_COLORFUL /* Messages are printed with colors. */
+};
+
 struct cheat_suite {
 	size_t test_count; /* The amount of tests run so far. */
 	size_t test_successes; /* The amount of successful tests so far. */
@@ -86,6 +91,8 @@ struct cheat_suite {
 	enum cheat_harness harness; /* The security measures to use. */
 
 	FILE* captured_stdout; /* TODO Document. */
+
+	enum cheat_style style; /* The style of printed messages. */
 };
 
 enum cheat_type {
@@ -209,6 +216,28 @@ The third pass continues past the end of this file, but
  the definitions for it end here.
 */
 
+#define CHEAT_RESET "\x1b[0m"
+
+#define CHEAT_BOLD "\x1b[1m"
+
+#define CHEAT_FOREGROUND_DARK "\x1b[30;1m"
+#define CHEAT_FOREGROUND_RED "\x1b[31;1m"
+#define CHEAT_FOREGROUND_GREEN "\x1b[32;1m"
+#define CHEAT_FOREGROUND_YELLOW "\x1b[33;1m"
+#define CHEAT_FOREGROUND_BLUE "\x1b[34;1m"
+#define CHEAT_FOREGROUND_MAGENTA "\x1b[35;1m"
+#define CHEAT_FOREGROUND_CYAN "\x1b[36;1m"
+#define CHEAT_FOREGROUND_LIGHT "\x1b[37;1m"
+
+#define CHEAT_BACKGROUND_DARK "\x1b[40;1m"
+#define CHEAT_BACKGROUND_RED "\x1b[41;1m"
+#define CHEAT_BACKGROUND_GREEN "\x1b[42;1m"
+#define CHEAT_BACKGROUND_YELLOW "\x1b[43;1m"
+#define CHEAT_BACKGROUND_BLUE "\x1b[44;1m"
+#define CHEAT_BACKGROUND_MAGENTA "\x1b[45;1m"
+#define CHEAT_BACKGROUND_CYAN "\x1b[46;1m"
+#define CHEAT_BACKGROUND_LIGHT "\x1b[47;1m"
+
 /**
 Converts a size into an integer and
  returns it or
@@ -257,7 +286,8 @@ Initializes a test suite.
 **/
 static void cheat_initialize(struct cheat_suite* const suite,
 		char const* const program,
-		enum cheat_harness const harness) {
+		enum cheat_harness const harness,
+		enum cheat_style const style) {
 	suite->test_count = 0;
 	suite->test_successes = 0;
 	suite->test_failures = 0;
@@ -273,26 +303,49 @@ static void cheat_initialize(struct cheat_suite* const suite,
 	suite->harness = harness;
 
 	suite->captured_stdout = stdout;
+
+	suite->style = style;
 }
 
 /**
 Prints the outcome of a single test.
 **/
 static void cheat_print_outcome(struct cheat_suite* const suite) {
+	char const* success;
+	char const* failure;
+	char const* ignore;
+	char const* crash;
+
+	if (suite->style == CHEAT_COLORFUL) {
+		success = CHEAT_BACKGROUND_GREEN "."
+				CHEAT_RESET;
+		failure = CHEAT_BACKGROUND_RED ":"
+				CHEAT_RESET;
+		ignore = CHEAT_BACKGROUND_LIGHT "?"
+				CHEAT_RESET;
+		crash = CHEAT_BACKGROUND_YELLOW "!"
+				CHEAT_RESET;
+	} else {
+		success = ".";
+		failure = ":";
+		ignore = "?";
+		crash = "!";
+	}
+
 	switch (suite->outcome) {
 		case CHEAT_SUCCESS:
-			fputc('.', suite->captured_stdout);
+			fputs(success, suite->captured_stdout);
 			++suite->test_successes;
 			break;
 		case CHEAT_FAILURE:
-			fputc(':', suite->captured_stdout);
+			fputs(failure, suite->captured_stdout);
 			++suite->test_failures;
 			break;
 		case CHEAT_IGNORE:
-			fputc('?', suite->captured_stdout);
+			fputs(ignore, suite->captured_stdout);
 			break;
 		case CHEAT_SIGNAL_SEGV:
-			fputc('!', suite->captured_stdout);
+			fputs(crash, suite->captured_stdout);
 			++suite->test_failures;
 			break;
 		default:
@@ -302,16 +355,42 @@ static void cheat_print_outcome(struct cheat_suite* const suite) {
 	++suite->test_count;
 }
 
-#define CHEAT_SEPARATOR "---"
-
 /**
 Prints a summary of all tests.
 **/
 static void cheat_print_summary(struct cheat_suite* const suite) {
+	char const* separator;
+	char const* summary;
+	char const* conclusion;
+
+	if (suite->style == CHEAT_COLORFUL) {
+		separator = CHEAT_FOREGROUND_DARK "---"
+				CHEAT_RESET;
+		summary = CHEAT_FOREGROUND_GREEN "%zu successful"
+				CHEAT_RESET " and "
+				CHEAT_FOREGROUND_RED "%zu failed"
+				CHEAT_RESET " of "
+				CHEAT_FOREGROUND_YELLOW "%zu run"
+				CHEAT_RESET "\n";
+		if (suite->test_failures == 0)
+			conclusion = CHEAT_FOREGROUND_GREEN "SUCCESS"
+					CHEAT_RESET "\n";
+		else
+			conclusion = CHEAT_FOREGROUND_RED "FAILURE"
+					CHEAT_RESET "\n";
+	} else {
+		separator = "---";
+		summary = "%zu successful and %zu failed of %zu run\n";
+		if (suite->test_failures == 0)
+			conclusion = "SUCCESS\n";
+		else
+			conclusion = "FAILURE\n";
+	}
+
 	if (suite->test_count != 0) {
 		fputs("\n", suite->captured_stdout);
 		if (suite->messages != NULL) {
-			fputs(CHEAT_SEPARATOR "\n", suite->captured_stdout);
+			fprintf(suite->captured_stdout, "%s\n", separator);
 			size_t index;
 
 			for (index = 0;
@@ -323,13 +402,13 @@ static void cheat_print_summary(struct cheat_suite* const suite) {
 
 			free(suite->messages);
 		}
-		fputs(CHEAT_SEPARATOR "\n", suite->captured_stdout);
+			fprintf(suite->captured_stdout, "%s\n", separator);
 	}
 
 	fprintf(suite->captured_stdout,
-			"%zu successful and %zu failed of %zu run\n%s\n",
-			suite->test_successes, suite->test_failures, suite->test_count,
-			suite->test_failures == 0 ? "SUCCESS" : "FAILURE");
+			summary,
+			suite->test_successes, suite->test_failures, suite->test_count);
+	fputs(conclusion, suite->captured_stdout);
 }
 
 /**
@@ -380,13 +459,24 @@ static void cheat_check(struct cheat_suite* const suite,
 		char const* const assertion,
 		char const* const filename,
 		int const line) {
+	char const* format;
+
+	if (suite->style == CHEAT_COLORFUL
+			|| 1) /* TODO Inherit settings. */
+		format = CHEAT_BOLD "%s:%d:"
+				CHEAT_RESET " assertion failed: '"
+				CHEAT_BOLD "%s"
+				CHEAT_RESET "'\n";
+	else
+		format = "%s:%d: assertion failed: '%s'\n";
+
 	if (result != 0)
 		return;
 
 	suite->outcome = CHEAT_FAILURE;
 	if (suite->harness == CHEAT_FORK) {
 		fprintf(suite->captured_stdout,
-				"%s:%d: assertion failed: '%s'\n",
+				format,
 				filename,
 				line,
 				assertion);
@@ -400,7 +490,7 @@ static void cheat_check(struct cheat_suite* const suite,
 			bufsize = len + 1;
 			buffer = realloc(buffer, bufsize);
 			what = snprintf(buffer, bufsize, /* TODO Only in C99. */
-					"%s:%d: assertion failed: '%s'\n", /* TODO No repeat. */
+					format,
 					filename,
 					line,
 					assertion);
@@ -582,13 +672,19 @@ int main(int const count, char** const arguments) {
 	struct cheat_suite suite;
 	size_t index;
 
-	cheat_initialize(&suite, arguments[0], CHEAT_FORK);
+	cheat_initialize(&suite, arguments[0], CHEAT_FORK, CHEAT_PLAIN);
 
 	if (count > 1) { /* TODO Use a proper parser. */
 		if (arguments[1][0] == '-') {
 			if (strcmp(arguments[1], "-n") == 0
 					|| strcmp(arguments[1], "--no-fork") == 0)
 				suite.harness = CHEAT_CALL;
+			if (strcmp(arguments[1], "-c") == 0
+					|| strcmp(arguments[1], "--colors") == 0)
+				suite.style = CHEAT_COLORFUL;
+			if (strcmp(arguments[1], "-h") == 0
+					|| strcmp(arguments[1], "--help") == 0)
+				cheat_print_usage(&suite);
 		} else { /* A leaky abstraction? */
 			for (index = 0;
 					index < cheat_procedure_count;
@@ -603,8 +699,6 @@ int main(int const count, char** const arguments) {
 
 			return -1;
 		}
-
-		cheat_print_usage(&suite); /* TODO Add --help somewhere. */
 	}
 
 	for (index = 0;
