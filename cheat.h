@@ -34,7 +34,7 @@ Headers used here are also
 #include <stddef.h> /* NULL, size_t */
 #include <stdint.h> /* SIZE_MAX */
 #include <stdio.h> /* BUFSIZ, FILE, stderr, stdout */
-#include <stdlib.h> /* EXIT_FAILURE */
+#include <stdlib.h> /* EXIT_FAILURE, EXIT_SUCCESS */
 #include <string.h>
 
 #if _POSIX_C_SOURCE >= 200112L
@@ -238,15 +238,6 @@ The third pass continues past the end of this file, but
 */
 
 /*
-Converts a size into an integer and
- returns it or
- the value -1 in case of an overflow.
-*/
-static int cheat_narrow(size_t const x) {
-	return x > INT_MAX ? -1 : (int )x;
-}
-
-/*
 Safely allocates memory for
  a block of size (size + extra_size) and
  returns a pointer to the allocated region or
@@ -276,8 +267,10 @@ Prints a usage summary and
  returns the value 0 or
  the value -1 in case of an error.
 */
-static int cheat_print_usage(struct cheat_suite const* const suite) {
-	return printf("Usage: %s --no-fork\n", suite->program) < 0;
+static void cheat_print_usage(struct cheat_suite const* const suite) {
+	fputs("Usage: ", suite->captured_stdout);
+	fputs(suite->program, suite->captured_stdout);
+	fputs(" --colors --help --unsafe\n", suite->captured_stdout);
 }
 
 /*
@@ -436,6 +429,8 @@ static void cheat_print_summary(struct cheat_suite* const suite) {
 	fputc('\n', suite->captured_stdout);
 }
 
+/* --- Things below this line are bad. --- */
+
 /*
 Adds a message in
  the form of a byte buffer to
@@ -486,14 +481,19 @@ static void cheat_check(struct cheat_suite* const suite,
 		int const line) {
 	char const* format;
 
-	if (suite->style == CHEAT_COLORFUL
-			|| 1) /* TODO Inherit settings. */
+	switch (suite->style) {
+	case CHEAT_COLORFUL: /* TODO Inherit settings. */
 		format = CHEAT_BOLD "%s:%d:"
 				CHEAT_RESET " assertion failed: '"
 				CHEAT_BOLD "%s"
 				CHEAT_RESET "'\n";
-	else
+		break;
+	case CHEAT_PLAIN:
 		format = "%s:%d: assertion failed: '%s'\n";
+		break;
+	default:
+		exit(EXIT_FAILURE);
+	}
 
 	if (result != 0)
 		return;
@@ -524,7 +524,7 @@ static void cheat_check(struct cheat_suite* const suite,
 			len = (size_t )what;
 		} while (bufsize != len + 1);
 
-		cheat_append_message(suite, (unsigned char *)buffer, bufsize);
+		cheat_append_message(suite, (unsigned char* )buffer, bufsize);
 	}
 }
 
@@ -651,10 +651,10 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 	CloseHandle(pi.hProcess);
 	CloseHandle(pi.hThread);
 
-#else /* TODO Move. */
+#else /* TODO Move into main and fall back to CHEAT_CALL. */
 
-#warning "Running isolated tests is not supported in this environment. You will have to use --no-fork."
-	fputs("Running isolated tests is not supported in this environment. You will have to use --no-fork.\n", stderr);
+#warning "Isolated tests are unsupported. See the README file for help."
+
 	exit(EXIT_FAILURE);
 
 #endif
@@ -690,8 +690,8 @@ static int cheat_run_test(struct cheat_procedure const* const test,
 /*
 Parses options,
  runs test cases with them and
- returns the total amount of failures or
- the value -1 in case of an error.
+ returns EXIT_SUCCESS in case all tests passed or
+ EXIT_FAILURE in case of an error.
 */
 int main(int const count, char** const arguments) {
 	struct cheat_suite suite;
@@ -701,8 +701,8 @@ int main(int const count, char** const arguments) {
 
 	if (count > 1) { /* TODO Use a proper parser. */
 		if (arguments[1][0] == '-') {
-			if (strcmp(arguments[1], "-n") == 0
-					|| strcmp(arguments[1], "--no-fork") == 0)
+			if (strcmp(arguments[1], "-u") == 0
+					|| strcmp(arguments[1], "--unsafe") == 0)
 				suite.harness = CHEAT_CALL;
 			if (strcmp(arguments[1], "-c") == 0
 					|| strcmp(arguments[1], "--colors") == 0)
@@ -744,7 +744,9 @@ int main(int const count, char** const arguments) {
 
 	cheat_print_summary(&suite);
 
-	return cheat_narrow(suite.tests_failed);
+	if (suite.tests_failed == 0)
+		return EXIT_SUCCESS;
+	return EXIT_FAILURE;
 }
 
 #endif

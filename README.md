@@ -102,10 +102,19 @@ The executable runs tests in
  an isolated subprocess, so
  the framework does not crash if
  one of the tests does.
-The `--no-fork` flag allows
+The `-u` for `--unsafe` flag allows
  running everything in the same process if
  `fork()` is unsupported, fails or
  something else equally fun happens.
+
+The results are reported in plain text by default, but
+ the format can be changed easily.
+The `-c` for `--colors` flag makes everything colorful,
+ the `-m` for `--minimal` flag makes the report machine readable and
+ the `-x` for `--xml` flag does nothing for good measure.
+
+    [user@computer ~/project]$ ./tests -m
+    4 2 8
 
 ### Complicated Tests
 
