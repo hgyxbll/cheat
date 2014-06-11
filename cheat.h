@@ -302,28 +302,34 @@ static void cheat_print_outcome(struct cheat_suite* const suite) {
 	++suite->test_count;
 }
 
+#define CHEAT_SEPARATOR "---"
+
 /**
 Prints a summary of all tests.
 **/
 static void cheat_print_summary(struct cheat_suite* const suite) {
-	fputs("]\n", suite->captured_stdout);
-	if (suite->messages != NULL) {
-		size_t index;
+	if (suite->test_count != 0) {
+		fputs("\n", suite->captured_stdout);
+		if (suite->messages != NULL) {
+			fputs(CHEAT_SEPARATOR "\n", suite->captured_stdout);
+			size_t index;
 
-		for (index = 0;
-				index < suite->message_count;
-				++index) {
-			fputs(suite->messages[index], suite->captured_stdout);
-			free(suite->messages[index]);
+			for (index = 0;
+					index < suite->message_count;
+					++index) {
+				fputs(suite->messages[index], suite->captured_stdout);
+				free(suite->messages[index]);
+			}
+
+			free(suite->messages);
 		}
-
-		free(suite->messages);
+		fputs(CHEAT_SEPARATOR "\n", suite->captured_stdout);
 	}
 
 	fprintf(suite->captured_stdout,
-			"%s!\nTests: %zu\nSuccessful: %zu\nFailed: %zu\n",
-			suite->test_failures == 0 ? "SUCCESS" : "FAILURE",
-			suite->test_count, suite->test_successes, suite->test_failures);
+			"%zu successful and %zu failed of %zu run\n%s\n",
+			suite->test_successes, suite->test_failures, suite->test_count,
+			suite->test_failures == 0 ? "SUCCESS" : "FAILURE");
 }
 
 /**
@@ -380,7 +386,7 @@ static void cheat_check(struct cheat_suite* const suite,
 	suite->outcome = CHEAT_FAILURE;
 	if (suite->harness == CHEAT_FORK) {
 		fprintf(suite->captured_stdout,
-				"%s:%d: Assertion failed: '%s'.\n",
+				"%s:%d: assertion failed: '%s'\n",
 				filename,
 				line,
 				assertion);
@@ -394,7 +400,7 @@ static void cheat_check(struct cheat_suite* const suite,
 			bufsize = len + 1;
 			buffer = realloc(buffer, bufsize);
 			what = snprintf(buffer, bufsize, /* TODO Only in C99. */
-					"%s:%d: Assertion failed: '%s'.\n",
+					"%s:%d: assertion failed: '%s'\n", /* TODO No repeat. */
 					filename,
 					line,
 					assertion);
@@ -600,8 +606,6 @@ int main(int const count, char** const arguments) {
 
 		cheat_print_usage(&suite); /* TODO Add --help somewhere. */
 	}
-
-	fputs("[", suite.captured_stdout); /* TODO Move. */
 
 	for (index = 0;
 			index < cheat_procedure_count;

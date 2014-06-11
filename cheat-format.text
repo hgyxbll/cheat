@@ -1,0 +1,28 @@
+.:
+tests/something.c:13: assertion failed: '2 + 2 == 5'
+1 successful and 1 failed of 2 run
+FAILURE
+
+
+.:
+---
+tests/something.c:13: assertion failed: '2 + 2 == 5'
+---
+1 successful and 1 failed of 2 run
+FAILURE
+
+
+.:
+--- ASSERTIONS ---
+tests/something.c:13: failed: '2 + 2 == 5'
+--- SUMMARY ---
+1 successful and 1 failed of 2 run
+FAILURE
+
+
+.:
+--- FAILED ASSERTIONS ---
+tests/something.c:13: '2 + 2 == 5'
+--- SUMMARY ---
+1 successful and 1 failed of 2 run
+FAILURE
