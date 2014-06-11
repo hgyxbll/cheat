@@ -305,11 +305,11 @@ Prints the outcome of a single test and
  adds it to a suite.
 */
 static void cheat_handle_outcome(struct cheat_suite* const suite) {
+	cheat_bool print_bar;
 	char const* success;
 	char const* failure;
 	char const* ignored;
 	char const* crashed;
-	cheat_bool print_bar;
 
 	switch (suite->style) {
 	case CHEAT_PLAIN:
@@ -715,9 +715,10 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 }
 
 /*
-Runs a test.
+Runs a test from
+ a test suite.
 */
-static int cheat_run_test(struct cheat_procedure const* const test,
+static enum cheat_outcome cheat_run_test(struct cheat_procedure const* const procedure,
 		struct cheat_suite* const suite) {
 	size_t index;
 
@@ -729,7 +730,7 @@ static int cheat_run_test(struct cheat_procedure const* const test,
 		if (cheat_procedures[index].type == CHEAT_UP_SETTER)
 			((cheat_utility* )cheat_procedures[index].procedure)();
 
-	((cheat_test* )test->procedure)(suite);
+	((cheat_test* )procedure->procedure)(suite);
 
 	for (index = 0;
 			index < cheat_procedure_count;
@@ -754,19 +755,21 @@ int main(int const count, char** const arguments) {
 
 	if (count > 1) { /* TODO Use a proper parser. */
 		if (arguments[1][0] == '-') {
-			if (strcmp(arguments[1], "-u") == 0
-					|| strcmp(arguments[1], "--unsafe") == 0)
-				suite.harness = CHEAT_CALL;
 			if (strcmp(arguments[1], "-c") == 0
 					|| strcmp(arguments[1], "--colors") == 0)
 				suite.style = CHEAT_COLORFUL;
+			if (strcmp(arguments[1], "-h") == 0
+					|| strcmp(arguments[1], "--help") == 0) {
+				cheat_print_usage(&suite);
+				return EXIT_SUCCESS;
+			}
 			if (strcmp(arguments[1], "-m") == 0
 					|| strcmp(arguments[1], "--minimal") == 0)
 				suite.style = CHEAT_MINIMAL;
-			if (strcmp(arguments[1], "-h") == 0
-					|| strcmp(arguments[1], "--help") == 0)
-				cheat_print_usage(&suite);
-		} else { /* A leaky abstraction? */
+			if (strcmp(arguments[1], "-u") == 0
+					|| strcmp(arguments[1], "--unsafe") == 0)
+				suite.harness = CHEAT_CALL;
+		} else { /* TODO Use an undocumented flag to specify a subprocess. */
 			for (index = 0;
 					index < cheat_procedure_count;
 					++index) {
