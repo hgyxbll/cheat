@@ -49,12 +49,14 @@ Headers used here are also
 
 #endif
 
+typedef int cheat_bool; /* A type that should exist. */
+
 enum cheat_outcome {
 	CHEAT_INDETERMINATE, /* Nothing happened. */
 	CHEAT_SUCCESS, /* A success happened. */
 	CHEAT_FAILURE, /* A failure happened. */
-	CHEAT_IGNORE, /* Anything could have happened. */
-	CHEAT_SIGNAL_SEGV /* A segmentation fault happened. */
+	CHEAT_IGNORED, /* Anything could have happened. */
+	CHEAT_CRASHED /* A segmentation fault happened. */
 };
 
 enum cheat_harness {
@@ -71,9 +73,9 @@ enum cheat_style {
 };
 
 struct cheat_suite {
-	size_t test_count; /* The amount of tests run so far. */
-	size_t test_successes; /* The amount of successful tests so far. */
-	size_t test_failures; /* The amount of failed tests so far. */
+	size_t tests_successful; /* The amount of successful tests so far. */
+	size_t tests_failed; /* The amount of failed tests so far. */
+	size_t tests_run; /* The amount of tests run or ignored so far. */
 
 	enum cheat_outcome outcome; /* The outcome of
 			the most recently completed test. */
@@ -90,9 +92,9 @@ struct cheat_suite {
 
 	enum cheat_harness harness; /* The security measures to use. */
 
-	FILE* captured_stdout; /* TODO Document. */
-
 	enum cheat_style style; /* The style of printed messages. */
+
+	FILE* captured_stdout; /* TODO Document. */
 };
 
 enum cheat_type {
@@ -165,7 +167,7 @@ Some of the symbols used here are defined in the third pass.
 
 #define CHEAT_TEST_IGNORE(name, body) \
 		CHEAT_TEST(name, { \
-			cheat_suite->outcome = CHEAT_IGNORE; \
+			cheat_suite->outcome = CHEAT_IGNORED; \
 		})
 
 #include __BASE_FILE__
@@ -285,9 +287,9 @@ static void cheat_initialize(struct cheat_suite* const suite,
 		char const* const program,
 		enum cheat_harness const harness,
 		enum cheat_style const style) {
-	suite->test_count = 0;
-	suite->test_successes = 0;
-	suite->test_failures = 0;
+	suite->tests_successful = 0;
+	suite->tests_failed = 0;
+	suite->tests_run = 0;
 
 	suite->outcome = CHEAT_INDETERMINATE;
 
@@ -299,114 +301,139 @@ static void cheat_initialize(struct cheat_suite* const suite,
 
 	suite->harness = harness;
 
-	suite->captured_stdout = stdout;
-
 	suite->style = style;
+
+	suite->captured_stdout = stdout;
 }
 
 /*
 Prints the outcome of a single test and
  adds it to a suite.
 */
-static void cheat_print_outcome(struct cheat_suite* const suite) {
+static void cheat_handle_outcome(struct cheat_suite* const suite) {
 	char const* success;
 	char const* failure;
-	char const* ignore;
-	char const* crash;
+	char const* ignored;
+	char const* crashed;
 
-	if (suite->style == CHEAT_COLORFUL) {
-		success = CHEAT_BACKGROUND_GREEN "."
-				CHEAT_RESET;
-		failure = CHEAT_BACKGROUND_RED ":"
-				CHEAT_RESET;
-		ignore = CHEAT_BACKGROUND_YELLOW "?"
-				CHEAT_RESET;
-		crash = CHEAT_BACKGROUND_RED "!"
-				CHEAT_RESET;
-	} else {
+	switch (suite->style) {
+	case CHEAT_PLAIN:
 		success = ".";
 		failure = ":";
-		ignore = "?";
-		crash = "!";
+		ignored = "?";
+		crashed = "!";
+		break;
+	case CHEAT_COLORFUL:
+		success = CHEAT_BACKGROUND_GREEN "." CHEAT_RESET;
+		failure = CHEAT_BACKGROUND_RED ":" CHEAT_RESET;
+		ignored = CHEAT_BACKGROUND_YELLOW "?" CHEAT_RESET;
+		crashed = CHEAT_BACKGROUND_RED "!" CHEAT_RESET;
+		break;
+	default:
+		exit(EXIT_FAILURE);
 	}
 
 	switch (suite->outcome) {
 		case CHEAT_SUCCESS:
 			fputs(success, suite->captured_stdout);
-			++suite->test_successes;
+			++suite->tests_successful;
 			break;
 		case CHEAT_FAILURE:
 			fputs(failure, suite->captured_stdout);
-			++suite->test_failures;
+			++suite->tests_failed;
 			break;
-		case CHEAT_IGNORE:
-			fputs(ignore, suite->captured_stdout);
+		case CHEAT_IGNORED:
+			fputs(ignored, suite->captured_stdout);
 			break;
-		case CHEAT_SIGNAL_SEGV:
-			fputs(crash, suite->captured_stdout);
-			++suite->test_failures;
+		case CHEAT_CRASHED:
+			fputs(crashed, suite->captured_stdout);
+			++suite->tests_failed;
 			break;
 		default:
 			exit(EXIT_FAILURE);
-	} /* TODO Print summary. */
+	}
 	fflush(suite->captured_stdout);
-	++suite->test_count;
+	++suite->tests_run;
 }
 
 /*
 Prints a summary of all tests.
 */
 static void cheat_print_summary(struct cheat_suite* const suite) {
+	cheat_bool any_successes;
+	cheat_bool any_failures;
+	cheat_bool any_run;
 	char const* separator;
-	char const* summary;
+	char const* successful;
+	char const* _and_;
+	char const* failed;
+	char const* _of_;
+	char const* run;
 	char const* conclusion;
 
-	if (suite->style == CHEAT_COLORFUL) {
-		separator = CHEAT_FOREGROUND_GRAY "---"
-				CHEAT_RESET;
-		summary = CHEAT_FOREGROUND_GREEN "%zu successful"
-				CHEAT_RESET " and "
-				CHEAT_FOREGROUND_RED "%zu failed"
-				CHEAT_RESET " of "
-				CHEAT_FOREGROUND_YELLOW "%zu run"
-				CHEAT_RESET "\n";
-		if (suite->test_failures == 0)
-			conclusion = CHEAT_FOREGROUND_GREEN "SUCCESS"
-					CHEAT_RESET "\n";
-		else
-			conclusion = CHEAT_FOREGROUND_RED "FAILURE"
-					CHEAT_RESET "\n";
-	} else {
-		separator = "---";
-		summary = "%zu successful and %zu failed of %zu run\n";
-		if (suite->test_failures == 0)
-			conclusion = "SUCCESS\n";
-		else
-			conclusion = "FAILURE\n";
-	}
+	any_successes = suite->tests_successful != 0;
+	any_failures = suite->tests_failed != 0;
+	any_run = suite->tests_run != 0;
 
-	if (suite->test_count != 0) {
-		fputs("\n", suite->captured_stdout);
+	switch (suite->style) {
+	case CHEAT_PLAIN:
+		separator = "---";
+		successful = "%zu successful";
+		failed = "%zu failed";
+		run = "%zu run";
+		if (!any_failures)
+			conclusion = "SUCCESS";
+		else
+			conclusion = "FAILURE";
+		break;
+	case CHEAT_COLORFUL:
+		separator = CHEAT_FOREGROUND_GRAY "---" CHEAT_RESET;
+		successful = CHEAT_FOREGROUND_GREEN "%zu successful" CHEAT_RESET;
+		failed = CHEAT_FOREGROUND_RED "%zu failed" CHEAT_RESET;
+		run = CHEAT_FOREGROUND_YELLOW "%zu run" CHEAT_RESET;
+		if (!any_failures)
+			conclusion = CHEAT_FOREGROUND_GREEN "SUCCESS" CHEAT_RESET;
+		else
+			conclusion = CHEAT_FOREGROUND_RED "FAILURE" CHEAT_RESET;
+		break;
+	default:
+		exit(EXIT_FAILURE);
+	}
+	_and_ = " and ";
+	_of_ = " of ";
+
+	if (any_run) {
+		fputc('\n', suite->captured_stdout);
 		if (suite->messages != NULL) {
-			fprintf(suite->captured_stdout, "%s\n", separator);
 			size_t index;
 
+			fputs(separator, suite->captured_stdout);
+			fputc('\n', suite->captured_stdout);
 			for (index = 0;
 					index < suite->message_count;
 					++index) {
 				fputs(suite->messages[index], suite->captured_stdout);
-				free(suite->messages[index]);
+				free(suite->messages[index]); /* Allocation B. */
 			}
-
-			free(suite->messages);
+			free(suite->messages); /* Allocation A. */
 		}
-			fprintf(suite->captured_stdout, "%s\n", separator);
+		fputs(separator, suite->captured_stdout);
+		fputc('\n', suite->captured_stdout);
 	}
 
-	fprintf(suite->captured_stdout,
-			summary,
-			suite->test_successes, suite->test_failures, suite->test_count);
+	if (any_successes)
+		fprintf(suite->captured_stdout, successful, suite->tests_successful);
+	if (any_successes && any_failures)
+		fputs(_and_, suite->captured_stdout);
+	if (any_failures)
+		fprintf(suite->captured_stdout, failed, suite->tests_failed);
+	if (any_successes || any_failures)
+		fputs(_of_, suite->captured_stdout);
+	fprintf(suite->captured_stdout, run, suite->tests_run);
+	fputc('\n', suite->captured_stdout);
+
 	fputs(conclusion, suite->captured_stdout);
+	fputc('\n', suite->captured_stdout);
 }
 
 /*
@@ -427,7 +454,7 @@ static void cheat_append_message(struct cheat_suite* const suite,
 		exit(EXIT_FAILURE);
 	message_count = suite->message_count + 1;
 
-	message = cheat_malloc_total(size, 1);
+	message = cheat_malloc_total(size, 1); /* Allocation B. */
 	if (message == NULL) {
 		perror("malloc");
 		exit(EXIT_FAILURE);
@@ -437,7 +464,7 @@ static void cheat_append_message(struct cheat_suite* const suite,
 
 	/* TODO This is excessive. */
 	messages = cheat_realloc_array(suite->messages,
-			message_count, sizeof *suite->messages);
+			message_count, sizeof *suite->messages); /* Allocation A. */
 	if (messages == NULL) {
 		perror("realloc");
 		exit(EXIT_FAILURE);
@@ -565,7 +592,7 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 			suite->outcome = WEXITSTATUS(status);
 			suite->status = WEXITSTATUS(status);
 		} else
-			suite->outcome = CHEAT_SIGNAL_SEGV;
+			suite->outcome = CHEAT_CRASHED;
 	}
 
 #elif defined _WIN32
@@ -619,7 +646,7 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 	DWORD status;
 	GetExitCodeProcess(pi.hProcess, &status);
 
-	suite->status = (status & 0x80000000) ? CHEAT_SIGNAL_SEGV : status;
+	suite->status = (status & 0x80000000) ? CHEAT_CRASHED : status;
 
 	CloseHandle(pi.hProcess);
 	CloseHandle(pi.hThread);
@@ -712,12 +739,12 @@ int main(int const count, char** const arguments) {
 		else
 			cheat_run_test(procedure, &suite);
 
-		cheat_print_outcome(&suite);
+		cheat_handle_outcome(&suite);
 	}
 
 	cheat_print_summary(&suite);
 
-	return cheat_narrow(suite.test_failures);
+	return cheat_narrow(suite.tests_failed);
 }
 
 #endif
