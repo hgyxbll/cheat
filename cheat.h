@@ -120,15 +120,34 @@ struct cheat_procedure {
 			it was qualified const. */
 };
 
-/**
-Computes the compiled size of an array (not a pointer) and returns it.
-**/
-#define CHEAT_ARRAY_SIZE(array) \
-		(sizeof array / sizeof *array)
+/*
+These are ISO/IEC 6429 escape sequences for
+ communicating text attributes to terminal emulators.
+*/
+#define CHEAT_RESET "\x1b[0m"
+#define CHEAT_BOLD "\x1b[1m"
+#define CHEAT_FOREGROUND_GRAY "\x1b[30;1m"
+#define CHEAT_FOREGROUND_RED "\x1b[31;1m"
+#define CHEAT_FOREGROUND_GREEN "\x1b[32;1m"
+#define CHEAT_FOREGROUND_YELLOW "\x1b[33;1m"
+#define CHEAT_FOREGROUND_BLUE "\x1b[34;1m"
+#define CHEAT_FOREGROUND_MAGENTA "\x1b[35;1m"
+#define CHEAT_FOREGROUND_CYAN "\x1b[36;1m"
+#define CHEAT_FOREGROUND_WHITE "\x1b[37;1m"
+#define CHEAT_BACKGROUND_BLACK "\x1b[40;1m"
+#define CHEAT_BACKGROUND_RED "\x1b[41;1m"
+#define CHEAT_BACKGROUND_GREEN "\x1b[42;1m"
+#define CHEAT_BACKGROUND_YELLOW "\x1b[43;1m"
+#define CHEAT_BACKGROUND_BLUE "\x1b[44;1m"
+#define CHEAT_BACKGROUND_MAGENTA "\x1b[45;1m"
+#define CHEAT_BACKGROUND_CYAN "\x1b[46;1m"
+#define CHEAT_BACKGROUND_GRAY "\x1b[47;1m"
 
 /*
-The first pass starts here.
+Computes the compiled size of an array (not a pointer) and returns it.
 */
+#define CHEAT_ARRAY_SIZE(array) \
+		(sizeof array / sizeof *array)
 
 #define CHEAT_PASS 1 /* This is informational. */
 
@@ -216,55 +235,33 @@ The third pass continues past the end of this file, but
  the definitions for it end here.
 */
 
-#define CHEAT_RESET "\x1b[0m"
-
-#define CHEAT_BOLD "\x1b[1m"
-
-#define CHEAT_FOREGROUND_DARK "\x1b[30;1m"
-#define CHEAT_FOREGROUND_RED "\x1b[31;1m"
-#define CHEAT_FOREGROUND_GREEN "\x1b[32;1m"
-#define CHEAT_FOREGROUND_YELLOW "\x1b[33;1m"
-#define CHEAT_FOREGROUND_BLUE "\x1b[34;1m"
-#define CHEAT_FOREGROUND_MAGENTA "\x1b[35;1m"
-#define CHEAT_FOREGROUND_CYAN "\x1b[36;1m"
-#define CHEAT_FOREGROUND_LIGHT "\x1b[37;1m"
-
-#define CHEAT_BACKGROUND_DARK "\x1b[40;1m"
-#define CHEAT_BACKGROUND_RED "\x1b[41;1m"
-#define CHEAT_BACKGROUND_GREEN "\x1b[42;1m"
-#define CHEAT_BACKGROUND_YELLOW "\x1b[43;1m"
-#define CHEAT_BACKGROUND_BLUE "\x1b[44;1m"
-#define CHEAT_BACKGROUND_MAGENTA "\x1b[45;1m"
-#define CHEAT_BACKGROUND_CYAN "\x1b[46;1m"
-#define CHEAT_BACKGROUND_LIGHT "\x1b[47;1m"
-
-/**
+/*
 Converts a size into an integer and
  returns it or
  the value -1 in case of an overflow.
-**/
+*/
 static int cheat_narrow(size_t const x) {
 	return x > INT_MAX ? -1 : (int )x;
 }
 
-/**
+/*
 Safely allocates memory for
  a block of size (size + extra_size) and
  returns a pointer to the allocated region or
  returns NULL in case of a failure.
-**/
+*/
 static void* cheat_malloc_total(size_t const size, size_t const extra_size) {
 	if (extra_size > SIZE_MAX - size)
 		return NULL;
 	return malloc(size + extra_size);
 }
 
-/**
+/*
 Safely reallocates memory for
  an array of size (count * size) and
  returns a pointer to the allocated region or
  returns NULL in case of a failure.
-**/
+*/
 static void* cheat_realloc_array(void* const pointer,
 		size_t const count, size_t const size) {
 	if (count > SIZE_MAX / size)
@@ -272,18 +269,18 @@ static void* cheat_realloc_array(void* const pointer,
 	return realloc(pointer, count * size);
 }
 
-/**
+/*
 Prints a usage summary and
  returns the value 0 or
  the value -1 in case of an error.
-**/
+*/
 static int cheat_print_usage(struct cheat_suite const* const suite) {
 	return printf("Usage: %s --no-fork\n", suite->program) < 0;
 }
 
-/**
+/*
 Initializes a test suite.
-**/
+*/
 static void cheat_initialize(struct cheat_suite* const suite,
 		char const* const program,
 		enum cheat_harness const harness,
@@ -307,9 +304,10 @@ static void cheat_initialize(struct cheat_suite* const suite,
 	suite->style = style;
 }
 
-/**
-Prints the outcome of a single test.
-**/
+/*
+Prints the outcome of a single test and
+ adds it to a suite.
+*/
 static void cheat_print_outcome(struct cheat_suite* const suite) {
 	char const* success;
 	char const* failure;
@@ -321,9 +319,9 @@ static void cheat_print_outcome(struct cheat_suite* const suite) {
 				CHEAT_RESET;
 		failure = CHEAT_BACKGROUND_RED ":"
 				CHEAT_RESET;
-		ignore = CHEAT_BACKGROUND_LIGHT "?"
+		ignore = CHEAT_BACKGROUND_YELLOW "?"
 				CHEAT_RESET;
-		crash = CHEAT_BACKGROUND_YELLOW "!"
+		crash = CHEAT_BACKGROUND_RED "!"
 				CHEAT_RESET;
 	} else {
 		success = ".";
@@ -355,16 +353,16 @@ static void cheat_print_outcome(struct cheat_suite* const suite) {
 	++suite->test_count;
 }
 
-/**
+/*
 Prints a summary of all tests.
-**/
+*/
 static void cheat_print_summary(struct cheat_suite* const suite) {
 	char const* separator;
 	char const* summary;
 	char const* conclusion;
 
 	if (suite->style == CHEAT_COLORFUL) {
-		separator = CHEAT_FOREGROUND_DARK "---"
+		separator = CHEAT_FOREGROUND_GRAY "---"
 				CHEAT_RESET;
 		summary = CHEAT_FOREGROUND_GREEN "%zu successful"
 				CHEAT_RESET " and "
@@ -411,11 +409,11 @@ static void cheat_print_summary(struct cheat_suite* const suite) {
 	fputs(conclusion, suite->captured_stdout);
 }
 
-/**
+/*
 Adds a message in
  the form of a byte buffer to
  the queue of a test suite.
-**/
+*/
 static void cheat_append_message(struct cheat_suite* const suite,
 		unsigned char const* const data, size_t const size) {
 	size_t message_count;
@@ -450,10 +448,10 @@ static void cheat_append_message(struct cheat_suite* const suite,
 	suite->message_count = message_count;
 }
 
-/**
+/*
 Checks a single assertion and
  prints an error message if it fails.
-**/
+*/
 static void cheat_check(struct cheat_suite* const suite,
 		int const result,
 		char const* const assertion,
@@ -503,10 +501,10 @@ static void cheat_check(struct cheat_suite* const suite,
 	}
 }
 
-/**
+/*
 Creates a subprocess and
  runs a test in it.
-**/
+*/
 static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 		struct cheat_suite* const suite) {
 
@@ -636,9 +634,9 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 
 }
 
-/**
+/*
 Runs a test.
-**/
+*/
 static int cheat_run_test(struct cheat_procedure const* const test,
 		struct cheat_suite* const suite) {
 	size_t index;
@@ -662,12 +660,12 @@ static int cheat_run_test(struct cheat_procedure const* const test,
 	return suite->outcome;
 }
 
-/**
+/*
 Parses options,
  runs test cases with them and
  returns the total amount of failures or
  the value -1 in case of an error.
-**/
+*/
 int main(int const count, char** const arguments) {
 	struct cheat_suite suite;
 	size_t index;
