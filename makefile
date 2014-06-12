@@ -7,7 +7,7 @@ CFLAGS=-std=c89 -D__STDC_VERSION__=199409L \
 		-I . \
 		$(debug) # actually -D__STDC_VERSION__=198912L
 
-all: build
+build: cheat-example
 
 clean:
 	$(RM) cheat-example
@@ -16,9 +16,7 @@ clean:
 test: build
 	- ./cheat-example
 
-build: cheat-example
-
 cheat-example: cheat.h cheat-helpers.h cheat-example.c
 	$(CC) $(CFLAGS) -o cheat-example cheat-example.c
 
-.PHONY: all clean test build
+.PHONY: build clean test

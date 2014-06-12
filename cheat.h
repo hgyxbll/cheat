@@ -368,7 +368,6 @@ static void cheat_print_summary(struct cheat_suite* const suite) {
 	cheat_bool any_successes;
 	cheat_bool any_failures;
 	cheat_bool any_run;
-	cheat_bool print_bar;
 	cheat_bool print_messages;
 	cheat_bool print_summary;
 	cheat_bool print_conclusion;
@@ -387,7 +386,6 @@ static void cheat_print_summary(struct cheat_suite* const suite) {
 
 	switch (suite->style) {
 	case CHEAT_PLAIN:
-		print_bar = 1;
 		print_messages = 1;
 		print_summary = 1;
 		print_conclusion = 1;
@@ -404,7 +402,6 @@ static void cheat_print_summary(struct cheat_suite* const suite) {
 			conclusion = "FAILURE";
 		break;
 	case CHEAT_COLORFUL:
-		print_bar = 1;
 		print_messages = 1;
 		print_summary = 1;
 		print_conclusion = 1;
@@ -421,7 +418,6 @@ static void cheat_print_summary(struct cheat_suite* const suite) {
 			conclusion = CHEAT_FOREGROUND_RED "FAILURE" CHEAT_RESET;
 		break;
 	case CHEAT_MINIMAL:
-		print_bar = 0;
 		print_messages = 0;
 		print_summary = 1;
 		print_conclusion = 0;
