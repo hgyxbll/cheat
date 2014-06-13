@@ -28,14 +28,19 @@ Headers used here are also
 */
 
 #include <limits.h> /* INT_MAX */
+#include <stdarg.h> /* va_list */
 #include <stddef.h> /* NULL, size_t */
 #include <stdio.h> /* BUFSIZ, FILE, stderr, stdout */
 #include <stdlib.h> /* EXIT_FAILURE, EXIT_SUCCESS */
 #include <string.h>
 
 #if __STDC_VERSION__ >= 199901L
+#include <stdbool.h> /* bool, false, true */
 #include <stdint.h> /* SIZE_MAX */
 #else
+typedef int bool;
+#define false 0
+#define true 1
 #define SIZE_MAX ((size_t )-1)
 #endif
 
@@ -46,8 +51,6 @@ Headers used here are also
 #elif defined _WIN32
 #include <windows.h> /* spaghetti */
 #endif
-
-typedef int cheat_bool; /* A type that should exist. */
 
 enum cheat_outcome {
 	CHEAT_INDETERMINATE, /* Nothing happened. */
@@ -262,6 +265,52 @@ static void* cheat_realloc_array(void* const pointer,
 }
 
 /*
+Checks whether a format string contains the expected amount of
+ conversion specifiers.
+Valid specifications start with '%' and
+ are not immediately followed by '%' or '\0'.
+*/
+static bool cheat_check_format(char const* const format,
+		size_t const expected) {
+	size_t index;
+	size_t actual;
+
+	actual = 0;
+	for (index = 0;
+			format[index] != '\0';
+			++index)
+		if (format[index] == '%') {
+			if (!(format[index + 1] == '%'))
+				++actual;
+			++index;
+		}
+
+	return actual == expected;
+}
+
+/*
+Works like fprintf(), but
+ fails safely if the count parameter is not equal to
+ the amount of conversion specifiers in the format string.
+*/
+static int cheat_fprintf(FILE* const stream,
+		char const* const format,
+		size_t const count, ...) {
+	va_list list;
+	int result;
+
+	if (!cheat_check_format(format, count))
+		return -1;
+
+	/* Side effects. */
+	va_start(list, count);
+	result = vfprintf(stream, format, list);
+	va_end(list);
+
+	return result;
+}
+
+/*
 Prepares a test suite.
 */
 static void cheat_initialize(struct cheat_suite* const suite,
@@ -311,7 +360,7 @@ Prints the outcome of a single test and
  adds it to a suite.
 */
 static void cheat_handle_outcome(struct cheat_suite* const suite) {
-	cheat_bool print_bar;
+	bool print_bar;
 	char const* success;
 	char const* failure;
 	char const* ignored;
@@ -319,21 +368,21 @@ static void cheat_handle_outcome(struct cheat_suite* const suite) {
 
 	switch (suite->style) {
 	case CHEAT_PLAIN:
-		print_bar = 1;
+		print_bar = true;
 		success = ".";
 		failure = ":";
 		ignored = "?";
 		crashed = "!";
 		break;
 	case CHEAT_COLORFUL:
-		print_bar = 1;
+		print_bar = true;
 		success = CHEAT_BACKGROUND_GREEN "." CHEAT_RESET;
 		failure = CHEAT_BACKGROUND_RED ":" CHEAT_RESET;
 		ignored = CHEAT_BACKGROUND_YELLOW "?" CHEAT_RESET;
 		crashed = CHEAT_BACKGROUND_RED "!" CHEAT_RESET;
 		break;
 	case CHEAT_MINIMAL:
-		print_bar = 0;
+		print_bar = false;
 		break;
 	default:
 		exit(EXIT_FAILURE);
@@ -383,67 +432,67 @@ static void cheat_handle_outcome(struct cheat_suite* const suite) {
 Prints a summary of all tests.
 */
 static void cheat_print_summary(struct cheat_suite* const suite) {
-	cheat_bool any_successes;
-	cheat_bool any_failures;
-	cheat_bool any_run;
-	cheat_bool print_messages;
-	cheat_bool print_summary;
-	cheat_bool print_conclusion;
-	cheat_bool print_zero;
-	char const* separator;
-	char const* successful;
-	char const* _and_;
-	char const* failed;
-	char const* _of_;
-	char const* run;
-	char const* conclusion;
+	bool any_successes;
+	bool any_failures;
+	bool any_run;
+	bool print_messages;
+	bool print_summary;
+	bool print_conclusion;
+	bool print_zero;
+	char const* separator_string;
+	char const* successful_format;
+	char const* and_string;
+	char const* failed_format;
+	char const* of_string;
+	char const* run_format;
+	char const* conclusion_string;
 
 	any_successes = suite->tests_successful != 0;
 	any_failures = suite->tests_failed != 0;
 	any_run = suite->tests_run != 0;
 	switch (suite->style) {
 	case CHEAT_PLAIN:
-		print_messages = 1;
-		print_summary = 1;
-		print_conclusion = 1;
-		print_zero = 0;
-		separator = "---";
-		successful = "%zu successful";
-		_and_ = " and ";
-		failed = "%zu failed";
-		_of_ = " of ";
-		run = "%zu run";
+		print_messages = true;
+		print_summary = true;
+		print_conclusion = true;
+		print_zero = false;
+		separator_string = "---";
+		successful_format = "%zu successful";
+		and_string = " and ";
+		failed_format = "%zu failed";
+		of_string = " of ";
+		run_format = "%zu run";
 		if (!any_failures)
-			conclusion = "SUCCESS";
+			conclusion_string = "SUCCESS";
 		else
-			conclusion = "FAILURE";
+			conclusion_string = "FAILURE";
 		break;
 	case CHEAT_COLORFUL:
-		print_messages = 1;
-		print_summary = 1;
-		print_conclusion = 1;
-		print_zero = 0;
-		separator = CHEAT_FOREGROUND_GRAY "---" CHEAT_RESET;
-		successful = CHEAT_FOREGROUND_GREEN "%zu successful" CHEAT_RESET;
-		_and_ = " and ";
-		failed = CHEAT_FOREGROUND_RED "%zu failed" CHEAT_RESET;
-		_of_ = " of ";
-		run = CHEAT_FOREGROUND_YELLOW "%zu run" CHEAT_RESET;
+		print_messages = true;
+		print_summary = true;
+		print_conclusion = true;
+		print_zero = false;
+		separator_string = CHEAT_FOREGROUND_GRAY "---" CHEAT_RESET;
+		successful_format = CHEAT_FOREGROUND_GREEN "%zu successful" CHEAT_RESET;
+		and_string = " and ";
+		failed_format = CHEAT_FOREGROUND_RED "%zu failed" CHEAT_RESET;
+		of_string = " of ";
+		run_format = CHEAT_FOREGROUND_YELLOW "%zu run" CHEAT_RESET;
 		if (!any_failures)
-			conclusion = CHEAT_FOREGROUND_GREEN "SUCCESS" CHEAT_RESET;
+			conclusion_string = CHEAT_FOREGROUND_GREEN "SUCCESS" CHEAT_RESET;
 		else
-			conclusion = CHEAT_FOREGROUND_RED "FAILURE" CHEAT_RESET;
+			conclusion_string = CHEAT_FOREGROUND_RED "FAILURE" CHEAT_RESET;
 		break;
 	case CHEAT_MINIMAL:
-		print_messages = 0;
-		print_summary = 1;
-		print_conclusion = 0;
-		print_zero = 1;
-		successful = "%zu";
-		_and_ = " ";
-		failed = "%zu";
-		_of_ = " ";
-		run = "%zu";
+		print_messages = false;
+		print_summary = true;
+		print_conclusion = false;
+		print_zero = true;
+		successful_format = "%zu";
+		and_string = " ";
+		failed_format = "%zu";
+		of_string = " ";
+		run_format = "%zu";
 		break;
 	default:
 		exit(EXIT_FAILURE);
@@ -455,30 +504,33 @@ static void cheat_print_summary(struct cheat_suite* const suite) {
 		if (suite->messages != NULL) {
 			size_t index;
 
-			fputs(separator, suite->captured_stdout);
+			fputs(separator_string, suite->captured_stdout);
 			fputc('\n', suite->captured_stdout);
 			for (index = 0;
 					index < suite->message_count;
 					++index)
 				fputs(suite->messages[index], suite->captured_stdout);
 		}
-		fputs(separator, suite->captured_stdout);
+		fputs(separator_string, suite->captured_stdout);
 		fputc('\n', suite->captured_stdout);
 	}
 	if (print_summary) {
 		if (print_zero || any_successes)
-			fprintf(suite->captured_stdout, successful, suite->tests_successful);
-		if (print_zero || any_successes && any_failures)
-			fputs(_and_, suite->captured_stdout);
+			cheat_fprintf(suite->captured_stdout, successful_format,
+					1, suite->tests_successful);
+		if (print_zero || (any_successes && any_failures))
+			fputs(and_string, suite->captured_stdout);
 		if (print_zero || any_failures)
-			fprintf(suite->captured_stdout, failed, suite->tests_failed);
-		if (print_zero || any_successes || any_failures)
-			fputs(_of_, suite->captured_stdout);
-		fprintf(suite->captured_stdout, run, suite->tests_run);
+			cheat_fprintf(suite->captured_stdout, failed_format,
+					1, suite->tests_failed);
+		if (print_zero || (any_successes || any_failures))
+			fputs(of_string, suite->captured_stdout);
+		cheat_fprintf(suite->captured_stdout, run_format,
+				1, suite->tests_run);
 		fputc('\n', suite->captured_stdout);
 	}
 	if (print_conclusion) {
-		fputs(conclusion, suite->captured_stdout);
+		fputs(conclusion_string, suite->captured_stdout);
 		fputc('\n', suite->captured_stdout);
 	}
 }
@@ -534,22 +586,22 @@ static void cheat_check(struct cheat_suite* const suite,
 		char const* const filename,
 		int const line) {
 	char const* format;
-	cheat_bool print_assertion;
+	bool print_assertion;
 
 	switch (suite->style) {
 	case CHEAT_COLORFUL: /* TODO Inherit settings. */
-		print_assertion = 1;
+		print_assertion = true;
 		format = CHEAT_BOLD "%s:%d:"
 				CHEAT_RESET " assertion failed: '"
 				CHEAT_BOLD "%s"
 				CHEAT_RESET "'\n";
 		break;
 	case CHEAT_PLAIN:
-		print_assertion = 1;
+		print_assertion = true;
 		format = "%s:%d: assertion failed: '%s'\n";
 		break;
 	case CHEAT_MINIMAL:
-		print_assertion = 0;
+		print_assertion = false;
 		break;
 	default:
 		exit(EXIT_FAILURE);
@@ -561,11 +613,8 @@ static void cheat_check(struct cheat_suite* const suite,
 	if (print_assertion) {
 		suite->outcome = CHEAT_FAILURE;
 		if (suite->harness == CHEAT_FORK) {
-			fprintf(suite->captured_stdout,
-					format,
-					filename,
-					line,
-					assertion);
+			cheat_fprintf(suite->captured_stdout, format,
+					3, filename, line, assertion);
 		} else {
 			char* buffer = NULL;
 			size_t len = BUFSIZ;
@@ -575,11 +624,8 @@ static void cheat_check(struct cheat_suite* const suite,
 				int what;
 				bufsize = len + 1;
 				buffer = realloc(buffer, bufsize);
-				what = snprintf(buffer, bufsize, /* TODO Only in C99. */
-						format,
-						filename,
-						line,
-						assertion);
+				what = snprintf(buffer, bufsize, format, /* TODO Only in C99. */
+						filename, line, assertion);
 				if (what == -1)
 					exit(EXIT_FAILURE);
 				len = (size_t )what;
