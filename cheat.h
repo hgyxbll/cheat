@@ -14,14 +14,11 @@ Identifiers starting with
  CHEAT_ and cheat_ are
  reserved for internal use and
  identifiers starting with
- cheat_test_ are
- reserved for external use.
+ cheat_test_ for external use.
 */
 
 #ifndef __BASE_FILE__
-
 #error "The __BASE_FILE__ symbol is not defined. See the README file for help."
-
 #endif
 
 /*
@@ -32,21 +29,22 @@ Headers used here are also
 
 #include <limits.h> /* INT_MAX */
 #include <stddef.h> /* NULL, size_t */
-#include <stdint.h> /* SIZE_MAX */
 #include <stdio.h> /* BUFSIZ, FILE, stderr, stdout */
 #include <stdlib.h> /* EXIT_FAILURE, EXIT_SUCCESS */
 #include <string.h>
 
-#if _POSIX_C_SOURCE >= 200112L
+#if __STDC_VERSION__ >= 199901L
+#include <stdint.h> /* SIZE_MAX */
+#else
+#define SIZE_MAX ((size_t )-1)
+#endif
 
+#if _POSIX_C_SOURCE >= 200112L
 #include <unistd.h> /* STDOUT_FILENO */
 #include <sys/types.h> /* pid_t, ssize_t */
 #include <sys/wait.h>
-
 #elif defined _WIN32
-
 #include <windows.h> /* spaghetti */
-
 #endif
 
 typedef int cheat_bool; /* A type that should exist. */
@@ -598,9 +596,7 @@ Creates a subprocess and
 */
 static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 		struct cheat_suite* const suite) {
-
 #if _POSIX_C_SOURCE >= 200112L
-
 	pid_t pid;
 	int pipefd[2];
 
@@ -658,9 +654,7 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 		} else
 			suite->outcome = CHEAT_CRASHED;
 	}
-
 #elif defined _WIN32
-
 	SECURITY_ATTRIBUTES sa;
 	sa.nLength = sizeof (SECURITY_ATTRIBUTES);
 	sa.bInheritHandle = TRUE;
@@ -714,15 +708,10 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 
 	CloseHandle(pi.hProcess);
 	CloseHandle(pi.hThread);
-
 #else /* TODO Move into main and fall back to CHEAT_CALL. */
-
 #warning "Isolated tests are unsupported. See the README file for help."
-
 	exit(EXIT_FAILURE);
-
 #endif
-
 }
 
 /*
