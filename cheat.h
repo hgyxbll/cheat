@@ -264,40 +264,48 @@ static void* cheat_realloc_array(void* const pointer,
 }
 
 /*
-Prints a usage summary and
- returns the value 0 or
- the value -1 in case of an error.
-*/
-static void cheat_print_usage(struct cheat_suite const* const suite) {
-	fputs("Usage: ", suite->captured_stdout);
-	fputs(suite->program, suite->captured_stdout);
-	fputs(" --colors --help --unsafe\n", suite->captured_stdout);
-}
-
-/*
-Initializes a test suite.
+Prepares a test suite.
 */
 static void cheat_initialize(struct cheat_suite* const suite,
 		char const* const program,
 		enum cheat_harness const harness,
 		enum cheat_style const style) {
+	/* State transformations. */
 	suite->tests_successful = 0;
 	suite->tests_failed = 0;
 	suite->tests_run = 0;
-
 	suite->outcome = CHEAT_INDETERMINATE;
-
 	suite->message_count = 0;
 	suite->message_capacity = 0;
-	suite->messages = NULL;
-
+	suite->messages = NULL; /* Memory A. */
 	suite->program = program;
-
 	suite->harness = harness;
-
 	suite->style = style;
-
 	suite->captured_stdout = stdout;
+}
+
+/*
+Destroys a test suite.
+*/
+static void cheat_finalize(struct cheat_suite* const suite) {
+	/* State transformations. */
+	if (suite->messages != NULL) {
+		while (suite->message_count > 0)
+			free(suite->messages[--suite->message_count]); /* Memory B. */
+		free(suite->messages); /* Memory A. */
+	}
+}
+
+/*
+Prints a usage summary and
+ returns the value 0 or
+ the value -1 in case of an error.
+*/
+static void cheat_print_usage(struct cheat_suite const* const suite) {
+	/* Side effects. */
+	fputs("Usage: ", suite->captured_stdout);
+	fputs(suite->program, suite->captured_stdout);
+	fputs(" --colors --help --unsafe\n", suite->captured_stdout);
 }
 
 /*
@@ -333,32 +341,44 @@ static void cheat_handle_outcome(struct cheat_suite* const suite) {
 		exit(EXIT_FAILURE);
 	}
 
+	/* State transformations. */
 	++suite->tests_run;
 	switch (suite->outcome) {
+	case CHEAT_SUCCESS:
+		++suite->tests_successful;
+		break;
+	case CHEAT_FAILURE:
+		++suite->tests_failed;
+		break;
+	case CHEAT_IGNORED:
+		break;
+	case CHEAT_CRASHED:
+		++suite->tests_failed;
+		break;
+	default:
+		exit(EXIT_FAILURE);
+	}
+
+	/* Side effects. */
+	if (print_bar) {
+		switch (suite->outcome) {
 		case CHEAT_SUCCESS:
-			++suite->tests_successful;
-			if (print_bar) /* TODO Lots of spaghetti! */
-				fputs(success, suite->captured_stdout);
+			fputs(success, suite->captured_stdout);
 			break;
 		case CHEAT_FAILURE:
-			++suite->tests_failed;
-			if (print_bar)
-				fputs(failure, suite->captured_stdout);
+			fputs(failure, suite->captured_stdout);
 			break;
 		case CHEAT_IGNORED:
-			if (print_bar)
-				fputs(ignored, suite->captured_stdout);
+			fputs(ignored, suite->captured_stdout);
 			break;
 		case CHEAT_CRASHED:
-			++suite->tests_failed;
-			if (print_bar)
-				fputs(crashed, suite->captured_stdout);
+			fputs(crashed, suite->captured_stdout);
 			break;
 		default:
 			exit(EXIT_FAILURE);
-	}
-	if (print_bar)
+		}
 		fflush(suite->captured_stdout);
+	}
 }
 
 /*
@@ -383,7 +403,6 @@ static void cheat_print_summary(struct cheat_suite* const suite) {
 	any_successes = suite->tests_successful != 0;
 	any_failures = suite->tests_failed != 0;
 	any_run = suite->tests_run != 0;
-
 	switch (suite->style) {
 	case CHEAT_PLAIN:
 		print_messages = 1;
@@ -432,7 +451,8 @@ static void cheat_print_summary(struct cheat_suite* const suite) {
 		exit(EXIT_FAILURE);
 	}
 
-	if (print_messages && any_run) { /* TODO If this is false, A and B leak. */
+	/* Side effects. */
+	if (print_messages && any_run) {
 		fputc('\n', suite->captured_stdout);
 		if (suite->messages != NULL) {
 			size_t index;
@@ -441,16 +461,12 @@ static void cheat_print_summary(struct cheat_suite* const suite) {
 			fputc('\n', suite->captured_stdout);
 			for (index = 0;
 					index < suite->message_count;
-					++index) {
+					++index)
 				fputs(suite->messages[index], suite->captured_stdout);
-				free(suite->messages[index]); /* Allocation B. */
-			}
-			free(suite->messages); /* Allocation A. */
 		}
 		fputs(separator, suite->captured_stdout);
 		fputc('\n', suite->captured_stdout);
 	}
-
 	if (print_summary) {
 		if (print_zero || any_successes)
 			fprintf(suite->captured_stdout, successful, suite->tests_successful);
@@ -463,7 +479,6 @@ static void cheat_print_summary(struct cheat_suite* const suite) {
 		fprintf(suite->captured_stdout, run, suite->tests_run);
 		fputc('\n', suite->captured_stdout);
 	}
-
 	if (print_conclusion) {
 		fputs(conclusion, suite->captured_stdout);
 		fputc('\n', suite->captured_stdout);
@@ -490,7 +505,7 @@ static void cheat_append_message(struct cheat_suite* const suite,
 		exit(EXIT_FAILURE);
 	message_count = suite->message_count + 1;
 
-	message = cheat_malloc_total(size, 1); /* Allocation B. */
+	message = cheat_malloc_total(size, 1); /* Memory B. */
 	if (message == NULL) {
 		perror("malloc");
 		exit(EXIT_FAILURE);
@@ -500,7 +515,7 @@ static void cheat_append_message(struct cheat_suite* const suite,
 
 	/* TODO This is excessive. */
 	messages = cheat_realloc_array(suite->messages,
-			message_count, sizeof *suite->messages); /* Allocation A. */
+			message_count, sizeof *suite->messages); /* Memory A. */
 	if (messages == NULL) {
 		perror("realloc");
 		exit(EXIT_FAILURE);
@@ -798,6 +813,8 @@ int main(int const count, char** const arguments) {
 	}
 
 	cheat_print_summary(&suite);
+
+	cheat_finalize(&suite);
 
 	if (suite.tests_failed == 0)
 		return EXIT_SUCCESS;
