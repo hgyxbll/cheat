@@ -240,6 +240,32 @@ The third pass continues past the end of this file, but
 */
 
 /*
+Calculates the arithmetic mean of two sizes and
+ returns it.
+*/
+static size_t cheat_mean(size_t const size, size_t const another_size) {
+	if (another_size < size)
+		cheat_mean(another_size, size);
+
+	return size + (another_size - size) / 2;
+}
+
+/*
+Returns a new size that
+ has been incremented so that
+ reallocation costs are minimized.
+*/
+static size_t cheat_expand_size(size_t const size) {
+	if (size < sizeof (int))
+		return sizeof (int);
+
+	if (size > SIZE_MAX / 2)
+		return cheat_mean(size, SIZE_MAX);
+
+	return size * 2;
+}
+
+/*
 Safely allocates memory for
  a block of size (size + extra_size) and
  returns a pointer to the allocated region or
@@ -248,6 +274,7 @@ Safely allocates memory for
 static void* cheat_malloc_total(size_t const size, size_t const extra_size) {
 	if (extra_size > SIZE_MAX - size)
 		return NULL;
+
 	return malloc(size + extra_size);
 }
 
@@ -261,6 +288,7 @@ static void* cheat_realloc_array(void* const pointer,
 		size_t const count, size_t const size) {
 	if (count > SIZE_MAX / size)
 		return NULL;
+
 	return realloc(pointer, count * size);
 }
 
@@ -544,6 +572,7 @@ Adds a message in
 */
 static void cheat_append_message(struct cheat_suite* const suite,
 		unsigned char const* const data, size_t const size) {
+	size_t message_capacity;
 	size_t message_count;
 	void* messages;
 	char* message;
@@ -563,14 +592,20 @@ static void cheat_append_message(struct cheat_suite* const suite,
 	memcpy(message, data, size);
 	message[size] = '\0';
 
-	/* TODO This is excessive. */
-	messages = cheat_realloc_array(suite->messages,
-			message_count, sizeof *suite->messages); /* Memory A. */
-	if (messages == NULL) {
-		perror("realloc");
-		exit(EXIT_FAILURE);
+	if (suite->message_count == suite->message_capacity) {
+		message_capacity = cheat_expand_size(suite->message_capacity);
+		if (message_capacity == suite->message_capacity)
+			exit(EXIT_FAILURE);
+		messages = cheat_realloc_array(suite->messages,
+				message_capacity,
+				sizeof *suite->messages); /* Memory A. */
+		if (messages == NULL) {
+			perror("realloc"); /* TODO No errno is set? */
+			exit(EXIT_FAILURE);
+		}
+		suite->message_capacity = message_capacity;
+		suite->messages = messages;
 	}
-	suite->messages = messages;
 	suite->messages[suite->message_count] = message;
 
 	suite->message_count = message_count;
