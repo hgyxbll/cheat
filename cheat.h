@@ -254,7 +254,7 @@ static size_t cheat_mean(size_t const size, size_t const another_size) {
 Returns a new size that
  has been incremented so that
  reallocation costs are minimized or
- returns the old size unchanged in case of an error.
+ returns the old size unchanged in case it is maximal.
 */
 static size_t cheat_expand_size(size_t const size) {
 	if (size < sizeof (int))
@@ -294,33 +294,32 @@ static void* cheat_realloc_array(void* const pointer,
 }
 
 /*
-Checks whether a format string contains the expected amount of
- conversion specifiers.
+Finds the amount of conversion specifiers in
+ a format string.
 Valid specifications start with '%' and
  are not immediately followed by '%' or '\0'.
 */
-static bool cheat_check_format(char const* const format,
-		size_t const expected) {
+static bool cheat_format_specifiers(char const* const format) {
 	size_t index;
-	size_t actual;
+	size_t count;
 
-	actual = 0;
+	count = 0;
 	for (index = 0;
 			format[index] != '\0';
 			++index)
 		if (format[index] == '%') {
 			if (!(format[index + 1] == '%'))
-				++actual;
+				++count;
 			++index;
 		}
 
-	return actual == expected;
+	return count;
 }
 
 /*
 Works like fprintf(), but
- fails safely if the count parameter is not equal to
- the amount of conversion specifiers in the format string.
+ fails safely if the amount of conversion specifiers in
+ the format string is unexpected.
 */
 static int cheat_fprintf(FILE* const stream,
 		char const* const format,
@@ -328,7 +327,7 @@ static int cheat_fprintf(FILE* const stream,
 	va_list list;
 	int result;
 
-	if (!cheat_check_format(format, count))
+	if (cheat_format_specifiers(format) != count)
 		return -1;
 
 	/* Side effects. */
@@ -340,48 +339,48 @@ static int cheat_fprintf(FILE* const stream,
 }
 
 /*
-Prepares a test suite.
+Clears a test suite.
 */
-static void cheat_initialize(struct cheat_suite* const suite,
-		char const* const program,
-		enum cheat_harness const harness,
-		enum cheat_style const style) {
+static void cheat_clear(struct cheat_suite* const suite) {
 	/* State transformations. */
 	suite->tests_successful = 0;
 	suite->tests_failed = 0;
 	suite->tests_run = 0;
 	suite->outcome = CHEAT_INDETERMINATE;
-	suite->message_count = 0;
-	suite->message_capacity = 0;
-	suite->messages = NULL; /* Memory A. */
-	suite->program = program;
-	suite->harness = harness;
-	suite->style = style;
+	if (suite->messages != NULL) {
+		while (suite->message_count > 0)
+			free(suite->messages[--suite->message_count]); /* Memory B. */
+		suite->message_capacity = 0;
+		free(suite->messages); /* Memory A. */
+		suite->messages = NULL;
+	}
+	suite->program = "cheat";
+	suite->harness = CHEAT_CALL;
+	suite->style = CHEAT_PLAIN;
 	suite->captured_stdout = stdout;
 }
 
 /*
-Destroys a test suite.
+Initializes an undefined test suite.
 */
-static void cheat_finalize(struct cheat_suite* const suite) {
+static void cheat_initialize(struct cheat_suite* const suite) {
 	/* State transformations. */
-	if (suite->messages != NULL) {
-		while (suite->message_count > 0)
-			free(suite->messages[--suite->message_count]); /* Memory B. */
-		free(suite->messages); /* Memory A. */
-	}
+	suite->message_count = 0;
+	suite->message_capacity = 0;
+	suite->messages = NULL;
+	cheat_clear(suite);
 }
 
 /*
-Prints a usage summary and
- returns the value 0 or
- the value -1 in case of an error.
+Prints a usage summary or
+ terminates the program in case of an error.
 */
 static void cheat_print_usage(struct cheat_suite const* const suite) {
 	/* Side effects. */
-	fputs("Usage: ", suite->captured_stdout);
-	fputs(suite->program, suite->captured_stdout);
-	fputs(" --colors --help --unsafe\n", suite->captured_stdout);
+	if (fputs("Usage: ", suite->captured_stdout) < 0
+			|| fputs(suite->program, suite->captured_stdout) < 0
+			|| fputs(" --colors --help --unsafe\n", suite->captured_stdout) < 0)
+		exit(EXIT_FAILURE);
 }
 
 /*
@@ -833,7 +832,10 @@ int main(int const count, char** const arguments) {
 	struct cheat_suite suite;
 	size_t index;
 
-	cheat_initialize(&suite, arguments[0], CHEAT_FORK, CHEAT_PLAIN);
+	cheat_initialize(&suite);
+	suite->program = arguments[0];
+	suite->harness = CHEAT_FORK;
+	suite->style = CHEAT_PLAIN;
 
 	if (count > 1) { /* TODO Use a proper parser. */
 		if (arguments[1][0] == '-') {
@@ -885,7 +887,7 @@ int main(int const count, char** const arguments) {
 
 	cheat_print_summary(&suite);
 
-	cheat_finalize(&suite);
+	cheat_clear(&suite);
 
 	if (suite.tests_failed == 0)
 		return EXIT_SUCCESS;
