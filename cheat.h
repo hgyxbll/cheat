@@ -332,7 +332,7 @@ static int cheat_print(char const* const format,
 
 	/* Side effects. */
 	va_start(list, count);
-	result = vfprintf(stream, stream, list);
+	result = vfprintf(stream, format, list);
 	va_end(list);
 
 	return result;
@@ -834,9 +834,9 @@ int main(int const count, char** const arguments) { /* TODO Split into other. */
 	size_t index;
 
 	cheat_initialize(&suite);
-	suite->program = arguments[0];
-	suite->harness = CHEAT_FORK;
-	suite->style = CHEAT_PLAIN;
+	suite.program = arguments[0];
+	suite.harness = CHEAT_FORK;
+	suite.style = CHEAT_PLAIN;
 
 	if (count > 1) { /* TODO Use a proper parser. */
 		if (arguments[1][0] == '-') {
