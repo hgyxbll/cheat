@@ -253,16 +253,17 @@ static size_t cheat_mean(size_t const size, size_t const another_size) {
 /*
 Returns a new size that
  has been incremented so that
- reallocation costs are minimized.
+ reallocation costs are minimized or
+ returns the old size unchanged in case of an error.
 */
 static size_t cheat_expand_size(size_t const size) {
 	if (size < sizeof (int))
 		return sizeof (int);
 
-	if (size > SIZE_MAX / 2)
+	if (size > SIZE_MAX / 2 + SIZE_MAX / 4)
 		return cheat_mean(size, SIZE_MAX);
 
-	return size * 2;
+	return size + size / 2;
 }
 
 /*
