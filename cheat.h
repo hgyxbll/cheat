@@ -256,7 +256,7 @@ Returns a new size that
  reallocation costs are minimized or
  returns the old size unchanged in case it is maximal.
 */
-static size_t cheat_expand_size(size_t const size) {
+static size_t cheat_expand(size_t const size) {
 	if (size < sizeof (int))
 		return sizeof (int);
 
@@ -300,8 +300,8 @@ Valid specifications start with '%' and
  are not immediately followed by '%' or '\0'.
 */
 static bool cheat_format_specifiers(char const* const format) {
-	size_t index;
 	size_t count;
+	size_t index;
 
 	count = 0;
 	for (index = 0;
@@ -317,12 +317,12 @@ static bool cheat_format_specifiers(char const* const format) {
 }
 
 /*
-Works like fprintf(), but
- fails safely if the amount of conversion specifiers in
- the format string is unexpected.
+Prints a formatted string to a stream or
+ fails safely in case the amount of conversion specifiers in
+ the format string does not match the expected count.
 */
-static int cheat_fprintf(FILE* const stream,
-		char const* const format,
+static int cheat_print(char const* const format,
+		FILE* const stream,
 		size_t const count, ...) {
 	va_list list;
 	int result;
@@ -332,7 +332,7 @@ static int cheat_fprintf(FILE* const stream,
 
 	/* Side effects. */
 	va_start(list, count);
-	result = vfprintf(stream, format, list);
+	result = vfprintf(stream, stream, list);
 	va_end(list);
 
 	return result;
@@ -377,15 +377,15 @@ Prints a usage summary or
 */
 static void cheat_print_usage(struct cheat_suite const* const suite) {
 	/* Side effects. */
-	if (fputs("Usage: ", suite->captured_stdout) < 0
-			|| fputs(suite->program, suite->captured_stdout) < 0
-			|| fputs(" --colors --help --unsafe\n", suite->captured_stdout) < 0)
-		exit(EXIT_FAILURE);
+	fputs("Usage: ", suite->captured_stdout);
+	fputs(suite->program, suite->captured_stdout);
+	fputs(" --colors --help --unsafe\n", suite->captured_stdout);
 }
 
 /*
 Prints the outcome of a single test and
- adds it to a suite.
+ adds it to a suite or
+ terminates the program in case of an error.
 */
 static void cheat_handle_outcome(struct cheat_suite* const suite) {
 	bool print_bar;
@@ -457,7 +457,8 @@ static void cheat_handle_outcome(struct cheat_suite* const suite) {
 }
 
 /*
-Prints a summary of all tests.
+Prints a summary of all tests or
+ terminates the program in case of an error.
 */
 static void cheat_print_summary(struct cheat_suite* const suite) {
 	bool any_successes;
@@ -544,16 +545,16 @@ static void cheat_print_summary(struct cheat_suite* const suite) {
 	}
 	if (print_summary) {
 		if (print_zero || any_successes)
-			cheat_fprintf(suite->captured_stdout, successful_format,
+			cheat_print(successful_format, suite->captured_stdout,
 					1, suite->tests_successful);
 		if (print_zero || (any_successes && any_failures))
 			fputs(and_string, suite->captured_stdout);
 		if (print_zero || any_failures)
-			cheat_fprintf(suite->captured_stdout, failed_format,
+			cheat_print(failed_format, suite->captured_stdout,
 					1, suite->tests_failed);
 		if (print_zero || (any_successes || any_failures))
 			fputs(of_string, suite->captured_stdout);
-		cheat_fprintf(suite->captured_stdout, run_format,
+		cheat_print(run_format, suite->captured_stdout,
 				1, suite->tests_run);
 		fputc('\n', suite->captured_stdout);
 	}
@@ -593,7 +594,7 @@ static void cheat_append_message(struct cheat_suite* const suite,
 	message[size] = '\0';
 
 	if (suite->message_count == suite->message_capacity) {
-		message_capacity = cheat_expand_size(suite->message_capacity);
+		message_capacity = cheat_expand(suite->message_capacity);
 		if (message_capacity == suite->message_capacity)
 			exit(EXIT_FAILURE);
 		messages = cheat_realloc_array(suite->messages,
@@ -620,8 +621,8 @@ static void cheat_check(struct cheat_suite* const suite,
 		char const* const assertion,
 		char const* const filename,
 		int const line) {
-	char const* format;
 	bool print_assertion;
+	char const* format;
 
 	switch (suite->style) {
 	case CHEAT_COLORFUL: /* TODO Inherit settings. */
@@ -648,7 +649,7 @@ static void cheat_check(struct cheat_suite* const suite,
 	if (print_assertion) {
 		suite->outcome = CHEAT_FAILURE;
 		if (suite->harness == CHEAT_FORK) {
-			cheat_fprintf(suite->captured_stdout, format,
+			cheat_print(format, suite->captured_stdout,
 					3, filename, line, assertion);
 		} else {
 			char* buffer = NULL;
@@ -828,7 +829,7 @@ Parses options,
  returns EXIT_SUCCESS in case all tests passed or
  EXIT_FAILURE in case of an error.
 */
-int main(int const count, char** const arguments) {
+int main(int const count, char** const arguments) { /* TODO Split into other. */
 	struct cheat_suite suite;
 	size_t index;
 
@@ -857,7 +858,8 @@ int main(int const count, char** const arguments) {
 			for (index = 0;
 					index < cheat_procedure_count;
 					++index) {
-				struct cheat_procedure const* procedure = &cheat_procedures[index];
+				struct cheat_procedure const* const procedure
+						= &cheat_procedures[index];
 
 				if (procedure->type == CHEAT_TESTER
 						&& strcmp(arguments[1], procedure->name) == 0)
