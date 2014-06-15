@@ -99,22 +99,32 @@ Tests compile into an executable
     FAILURE
 
 The executable runs tests in
- an isolated subprocess, so
- the framework does not crash if
+ an isolated subprocess by default, so
+ the suite does not crash if
  one of the tests does.
-The `-u` for `--unsafe` flag allows
+The `-u` for `--unsafe` option allows
  running everything in the same process if
  `fork()` is unsupported, fails or
- something else equally fun happens.
+ something else equally fun happens and
+ the `-d` for `--dangerous` option allows
+ suppressing signals like `SIGFPE` and `SIGSEGV`,
+ most likely leading to undefined behavior.
+Luckily undefined behavior is often defined enough behavior.
 
 The results are reported in plain text by default, but
  the format can be changed easily.
-The `-c` for `--colors` flag makes everything colorful,
- the `-m` for `--minimal` flag makes the report machine readable and
- the `-x` for `--xml` flag does nothing for good measure.
+The `-c` for `--colorful` option makes everything colorful,
+ the `-m` for `--minimal` option makes the report machine readable and
+ the `-x` for `--xml` option does nothing for good measure.
 
     [user@computer ~/project]$ ./tests -m
     4 2 8
+
+Other obvious options are
+ `-h` for `--help`,
+ `-l` for `--list`,
+ `-p` for `--plain` and
+ `-s` for `--safe`.
 
 ### Complicated Tests
 

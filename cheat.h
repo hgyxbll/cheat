@@ -74,8 +74,7 @@ enum cheat_harness {
 	CHEAT_SAFE, /* Tests are called in their own subprocesses that
 			are monitored. */
 	CHEAT_DANGEROUS /* Tests are called and
-			handling the signals they may raise is attempted,
-			most likely leading to undefined behavior. */
+			suppressing the signals they may raise is attempted. */
 };
 
 enum cheat_style {
@@ -251,6 +250,10 @@ The third pass continues past the end of this file, but
 
 static jmp_buf cheat_jmp_buf;
 
+/*
+Suppresses a signal and
+ returns to a point before it was raised.
+*/
 static void cheat_handle_signal(int const number) {
 	longjmp(cheat_jmp_buf, number);
 }
@@ -433,7 +436,46 @@ __attribute__ ((__io__, __nonnull__))
 static void cheat_print_usage(struct cheat_suite const* const suite) {
 	fputs("Usage: ", suite->captured_stdout);
 	fputs(suite->program, suite->captured_stdout);
-	fputs(" -c -d -h -m -p -s -u\n", suite->captured_stdout);
+	fputs(" [option] [another option] [...]\n", suite->captured_stdout);
+	fputs("\
+Options: -c  --colorful   Use ISO/IEC 6429 escape codes to color reports\n\
+         -d  --dangerous  Pretend that crashing tests do\n\
+                          not cause undefined behavior\n\
+         -h  --help       Show this help\n\
+         -l  --list       List test cases\n\
+         -m  --minimal    Only report the amounts of successes, failures\n\
+                          and tests run in a machine readable format\n\
+         -p  --plain      Present reports in plain text\n\
+         -s  --safe       Run tests in isolated subprocesses\n\
+         -u  --unsafe     Let crashing tests to bring down the whole suite\n\
+", suite->captured_stdout);
+}
+
+/*
+Prints a list of tests.
+*/
+__attribute__ ((__io__, __nonnull__))
+static void cheat_print_tests(struct cheat_suite const* const suite) {
+	size_t index;
+	bool first;
+
+	first = true;
+	for (index = 0;
+			index < cheat_procedure_count;
+			++index) {
+		struct cheat_procedure const* procedure;
+
+		procedure = &cheat_procedures[index];
+		if (procedure->type == CHEAT_TESTER) {
+			if (first) {
+				fputs("Tests: ", suite->captured_stdout);
+				first = false;
+			} else
+				fputs("       ", suite->captured_stdout);
+			fputs(procedure->name, suite->captured_stdout);
+			fputc('\n', suite->captured_stdout);
+		}
+	}
 }
 
 /*
@@ -602,7 +644,7 @@ static void cheat_print_summary(struct cheat_suite* const suite) {
 	}
 }
 
-__attribute__ ((__pure__, __warn_unused_result__))
+__attribute__ ((__nonnull__, __pure__, __warn_unused_result__))
 static struct cheat_procedure const* cheat_find_test(struct cheat_suite* const suite,
 		char const* const name) {
 	struct cheat_procedure const* procedure;
@@ -626,6 +668,7 @@ Adds a message in
  the form of a byte buffer to
  the queue of a test suite.
 */
+__attribute__ ((__nonnull__))
 static void cheat_append_message(struct cheat_suite* const suite,
 		unsigned char const* const data, size_t const size) {
 	size_t message_capacity;
@@ -675,7 +718,7 @@ static void cheat_append_message(struct cheat_suite* const suite,
 Checks a single assertion and
  prints an error message if it fails.
 */
-__attribute__ ((__io__))
+__attribute__ ((__io__, __nonnull__))
 static void cheat_check(struct cheat_suite* const suite,
 		int const result,
 		char const* const assertion,
@@ -737,7 +780,7 @@ static void cheat_check(struct cheat_suite* const suite,
 Creates a subprocess and
  runs a test in it.
 */
-__attribute__ ((__io__))
+__attribute__ ((__io__, __nonnull__))
 static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 		struct cheat_suite* const suite) {
 #if _POSIX_C_SOURCE >= 200112L
@@ -866,7 +909,7 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 Runs a test from
  a test suite.
 */
-__attribute__ ((__io__, __warn_unused_result__))
+__attribute__ ((__io__, __nonnull__, __warn_unused_result__))
 static enum cheat_outcome cheat_run_test(struct cheat_suite* const suite,
 		struct cheat_procedure const* const procedure) {
 	size_t index;
@@ -890,12 +933,13 @@ static enum cheat_outcome cheat_run_test(struct cheat_suite* const suite,
 	return suite->outcome;
 }
 
-__attribute__ ((__io__))
+__attribute__ ((__io__, __nonnull__))
 static void cheat_parse(struct cheat_suite* const suite,
 		char* const* const tokens, size_t const count) {
 	bool colorful;
 	bool dangerous;
 	bool help;
+	bool list;
 	bool minimal;
 	bool plain;
 	bool safe;
@@ -909,6 +953,7 @@ static void cheat_parse(struct cheat_suite* const suite,
 	colorful = false;
 	dangerous = false;
 	help = false;
+	list = false;
 	minimal = false;
 	plain = false;
 	safe = false;
@@ -930,6 +975,9 @@ static void cheat_parse(struct cheat_suite* const suite,
 			else if (strcmp(tokens[index], "-h") == 0
 					|| strcmp(tokens[index], "--help") == 0)
 				help = true;
+			else if (strcmp(tokens[index], "-l") == 0
+					|| strcmp(tokens[index], "--list") == 0)
+				list = true;
 			else if (strcmp(tokens[index], "-m") == 0
 					|| strcmp(tokens[index], "--minimal") == 0)
 				minimal = true;
@@ -953,10 +1001,10 @@ static void cheat_parse(struct cheat_suite* const suite,
 	}
 	test = names != 0;
 
-	if (help && !minimal && !safe && !test && !unsafe) { /* TODO This logic. */
-		if (colorful)
-			suite->style = CHEAT_COLORFUL;
+	if (help) { /* TODO This logic. */
 		cheat_print_usage(suite);
+	} else if (list) {
+		cheat_print_tests(suite);
 	} else if (!(colorful && minimal) && !help) {
 		if (plain)
 			suite->style = CHEAT_PLAIN;
@@ -989,6 +1037,7 @@ static void cheat_parse(struct cheat_suite* const suite,
 					index < cheat_procedure_count;
 					++index) {
 				struct cheat_procedure const* procedure;
+				enum cheat_outcome outcome;
 
 				procedure = &cheat_procedures[index];
 				if (procedure->type != CHEAT_TESTER)
@@ -997,11 +1046,11 @@ static void cheat_parse(struct cheat_suite* const suite,
 					cheat_run_isolated_test(procedure, suite);
 				else if (suite->harness == CHEAT_DANGEROUS) {
 					if (setjmp(cheat_jmp_buf) == 0)
-						cheat_run_test(suite, procedure);
+						outcome = cheat_run_test(suite, procedure);
 					else
 						suite->outcome = CHEAT_CRASHED;
 				} else
-					cheat_run_test(suite, procedure);
+					outcome = cheat_run_test(suite, procedure);
 				cheat_handle_outcome(suite);
 				cheat_print_outcome(suite);
 			}
@@ -1018,7 +1067,7 @@ Runs tests from the main test suite and
  returns EXIT_SUCCESS in case all tests passed or
  EXIT_FAILURE in case of an error.
 */
-__attribute__ ((__io__))
+__attribute__ ((__io__, __nonnull__))
 int main(int const count, char** const arguments) {
 	struct cheat_suite suite;
 	size_t result;
