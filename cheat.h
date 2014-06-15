@@ -355,7 +355,7 @@ Prints a custom error message.
 */
 __attribute__ ((__io__, __nonnull__))
 static void cheat_print_error(char const* const message) {
-	fputs(message, stderr);
+	fputs(message, stderr); /* TODO Replace perror() with more detail. */
 	fputs(": Failure\n", stderr);
 }
 
@@ -591,6 +591,23 @@ static void cheat_print_summary(struct cheat_suite* const suite) {
 		fputs(conclusion_string, suite->captured_stdout);
 		fputc('\n', suite->captured_stdout);
 	}
+}
+
+__attribute__ ((__pure__, __warn_unused_result__))
+static struct cheat_procedure* cheat_find_test(struct cheat_suite* const suite,
+		char const* const name) {
+	struct cheat_procedure const* procedure;
+	size_t index;
+
+	for (index = 0;
+			index < cheat_procedure_count;
+			++index) {
+		procedure = &cheat_procedures[index];
+		if (procedure->type == CHEAT_TESTER
+				&& strcmp(procedure->name, name) == 0)
+			return procedure;
+	}
+	return NULL;
 }
 
 /* --- Things below this line are bad. --- */
@@ -838,8 +855,8 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 Runs a test from
  a test suite.
 */
-static enum cheat_outcome cheat_run_test(struct cheat_procedure const* const procedure,
-		struct cheat_suite* const suite) {
+static enum cheat_outcome cheat_run_test(struct cheat_suite* const suite,
+		struct cheat_procedure const* const procedure) {
 	size_t index;
 
 	suite->outcome = CHEAT_SUCCESS;
@@ -859,6 +876,89 @@ static enum cheat_outcome cheat_run_test(struct cheat_procedure const* const pro
 			((cheat_utility* )cheat_procedures[index].procedure)();
 
 	return suite->outcome;
+}
+
+/*
+Suite:
+cheat
+cheat --colors
+cheat --minimal
+cheat --unsafe
+cheat --unsafe --colors
+cheat --unsafe --minimal
+
+Test:
+cheat test
+cheat --colors test
+cheat --minimal test
+cheat --unsafe test
+cheat --unsafe --colors test
+cheat --unsafe --minimal test
+
+Help:
+cheat --help
+cheat --help --colors
+*/
+static void cheat_parse(struct cheat_suite* const suite,
+		char const* const* const tokens, size_t const count) {
+	bool colors;
+	bool help;
+	bool minimal;
+	bool test;
+	bool unsafe;
+	size_t names;
+	char const* name;
+	bool parse_options;
+	size_t index;
+
+	colors = false;
+	help = false;
+	minimal = false;
+	unsafe = false;
+	names = 0;
+	parse_options = true;
+	for (index = 0;
+			index < count;
+			++index) {
+		if (parse_options && tokens[index][0] == '-') {
+			if (strcmp(tokens[index], "--") == 0)
+				parse_options = false;
+			else if (strcmp(tokens[index], "-c") == 0
+					|| strcmp(tokens[index], "--colors") == 0)
+				colors = true;
+			else if (strcmp(tokens[index], "-h") == 0
+					|| strcmp(tokens[index], "--help") == 0)
+				help = true;
+			else if (strcmp(tokens[index], "-m") == 0
+					|| strcmp(tokens[index], "--minimal") == 0)
+				minimal = true;
+			else if (strcmp(tokens[index], "-u") == 0
+					|| strcmp(tokens[index], "--unsafe") == 0)
+				unsafe = true;
+			else {
+				cheat_print_error("cheat_parse");
+				exit(EXIT_FAILURE);
+			}
+		} else {
+			++names;
+			name = tokens[index];
+		}
+	}
+	test = names != 0;
+
+	if (help && !minimal && !test && !unsafe) {
+		; /* cheat_set_things(); */
+		cheat_print_usage(suite);
+	} else if (!(colors && minimal) && !help) {
+		; /* cheat_set_things(); */
+		if (test)
+			; /* cheat_run_test(&suite, name); */
+		else
+			; /* cheat_run_test_suite(&suite); */
+	} else {
+		cheat_print_error("cheat_parse");
+		exit(EXIT_FAILURE);
+	}
 }
 
 /*
@@ -893,19 +993,14 @@ int main(int const count, char** const arguments) { /* TODO Split into other. */
 					|| strcmp(arguments[1], "--unsafe") == 0)
 				suite.harness = CHEAT_CALL;
 		} else { /* TODO Use an undocumented flag to specify a subprocess. */
-			for (index = 0;
-					index < cheat_procedure_count;
-					++index) {
-				struct cheat_procedure const* const procedure
-						= &cheat_procedures[index];
+			/* TODO Return a value that is suitable for WEXITSTATUS. */
+			struct cheat_procedure const* procedure;
 
-				if (procedure->type == CHEAT_TESTER
-						&& strcmp(arguments[1], procedure->name) == 0)
-					return cheat_run_test(procedure, &suite);
-					/* TODO Return a value that is suitable for WEXITSTATUS. */
-			}
+			procedure = cheat_find_test(&suite, arguments[1]);
+			if (procedure == NULL)
+				exit(EXIT_FAILURE);
 
-			return -1;
+			return cheat_run_test(&suite, procedure);
 		}
 	}
 
@@ -920,7 +1015,7 @@ int main(int const count, char** const arguments) { /* TODO Split into other. */
 		if (suite.harness == CHEAT_FORK)
 			cheat_run_isolated_test(procedure, &suite);
 		else
-			cheat_run_test(procedure, &suite);
+			cheat_run_test(&suite, procedure);
 
 		cheat_handle_outcome(&suite);
 
