@@ -594,7 +594,7 @@ static void cheat_print_summary(struct cheat_suite* const suite) {
 }
 
 __attribute__ ((__pure__, __warn_unused_result__))
-static struct cheat_procedure* cheat_find_test(struct cheat_suite* const suite,
+static struct cheat_procedure const* cheat_find_test(struct cheat_suite* const suite,
 		char const* const name) {
 	struct cheat_procedure const* procedure;
 	size_t index;
@@ -900,11 +900,12 @@ cheat --help
 cheat --help --colors
 */
 static void cheat_parse(struct cheat_suite* const suite,
-		char const* const* const tokens, size_t const count) {
+		char* const* const tokens, size_t const count) {
 	bool colors;
 	bool help;
 	bool minimal;
 	bool test;
+	bool safe;
 	bool unsafe;
 	size_t names;
 	char const* name;
@@ -932,6 +933,9 @@ static void cheat_parse(struct cheat_suite* const suite,
 			else if (strcmp(tokens[index], "-m") == 0
 					|| strcmp(tokens[index], "--minimal") == 0)
 				minimal = true;
+			else if (strcmp(tokens[index], "-s") == 0
+					|| strcmp(tokens[index], "--safe") == 0)
+				safe = true;
 			else if (strcmp(tokens[index], "-u") == 0
 					|| strcmp(tokens[index], "--unsafe") == 0)
 				unsafe = true;
@@ -946,15 +950,44 @@ static void cheat_parse(struct cheat_suite* const suite,
 	}
 	test = names != 0;
 
-	if (help && !minimal && !test && !unsafe) {
-		; /* cheat_set_things(); */
+	if (help && !minimal && !safe && !test && !unsafe) {
+		if (colors)
+			suite->style = CHEAT_COLORFUL;
 		cheat_print_usage(suite);
 	} else if (!(colors && minimal) && !help) {
-		; /* cheat_set_things(); */
-		if (test)
-			; /* cheat_run_test(&suite, name); */
-		else
-			; /* cheat_run_test_suite(&suite); */
+		if (colors)
+			suite->style = CHEAT_COLORFUL;
+		if (minimal)
+			suite->style = CHEAT_MINIMAL;
+		if (safe)
+			suite->harness = CHEAT_FORK;
+		if (unsafe)
+			suite->harness = CHEAT_CALL;
+		if (test) {
+			struct cheat_procedure const* procedure;
+
+			procedure = cheat_find_test(suite, name);
+			if (procedure == NULL)
+				exit(EXIT_FAILURE);
+			exit(cheat_run_test(suite, procedure)); /* TODO Something. */
+		} else {
+			for (index = 0;
+					index < cheat_procedure_count;
+					++index) {
+				struct cheat_procedure const* procedure;
+
+				procedure = &cheat_procedures[index];
+				if (procedure->type != CHEAT_TESTER)
+					continue;
+				if (suite->harness == CHEAT_FORK)
+					cheat_run_isolated_test(procedure, suite);
+				else
+					cheat_run_test(suite, procedure);
+				cheat_handle_outcome(suite);
+				cheat_print_outcome(suite);
+			}
+			cheat_print_summary(suite);
+		}
 	} else {
 		cheat_print_error("cheat_parse");
 		exit(EXIT_FAILURE);
@@ -962,71 +995,22 @@ static void cheat_parse(struct cheat_suite* const suite,
 }
 
 /*
-Parses options,
- runs test cases with them and
+Runs tests from the main test suite and
  returns EXIT_SUCCESS in case all tests passed or
  EXIT_FAILURE in case of an error.
 */
-int main(int const count, char** const arguments) { /* TODO Split into other. */
+int main(int const count, char** const arguments) {
 	struct cheat_suite suite;
-	size_t index;
+	size_t result;
 
 	cheat_initialize(&suite);
 	suite.program = arguments[0];
 	suite.harness = CHEAT_FORK;
 	suite.style = CHEAT_PLAIN;
-
-	if (count > 1) { /* TODO Use a proper parser. */
-		if (arguments[1][0] == '-') {
-			if (strcmp(arguments[1], "-c") == 0
-					|| strcmp(arguments[1], "--colors") == 0)
-				suite.style = CHEAT_COLORFUL;
-			if (strcmp(arguments[1], "-h") == 0
-					|| strcmp(arguments[1], "--help") == 0) {
-				cheat_print_usage(&suite);
-				return EXIT_SUCCESS;
-			}
-			if (strcmp(arguments[1], "-m") == 0
-					|| strcmp(arguments[1], "--minimal") == 0)
-				suite.style = CHEAT_MINIMAL;
-			if (strcmp(arguments[1], "-u") == 0
-					|| strcmp(arguments[1], "--unsafe") == 0)
-				suite.harness = CHEAT_CALL;
-		} else { /* TODO Use an undocumented flag to specify a subprocess. */
-			/* TODO Return a value that is suitable for WEXITSTATUS. */
-			struct cheat_procedure const* procedure;
-
-			procedure = cheat_find_test(&suite, arguments[1]);
-			if (procedure == NULL)
-				exit(EXIT_FAILURE);
-
-			return cheat_run_test(&suite, procedure);
-		}
-	}
-
-	for (index = 0;
-			index < cheat_procedure_count;
-			++index) {
-		struct cheat_procedure const* procedure = &cheat_procedures[index];
-
-		if (procedure->type != CHEAT_TESTER)
-			continue;
-
-		if (suite.harness == CHEAT_FORK)
-			cheat_run_isolated_test(procedure, &suite);
-		else
-			cheat_run_test(&suite, procedure);
-
-		cheat_handle_outcome(&suite);
-
-		cheat_print_outcome(&suite);
-	}
-
-	cheat_print_summary(&suite);
-
+	cheat_parse(&suite, &arguments[1], (size_t )(count - 1));
+	result = suite.tests_failed;
 	cheat_clear(&suite);
-
-	if (suite.tests_failed == 0)
+	if (result == 0)
 		return EXIT_SUCCESS;
 	return EXIT_FAILURE;
 }
