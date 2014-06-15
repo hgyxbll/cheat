@@ -278,10 +278,10 @@ static size_t cheat_expand(size_t const size) {
 /*
 Finds the amount of conversion specifiers in
  a format string.
-Valid specifications start with '%' and
+Valid specifiers start with '%' and
  are not immediately followed by '%' or '\0'.
 */
-__attribute__ ((__nonnull__ (1), __pure__, __warn_unused_result__))
+__attribute__ ((__nonnull__, __pure__, __warn_unused_result__))
 static size_t cheat_format_specifiers(char const* const format) {
 	size_t count;
 	size_t index;
