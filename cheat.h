@@ -22,18 +22,26 @@ Identifiers starting with
 #endif
 
 /*
-Headers used here are also
- available externally even though
- they should not be.
+This disables GNU extensions when
+ using compilers that do not support them.
 */
+#ifndef __GNUC__
+#define __attribute__(_)
+#else
+#define __io__ __cold__ /* This is informational. */
+#endif
 
+/*
+These headers are also
+ available externally even though
+ they do not need to be.
+*/
 #include <limits.h> /* INT_MAX */
 #include <stdarg.h> /* va_list */
 #include <stddef.h> /* NULL, size_t */
 #include <stdio.h> /* BUFSIZ, FILE, stderr, stdout */
 #include <stdlib.h> /* EXIT_FAILURE, EXIT_SUCCESS */
 #include <string.h>
-
 #if __STDC_VERSION__ >= 199901L
 #include <stdbool.h> /* bool, false, true */
 #include <stdint.h> /* SIZE_MAX */
@@ -43,7 +51,6 @@ typedef int bool;
 #define true 1
 #define SIZE_MAX ((size_t )-1)
 #endif
-
 #if _POSIX_C_SOURCE >= 200112L
 #include <unistd.h> /* STDOUT_FILENO */
 #include <sys/types.h> /* pid_t, ssize_t */
@@ -243,9 +250,10 @@ The third pass continues past the end of this file, but
 Calculates the arithmetic mean of two sizes and
  returns it.
 */
+__attribute__ ((__const__, __warn_unused_result__))
 static size_t cheat_mean(size_t const size, size_t const another_size) {
 	if (another_size < size)
-		cheat_mean(another_size, size);
+		return cheat_mean(another_size, size);
 
 	return size + (another_size - size) / 2;
 }
@@ -256,6 +264,7 @@ Returns a new size that
  reallocation costs are minimized or
  returns the old size unchanged in case it is maximal.
 */
+__attribute__ ((__pure__, __warn_unused_result__))
 static size_t cheat_expand(size_t const size) {
 	if (size < sizeof (int))
 		return sizeof (int);
@@ -267,39 +276,13 @@ static size_t cheat_expand(size_t const size) {
 }
 
 /*
-Safely allocates memory for
- a block of size (size + extra_size) and
- returns a pointer to the allocated region or
- returns NULL in case of a failure.
-*/
-static void* cheat_malloc_total(size_t const size, size_t const extra_size) {
-	if (extra_size > SIZE_MAX - size)
-		return NULL;
-
-	return malloc(size + extra_size);
-}
-
-/*
-Safely reallocates memory for
- an array of size (count * size) and
- returns a pointer to the allocated region or
- returns NULL in case of a failure.
-*/
-static void* cheat_realloc_array(void* const pointer,
-		size_t const count, size_t const size) {
-	if (count > SIZE_MAX / size)
-		return NULL;
-
-	return realloc(pointer, count * size);
-}
-
-/*
 Finds the amount of conversion specifiers in
  a format string.
 Valid specifications start with '%' and
  are not immediately followed by '%' or '\0'.
 */
-static bool cheat_format_specifiers(char const* const format) {
+__attribute__ ((__nonnull__ (1), __pure__, __warn_unused_result__))
+static size_t cheat_format_specifiers(char const* const format) {
 	size_t count;
 	size_t index;
 
@@ -317,10 +300,40 @@ static bool cheat_format_specifiers(char const* const format) {
 }
 
 /*
+Safely allocates memory for
+ a block of size (size + extra_size) and
+ returns a pointer to the allocated region or
+ returns NULL in case of a failure.
+*/
+__attribute__ ((__malloc__, __warn_unused_result__))
+static void* cheat_malloc_total(size_t const size, size_t const extra_size) {
+	if (extra_size > SIZE_MAX - size)
+		return NULL;
+
+	return malloc(size + extra_size);
+}
+
+/*
+Safely reallocates memory for
+ an array of size (count * size) and
+ returns a pointer to the allocated region or
+ returns NULL in case of a failure.
+*/
+__attribute__ ((__warn_unused_result__))
+static void* cheat_realloc_array(void* const pointer,
+		size_t const count, size_t const size) {
+	if (count > SIZE_MAX / size)
+		return NULL;
+
+	return realloc(pointer, count * size);
+}
+
+/*
 Prints a formatted string to a stream or
  fails safely in case the amount of conversion specifiers in
  the format string does not match the expected count.
 */
+__attribute__ ((__format__ (printf, 1, 4), __io__, __nonnull__ (1)))
 static int cheat_print(char const* const format,
 		FILE* const stream,
 		size_t const count, ...) {
@@ -330,7 +343,6 @@ static int cheat_print(char const* const format,
 	if (cheat_format_specifiers(format) != count)
 		return -1;
 
-	/* Side effects. */
 	va_start(list, count);
 	result = vfprintf(stream, format, list);
 	va_end(list);
@@ -339,10 +351,19 @@ static int cheat_print(char const* const format,
 }
 
 /*
+Prints a custom error message.
+*/
+__attribute__ ((__io__, __nonnull__))
+static void cheat_print_error(char const* const message) {
+	fputs(message, stderr);
+	fputs(": Failure\n", stderr);
+}
+
+/*
 Clears a test suite.
 */
+__attribute__ ((__nonnull__))
 static void cheat_clear(struct cheat_suite* const suite) {
-	/* State transformations. */
 	suite->tests_successful = 0;
 	suite->tests_failed = 0;
 	suite->tests_run = 0;
@@ -363,8 +384,8 @@ static void cheat_clear(struct cheat_suite* const suite) {
 /*
 Initializes an undefined test suite.
 */
+__attribute__ ((__nonnull__))
 static void cheat_initialize(struct cheat_suite* const suite) {
-	/* State transformations. */
 	suite->message_count = 0;
 	suite->message_capacity = 0;
 	suite->messages = NULL;
@@ -372,22 +393,46 @@ static void cheat_initialize(struct cheat_suite* const suite) {
 }
 
 /*
-Prints a usage summary or
+Adds the outcome of a single test to a suite or
  terminates the program in case of an error.
 */
+__attribute__ ((__nonnull__))
+static void cheat_handle_outcome(struct cheat_suite* const suite) {
+	++suite->tests_run;
+	switch (suite->outcome) {
+	case CHEAT_SUCCESS:
+		++suite->tests_successful;
+		break;
+	case CHEAT_FAILURE:
+		++suite->tests_failed;
+		break;
+	case CHEAT_IGNORED:
+		break;
+	case CHEAT_CRASHED:
+		++suite->tests_failed;
+		break;
+	default:
+		cheat_print_error("cheat_handle_outcome");
+		exit(EXIT_FAILURE);
+	}
+}
+
+/*
+Prints a usage summary.
+*/
+__attribute__ ((__io__, __nonnull__))
 static void cheat_print_usage(struct cheat_suite const* const suite) {
-	/* Side effects. */
 	fputs("Usage: ", suite->captured_stdout);
 	fputs(suite->program, suite->captured_stdout);
 	fputs(" --colors --help --unsafe\n", suite->captured_stdout);
 }
 
 /*
-Prints the outcome of a single test and
- adds it to a suite or
+Prints the outcome of a single test or
  terminates the program in case of an error.
 */
-static void cheat_handle_outcome(struct cheat_suite* const suite) {
+__attribute__ ((__io__, __nonnull__))
+static void cheat_print_outcome(struct cheat_suite* const suite) {
 	bool print_bar;
 	char const* success;
 	char const* failure;
@@ -413,28 +458,10 @@ static void cheat_handle_outcome(struct cheat_suite* const suite) {
 		print_bar = false;
 		break;
 	default:
+		cheat_print_error("cheat_print_outcome");
 		exit(EXIT_FAILURE);
 	}
 
-	/* State transformations. */
-	++suite->tests_run;
-	switch (suite->outcome) {
-	case CHEAT_SUCCESS:
-		++suite->tests_successful;
-		break;
-	case CHEAT_FAILURE:
-		++suite->tests_failed;
-		break;
-	case CHEAT_IGNORED:
-		break;
-	case CHEAT_CRASHED:
-		++suite->tests_failed;
-		break;
-	default:
-		exit(EXIT_FAILURE);
-	}
-
-	/* Side effects. */
 	if (print_bar) {
 		switch (suite->outcome) {
 		case CHEAT_SUCCESS:
@@ -450,6 +477,7 @@ static void cheat_handle_outcome(struct cheat_suite* const suite) {
 			fputs(crashed, suite->captured_stdout);
 			break;
 		default:
+			cheat_print_error("cheat_print_outcome");
 			exit(EXIT_FAILURE);
 		}
 		fflush(suite->captured_stdout);
@@ -460,6 +488,7 @@ static void cheat_handle_outcome(struct cheat_suite* const suite) {
 Prints a summary of all tests or
  terminates the program in case of an error.
 */
+__attribute__ ((__io__, __nonnull__))
 static void cheat_print_summary(struct cheat_suite* const suite) {
 	bool any_successes;
 	bool any_failures;
@@ -524,10 +553,10 @@ static void cheat_print_summary(struct cheat_suite* const suite) {
 		run_format = "%zu";
 		break;
 	default:
+		cheat_print_error("cheat_print_summary");
 		exit(EXIT_FAILURE);
 	}
 
-	/* Side effects. */
 	if (print_messages && any_run) {
 		fputc('\n', suite->captured_stdout);
 		if (suite->messages != NULL) {
@@ -581,8 +610,10 @@ static void cheat_append_message(struct cheat_suite* const suite,
 	if (size == 0)
 		return;
 
-	if (suite->message_count == SIZE_MAX)
+	if (suite->message_count == SIZE_MAX) {
+		cheat_print_error("cheat_append_message");
 		exit(EXIT_FAILURE);
+	}
 	message_count = suite->message_count + 1;
 
 	message = cheat_malloc_total(size, 1); /* Memory B. */
@@ -595,13 +626,15 @@ static void cheat_append_message(struct cheat_suite* const suite,
 
 	if (suite->message_count == suite->message_capacity) {
 		message_capacity = cheat_expand(suite->message_capacity);
-		if (message_capacity == suite->message_capacity)
+		if (message_capacity == suite->message_capacity) {
+			cheat_print_error("cheat_append_message");
 			exit(EXIT_FAILURE);
+		}
 		messages = cheat_realloc_array(suite->messages,
 				message_capacity,
 				sizeof *suite->messages); /* Memory A. */
 		if (messages == NULL) {
-			perror("realloc"); /* TODO No errno is set? */
+			perror("realloc");
 			exit(EXIT_FAILURE);
 		}
 		suite->message_capacity = message_capacity;
@@ -640,6 +673,7 @@ static void cheat_check(struct cheat_suite* const suite,
 		print_assertion = false;
 		break;
 	default:
+		cheat_print_error("cheat_check");
 		exit(EXIT_FAILURE);
 	}
 
@@ -700,8 +734,11 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 			exit(EXIT_FAILURE);
 		}
 		/* Why exec? */
-		if (execl(suite->program, suite->program, test->name, NULL) == -1)
+		if (execl(suite->program, suite->program, test->name, NULL) == -1) {
 			perror("execl");
+			exit(EXIT_FAILURE);
+		}
+		cheat_print_error("cheat_run_isolated_test");
 		exit(EXIT_FAILURE);
 	} else {
 		ssize_t size;
@@ -792,6 +829,7 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 	CloseHandle(pi.hThread);
 #else /* TODO Move into main and fall back to CHEAT_CALL. */
 #warning "Isolated tests are unsupported. See the README file for help."
+	cheat_print_error("cheat_run_isolated_test");
 	exit(EXIT_FAILURE);
 #endif
 }
@@ -885,6 +923,8 @@ int main(int const count, char** const arguments) { /* TODO Split into other. */
 			cheat_run_test(procedure, &suite);
 
 		cheat_handle_outcome(&suite);
+
+		cheat_print_outcome(&suite);
 	}
 
 	cheat_print_summary(&suite);
