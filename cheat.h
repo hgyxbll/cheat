@@ -37,6 +37,8 @@ These headers are also
  they do not need to be.
 */
 #include <limits.h> /* INT_MAX */
+#include <setjmp.h> /* jmp_buf */
+#include <signal.h> /* SIGABRT, SIGFPE, SIGILL, SIGSEGV, SIGTERM */
 #include <stdarg.h> /* va_list */
 #include <stddef.h> /* NULL, size_t */
 #include <stdio.h> /* BUFSIZ, FILE, stderr, stdout */
@@ -68,11 +70,12 @@ enum cheat_outcome {
 };
 
 enum cheat_harness {
-	CHEAT_CALL, /* Tests are called without any security measures. */
-	CHEAT_SIGNAL_HANDLER, /* Tests are called and
-			handling the signals they raise is attempted. */
-	CHEAT_FORK /* Tests are called in their own subprocesses that
+	CHEAT_UNSAFE, /* Tests are called without any security measures. */
+	CHEAT_SAFE, /* Tests are called in their own subprocesses that
 			are monitored. */
+	CHEAT_DANGEROUS /* Tests are called and
+			handling the signals they may raise is attempted,
+			most likely leading to undefined behavior. */
 };
 
 enum cheat_style {
@@ -246,6 +249,12 @@ The third pass continues past the end of this file, but
  the definitions for it end here.
 */
 
+static jmp_buf cheat_jmp_buf;
+
+static void cheat_handle_signal(int const number) {
+	longjmp(cheat_jmp_buf, number);
+}
+
 /*
 Calculates the arithmetic mean of two sizes and
  returns it.
@@ -376,7 +385,7 @@ static void cheat_clear(struct cheat_suite* const suite) {
 		suite->messages = NULL;
 	}
 	suite->program = "cheat";
-	suite->harness = CHEAT_CALL;
+	suite->harness = CHEAT_UNSAFE;
 	suite->style = CHEAT_PLAIN;
 	suite->captured_stdout = stdout;
 }
@@ -424,7 +433,7 @@ __attribute__ ((__io__, __nonnull__))
 static void cheat_print_usage(struct cheat_suite const* const suite) {
 	fputs("Usage: ", suite->captured_stdout);
 	fputs(suite->program, suite->captured_stdout);
-	fputs(" --colors --help --unsafe\n", suite->captured_stdout);
+	fputs(" -c -d -h -m -p -s -u\n", suite->captured_stdout);
 }
 
 /*
@@ -666,6 +675,7 @@ static void cheat_append_message(struct cheat_suite* const suite,
 Checks a single assertion and
  prints an error message if it fails.
 */
+__attribute__ ((__io__))
 static void cheat_check(struct cheat_suite* const suite,
 		int const result,
 		char const* const assertion,
@@ -699,7 +709,7 @@ static void cheat_check(struct cheat_suite* const suite,
 
 	if (print_assertion) {
 		suite->outcome = CHEAT_FAILURE;
-		if (suite->harness == CHEAT_FORK) {
+		if (suite->harness == CHEAT_SAFE) {
 			cheat_print(format, suite->captured_stdout,
 					3, filename, line, assertion);
 		} else {
@@ -727,6 +737,7 @@ static void cheat_check(struct cheat_suite* const suite,
 Creates a subprocess and
  runs a test in it.
 */
+__attribute__ ((__io__))
 static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 		struct cheat_suite* const suite) {
 #if _POSIX_C_SOURCE >= 200112L
@@ -844,7 +855,7 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 
 	CloseHandle(pi.hProcess);
 	CloseHandle(pi.hThread);
-#else /* TODO Move into main and fall back to CHEAT_CALL. */
+#else /* TODO Move into main and fall back to CHEAT_UNSAFE. */
 #warning "Isolated tests are unsupported. See the README file for help."
 	cheat_print_error("cheat_run_isolated_test");
 	exit(EXIT_FAILURE);
@@ -855,6 +866,7 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 Runs a test from
  a test suite.
 */
+__attribute__ ((__io__, __warn_unused_result__))
 static enum cheat_outcome cheat_run_test(struct cheat_suite* const suite,
 		struct cheat_procedure const* const procedure) {
 	size_t index;
@@ -878,61 +890,52 @@ static enum cheat_outcome cheat_run_test(struct cheat_suite* const suite,
 	return suite->outcome;
 }
 
-/*
-Suite:
-cheat
-cheat --colors
-cheat --minimal
-cheat --unsafe
-cheat --unsafe --colors
-cheat --unsafe --minimal
-
-Test:
-cheat test
-cheat --colors test
-cheat --minimal test
-cheat --unsafe test
-cheat --unsafe --colors test
-cheat --unsafe --minimal test
-
-Help:
-cheat --help
-cheat --help --colors
-*/
+__attribute__ ((__io__))
 static void cheat_parse(struct cheat_suite* const suite,
 		char* const* const tokens, size_t const count) {
-	bool colors;
+	bool colorful;
+	bool dangerous;
 	bool help;
 	bool minimal;
-	bool test;
+	bool plain;
 	bool safe;
 	bool unsafe;
 	size_t names;
 	char const* name;
-	bool parse_options;
+	bool test;
+	bool options;
 	size_t index;
 
-	colors = false;
+	colorful = false;
+	dangerous = false;
 	help = false;
 	minimal = false;
+	plain = false;
+	safe = false;
 	unsafe = false;
 	names = 0;
-	parse_options = true;
+	options = true;
 	for (index = 0;
 			index < count;
 			++index) {
-		if (parse_options && tokens[index][0] == '-') {
+		if (options && tokens[index][0] == '-') {
 			if (strcmp(tokens[index], "--") == 0)
-				parse_options = false;
+				options = false;
 			else if (strcmp(tokens[index], "-c") == 0
-					|| strcmp(tokens[index], "--colors") == 0)
-				colors = true;
+					|| strcmp(tokens[index], "--colorful") == 0)
+				colorful = true;
+			else if (strcmp(tokens[index], "-d") == 0
+					|| strcmp(tokens[index], "--dangerous") == 0)
+				dangerous = true;
 			else if (strcmp(tokens[index], "-h") == 0
 					|| strcmp(tokens[index], "--help") == 0)
 				help = true;
 			else if (strcmp(tokens[index], "-m") == 0
 					|| strcmp(tokens[index], "--minimal") == 0)
 				minimal = true;
+			else if (strcmp(tokens[index], "-p") == 0
+					|| strcmp(tokens[index], "--plain") == 0)
+				safe = true;
 			else if (strcmp(tokens[index], "-s") == 0
 					|| strcmp(tokens[index], "--safe") == 0)
 				safe = true;
@@ -950,19 +953,23 @@ static void cheat_parse(struct cheat_suite* const suite,
 	}
 	test = names != 0;
 
-	if (help && !minimal && !safe && !test && !unsafe) {
-		if (colors)
+	if (help && !minimal && !safe && !test && !unsafe) { /* TODO This logic. */
+		if (colorful)
 			suite->style = CHEAT_COLORFUL;
 		cheat_print_usage(suite);
-	} else if (!(colors && minimal) && !help) {
-		if (colors)
+	} else if (!(colorful && minimal) && !help) {
+		if (plain)
+			suite->style = CHEAT_PLAIN;
+		if (colorful)
 			suite->style = CHEAT_COLORFUL;
 		if (minimal)
 			suite->style = CHEAT_MINIMAL;
 		if (safe)
-			suite->harness = CHEAT_FORK;
+			suite->harness = CHEAT_SAFE;
 		if (unsafe)
-			suite->harness = CHEAT_CALL;
+			suite->harness = CHEAT_UNSAFE;
+		if (dangerous)
+			suite->harness = CHEAT_DANGEROUS;
 		if (test) {
 			struct cheat_procedure const* procedure;
 
@@ -971,6 +978,13 @@ static void cheat_parse(struct cheat_suite* const suite,
 				exit(EXIT_FAILURE);
 			exit(cheat_run_test(suite, procedure)); /* TODO Something. */
 		} else {
+			if (suite->harness == CHEAT_DANGEROUS) {
+				signal(SIGABRT, cheat_handle_signal);
+				signal(SIGFPE, cheat_handle_signal);
+				signal(SIGILL, cheat_handle_signal);
+				signal(SIGSEGV, cheat_handle_signal);
+				signal(SIGTERM, cheat_handle_signal);
+			}
 			for (index = 0;
 					index < cheat_procedure_count;
 					++index) {
@@ -979,9 +993,14 @@ static void cheat_parse(struct cheat_suite* const suite,
 				procedure = &cheat_procedures[index];
 				if (procedure->type != CHEAT_TESTER)
 					continue;
-				if (suite->harness == CHEAT_FORK)
+				if (suite->harness == CHEAT_SAFE)
 					cheat_run_isolated_test(procedure, suite);
-				else
+				else if (suite->harness == CHEAT_DANGEROUS) {
+					if (setjmp(cheat_jmp_buf) == 0)
+						cheat_run_test(suite, procedure);
+					else
+						suite->outcome = CHEAT_CRASHED;
+				} else
 					cheat_run_test(suite, procedure);
 				cheat_handle_outcome(suite);
 				cheat_print_outcome(suite);
@@ -999,13 +1018,14 @@ Runs tests from the main test suite and
  returns EXIT_SUCCESS in case all tests passed or
  EXIT_FAILURE in case of an error.
 */
+__attribute__ ((__io__))
 int main(int const count, char** const arguments) {
 	struct cheat_suite suite;
 	size_t result;
 
 	cheat_initialize(&suite);
 	suite.program = arguments[0];
-	suite.harness = CHEAT_FORK;
+	suite.harness = CHEAT_SAFE;
 	suite.style = CHEAT_PLAIN;
 	cheat_parse(&suite, &arguments[1], (size_t )(count - 1));
 	result = suite.tests_failed;

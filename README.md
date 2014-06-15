@@ -140,7 +140,14 @@ Some problems that are impossible to fix are
 
 Identifiers starting with
  `CHEAT_` and `cheat_` are
- reserved for internal use.
+ reserved for internal use as
+ C does not have namespaces.
+
+### Debugging
+
+It is not possible to attach a breakpoint to `cheat_assert()`, because
+ it is erased by the preprocessor, but
+ using `cheat_check()` should work instead.
 
 ### Include Path
 
