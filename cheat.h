@@ -99,7 +99,10 @@ struct cheat_suite {
 			more memory has to be allocated. */
 	char** messages; /* The messages so far. */
 
-	char const* program; /* The program name given to main(). */
+	char* program; /* The program name given to main(). */
+
+	size_t argument_count; /* The amount of arguments for the program. */
+	char* const* arguments; /* The arguments for the program. */
 
 	enum cheat_harness harness; /* The security measures to use. */
 
@@ -387,7 +390,9 @@ static void cheat_clear(struct cheat_suite* const suite) {
 		free(suite->messages); /* Memory A. */
 		suite->messages = NULL;
 	}
-	suite->program = "cheat";
+	suite->program = NULL;
+	suite->argument_count = 0;
+	suite->arguments = NULL;
 	suite->harness = CHEAT_UNSAFE;
 	suite->style = CHEAT_PLAIN;
 	suite->captured_stdout = stdout;
@@ -443,6 +448,8 @@ Options: -c  --colorful   Use ISO/IEC 6429 escape codes to color reports\n\
                           not cause undefined behavior\n\
          -h  --help       Show this help\n\
          -l  --list       List test cases\n\
+", suite->captured_stdout); /* String literals must fit into 509 bytes. */
+	fputs("\
          -m  --minimal    Only report the amounts of successes, failures\n\
                           and tests run in a machine readable format\n\
          -p  --plain      Present reports in plain text\n\
@@ -644,6 +651,11 @@ static void cheat_print_summary(struct cheat_suite* const suite) {
 	}
 }
 
+/*
+Finds a test by its name and
+ returns a pointer to it or
+ returns NULL in case no test is found.
+*/
 __attribute__ ((__nonnull__, __pure__, __warn_unused_result__))
 static struct cheat_procedure const* cheat_find_test(struct cheat_suite* const suite,
 		char const* const name) {
@@ -728,7 +740,7 @@ static void cheat_check(struct cheat_suite* const suite,
 	char const* format;
 
 	switch (suite->style) {
-	case CHEAT_COLORFUL: /* TODO Inherit settings. */
+	case CHEAT_COLORFUL:
 		print_assertion = true;
 		format = CHEAT_BOLD "%s:%d:"
 				CHEAT_RESET " assertion failed: '"
@@ -795,18 +807,29 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 	if (pid == -1) {
 		perror("fork");
 		exit(EXIT_FAILURE);
-	} else if (pid == 0) { /* This is the subprocess. */
+	} else if (pid == 0) {
+		char** arguments;
+
+		/* Make pipe write only. */
 		if (close(pipefd[0]) == -1) {
 			perror("close");
 			exit(EXIT_FAILURE);
 		}
+		/* Redirect stdout to pipe. */
 		if (dup2(pipefd[1], STDOUT_FILENO) == -1) {
 			perror("dup2");
 			exit(EXIT_FAILURE);
 		}
-		/* Why exec? */
-		if (execl(suite->program, suite->program, test->name, NULL) == -1) {
-			perror("execl");
+		/* TODO Why execv instead of calling? */
+		/* TODO Is suite->arguments reliable? */
+		/* TODO Is this safe or even correct? */
+		arguments = malloc((1 + suite->argument_count + 2) * sizeof *suite->arguments);
+		arguments[0] = suite->program;
+		arguments[1] = test->name;
+		memcpy(&arguments[2], suite->arguments, suite->argument_count * sizeof *suite->arguments);
+		arguments[1 + suite->argument_count + 1] = NULL;
+		if (execv(suite->program, arguments) == -1) {
+			perror("execv");
 			exit(EXIT_FAILURE);
 		}
 		cheat_print_error("cheat_run_isolated_test");
@@ -816,10 +839,12 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 		unsigned char buf[BUFSIZ];
 		int status;
 
+		/* Make pipe read only. */
 		if (close(pipefd[1]) == -1) {
 			perror("close");
 			exit(EXIT_FAILURE);
 		}
+		/* Smoke pipe. */
 		while ((size = read(pipefd[0], buf, sizeof buf)) != 0) {
 			if (size == -1) {
 				perror("read");
@@ -828,11 +853,11 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 			cheat_append_message(suite, buf, (size_t )size);
 			/* This should contain the outcome, not the low bits of status. */
 		}
-
 		if (waitpid(pid, &status, 0) == -1) {
 			perror("waitpid");
 			exit(EXIT_FAILURE);
 		}
+		/* Throw away pipe. */
 		if (close(pipefd[0]) == -1) {
 			perror("close");
 			exit(EXIT_FAILURE);
@@ -863,7 +888,9 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 	PROCESS_INFORMATION pi = {0};
 
 	CHAR command[255];
-	snprintf(command, 255, "%s %s", suite->program, test->name); /* TODO Only in C99. */
+	/* TODO Only in C99. */
+	/* TODO Fix inheritance too. */
+	snprintf(command, 255, "%s %s", suite->program, test->name);
 
 	CreateProcess(
 		NULL,
@@ -934,8 +961,7 @@ static enum cheat_outcome cheat_run_test(struct cheat_suite* const suite,
 }
 
 __attribute__ ((__io__, __nonnull__))
-static void cheat_parse(struct cheat_suite* const suite,
-		char* const* const tokens, size_t const count) {
+static void cheat_parse(struct cheat_suite* const suite) {
 	bool colorful;
 	bool dangerous;
 	bool help;
@@ -961,34 +987,34 @@ static void cheat_parse(struct cheat_suite* const suite,
 	names = 0;
 	options = true;
 	for (index = 0;
-			index < count;
+			index < suite->argument_count;
 			++index) {
-		if (options && tokens[index][0] == '-') {
-			if (strcmp(tokens[index], "--") == 0)
+		if (options && suite->arguments[index][0] == '-') {
+			if (strcmp(suite->arguments[index], "--") == 0)
 				options = false;
-			else if (strcmp(tokens[index], "-c") == 0
-					|| strcmp(tokens[index], "--colorful") == 0)
+			else if (strcmp(suite->arguments[index], "-c") == 0
+					|| strcmp(suite->arguments[index], "--colorful") == 0)
 				colorful = true;
-			else if (strcmp(tokens[index], "-d") == 0
-					|| strcmp(tokens[index], "--dangerous") == 0)
+			else if (strcmp(suite->arguments[index], "-d") == 0
+					|| strcmp(suite->arguments[index], "--dangerous") == 0)
 				dangerous = true;
-			else if (strcmp(tokens[index], "-h") == 0
-					|| strcmp(tokens[index], "--help") == 0)
+			else if (strcmp(suite->arguments[index], "-h") == 0
+					|| strcmp(suite->arguments[index], "--help") == 0)
 				help = true;
-			else if (strcmp(tokens[index], "-l") == 0
-					|| strcmp(tokens[index], "--list") == 0)
+			else if (strcmp(suite->arguments[index], "-l") == 0
+					|| strcmp(suite->arguments[index], "--list") == 0)
 				list = true;
-			else if (strcmp(tokens[index], "-m") == 0
-					|| strcmp(tokens[index], "--minimal") == 0)
+			else if (strcmp(suite->arguments[index], "-m") == 0
+					|| strcmp(suite->arguments[index], "--minimal") == 0)
 				minimal = true;
-			else if (strcmp(tokens[index], "-p") == 0
-					|| strcmp(tokens[index], "--plain") == 0)
+			else if (strcmp(suite->arguments[index], "-p") == 0
+					|| strcmp(suite->arguments[index], "--plain") == 0)
 				safe = true;
-			else if (strcmp(tokens[index], "-s") == 0
-					|| strcmp(tokens[index], "--safe") == 0)
+			else if (strcmp(suite->arguments[index], "-s") == 0
+					|| strcmp(suite->arguments[index], "--safe") == 0)
 				safe = true;
-			else if (strcmp(tokens[index], "-u") == 0
-					|| strcmp(tokens[index], "--unsafe") == 0)
+			else if (strcmp(suite->arguments[index], "-u") == 0
+					|| strcmp(suite->arguments[index], "--unsafe") == 0)
 				unsafe = true;
 			else {
 				cheat_print_error("cheat_parse");
@@ -996,7 +1022,7 @@ static void cheat_parse(struct cheat_suite* const suite,
 			}
 		} else {
 			++names;
-			name = tokens[index];
+			name = suite->arguments[index];
 		}
 	}
 	test = names != 0;
@@ -1022,8 +1048,10 @@ static void cheat_parse(struct cheat_suite* const suite,
 			struct cheat_procedure const* procedure;
 
 			procedure = cheat_find_test(suite, name);
-			if (procedure == NULL)
+			if (procedure == NULL) {
+				cheat_print_error("cheat_parse");
 				exit(EXIT_FAILURE);
+			}
 			exit(cheat_run_test(suite, procedure)); /* TODO Something. */
 		} else {
 			if (suite->harness == CHEAT_DANGEROUS) {
@@ -1074,9 +1102,11 @@ int main(int const count, char** const arguments) {
 
 	cheat_initialize(&suite);
 	suite.program = arguments[0];
+	suite.argument_count = (size_t )(count - 1);
+	suite.arguments = &arguments[1];
 	suite.harness = CHEAT_SAFE;
 	suite.style = CHEAT_PLAIN;
-	cheat_parse(&suite, &arguments[1], (size_t )(count - 1));
+	cheat_parse(&suite);
 	result = suite.tests_failed;
 	cheat_clear(&suite);
 	if (result == 0)
