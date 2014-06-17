@@ -54,7 +54,14 @@ typedef int bool;
 #define SIZE_MAX ((size_t )-1)
 #endif
 #if _POSIX_C_SOURCE >= 200112L
+#define execv cheat_execv
 #include <unistd.h> /* STDOUT_FILENO */
+#undef execv
+/*
+Replaces the standard prototype of execv, because
+ it is not qualified const correctly.
+*/
+int execv(char const*, char const* const*);
 #include <sys/types.h> /* pid_t, ssize_t */
 #include <sys/wait.h>
 #elif defined _WIN32
@@ -99,10 +106,10 @@ struct cheat_suite {
 			more memory has to be allocated. */
 	char** messages; /* The messages so far. */
 
-	char* program; /* The program name given to main(). */
+	char const* program; /* The program name given to main(). */
 
 	size_t argument_count; /* The amount of arguments for the program. */
-	char* const* arguments; /* The arguments for the program. */
+	char const* const* arguments; /* The arguments for the program. */
 
 	enum cheat_harness harness; /* The security measures to use. */
 
@@ -360,6 +367,28 @@ static int cheat_print(char const* const format,
 
 	va_start(list, count);
 	result = vfprintf(stream, format, list);
+	va_end(list);
+
+	return result;
+}
+
+/*
+Prints a formatted string to a string or
+ fails safely in case the amount of conversion specifiers in
+ the format string does not match the expected count.
+*/
+__attribute__ ((__format__ (printf, 1, 4), __io__, __nonnull__ (1)))
+static int cheat_print_string(char const* const format,
+		char* const destination,
+		size_t const count, ...) {
+	va_list list;
+	int result;
+
+	if (cheat_format_specifiers(format) != count)
+		return -1;
+
+	va_start(list, count);
+	result = vsprintf(destination, format, list);
 	va_end(list);
 
 	return result;
@@ -657,8 +686,7 @@ Finds a test by its name and
  returns NULL in case no test is found.
 */
 __attribute__ ((__nonnull__, __pure__, __warn_unused_result__))
-static struct cheat_procedure const* cheat_find_test(struct cheat_suite* const suite,
-		char const* const name) {
+static struct cheat_procedure const* cheat_find_test(char const* const name) {
 	struct cheat_procedure const* procedure;
 	size_t index;
 
@@ -727,29 +755,27 @@ static void cheat_append_message(struct cheat_suite* const suite,
 }
 
 /*
-Checks a single assertion and
- prints an error message if it fails.
+Prints an error message.
 */
 __attribute__ ((__io__, __nonnull__))
-static void cheat_check(struct cheat_suite* const suite,
-		int const result,
-		char const* const assertion,
+static void cheat_print_failure(struct cheat_suite* const suite,
+		char const* const expression,
 		char const* const filename,
-		int const line) {
+		size_t const line) {
 	bool print_assertion;
-	char const* format;
+	char const* assertion_format;
 
 	switch (suite->style) {
 	case CHEAT_COLORFUL:
 		print_assertion = true;
-		format = CHEAT_BOLD "%s:%d:"
+		assertion_format = CHEAT_BOLD "%s:%zu:"
 				CHEAT_RESET " assertion failed: '"
 				CHEAT_BOLD "%s"
 				CHEAT_RESET "'\n";
 		break;
 	case CHEAT_PLAIN:
 		print_assertion = true;
-		format = "%s:%d: assertion failed: '%s'\n";
+		assertion_format = "%s:%zu: assertion failed: '%s'\n";
 		break;
 	case CHEAT_MINIMAL:
 		print_assertion = false;
@@ -759,32 +785,44 @@ static void cheat_check(struct cheat_suite* const suite,
 		exit(EXIT_FAILURE);
 	}
 
-	if (result != 0)
-		return;
-
 	if (print_assertion) {
-		suite->outcome = CHEAT_FAILURE;
-		if (suite->harness == CHEAT_SAFE) {
-			cheat_print(format, suite->captured_stdout,
-					3, filename, line, assertion);
-		} else {
-			char* buffer = NULL;
-			size_t len = BUFSIZ;
-			size_t bufsize;
+		if (suite->harness == CHEAT_SAFE)
+			cheat_print(assertion_format, suite->captured_stdout,
+					3, filename, line, expression);
+		else {
+			size_t size;
+			char* buffer;
 
-			do {
-				int what;
-				bufsize = len + 1;
-				buffer = realloc(buffer, bufsize);
-				what = snprintf(buffer, bufsize, format, /* TODO Only in C99. */
-						filename, line, assertion);
-				if (what == -1)
-					exit(EXIT_FAILURE);
-				len = (size_t )what;
-			} while (bufsize != len + 1);
+#define CHEAT_SIZE_LENGTH(x) (CHAR_BIT * sizeof (size_t)) /* TODO Calculate. */
 
-			cheat_append_message(suite, (unsigned char* )buffer, bufsize);
+			size = strlen(assertion_format)
+					+ strlen(filename)
+					+ CHEAT_SIZE_LENGTH(line)
+					+ strlen(expression); /* TODO Check overflow. */
+			buffer = malloc(size);
+			cheat_print_string(assertion_format, buffer,
+					3, filename, line, expression);
+
+			cheat_append_message(suite, (unsigned char* )buffer, size);
+
+			free(buffer);
 		}
+	}
+}
+
+/*
+Checks a single assertion and
+ prints an error message if it fails.
+*/
+__attribute__ ((__io__, __nonnull__))
+static void cheat_check(struct cheat_suite* const suite,
+		int const result,
+		char const* const expression,
+		char const* const filename,
+		size_t const line) {
+	if (!result) {
+		suite->outcome = CHEAT_FAILURE;
+		cheat_print_failure(suite, expression, filename, line);
 	}
 }
 
@@ -808,7 +846,7 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 		perror("fork");
 		exit(EXIT_FAILURE);
 	} else if (pid == 0) {
-		char** arguments;
+		char const** arguments;
 
 		/* Make pipe write only. */
 		if (close(pipefd[0]) == -1) {
@@ -879,7 +917,7 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 	HANDLE stdoutPipe_write;
 	CreatePipe(&stdoutPipe_read, &stdoutPipe_write, &sa, 0);
 
-	STARTUPINFO si = {
+	STARTUPINFO si = { /* Only in C99. */
 		.cb = sizeof (STARTUPINFO),
 		.dwFlags = STARTF_USESTDHANDLES,
 		.hStdOutput = stdoutPipe_write
@@ -1047,7 +1085,7 @@ static void cheat_parse(struct cheat_suite* const suite) {
 		if (test) {
 			struct cheat_procedure const* procedure;
 
-			procedure = cheat_find_test(suite, name);
+			procedure = cheat_find_test(name);
 			if (procedure == NULL) {
 				cheat_print_error("cheat_parse");
 				exit(EXIT_FAILURE);
@@ -1096,7 +1134,7 @@ Runs tests from the main test suite and
  EXIT_FAILURE in case of an error.
 */
 __attribute__ ((__io__, __nonnull__))
-int main(int const count, char** const arguments) {
+static int cheat_main(int const count, char const* const* const arguments) {
 	struct cheat_suite suite;
 	size_t result;
 
@@ -1112,6 +1150,14 @@ int main(int const count, char** const arguments) {
 	if (result == 0)
 		return EXIT_SUCCESS;
 	return EXIT_FAILURE;
+}
+
+/*
+Replaces the standard prototype of main, because
+ it is not qualified const correctly.
+*/
+int main(int const count, char** const arguments) {
+	return cheat_main(count, (char const* const* )arguments);
 }
 
 #endif

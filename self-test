@@ -4,7 +4,7 @@ for i in tests/*
 do
 	printf "%s %s %s\n" --- "$i" ---
 	o=`mktemp` && {
-		gcc -I . -o "$o" -w "$i" && "$o" "$@"
+		cc -I . -o "$o" -w "$i" && "$o" "$@"
 		rm "$o"
 	}
 done
