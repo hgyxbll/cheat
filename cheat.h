@@ -44,28 +44,55 @@ These headers are also
 #include <stdio.h> /* BUFSIZ, FILE, stderr, stdout */
 #include <stdlib.h> /* EXIT_FAILURE, EXIT_SUCCESS */
 #include <string.h>
+
 #if __STDC_VERSION__ >= 199901L
+
 #include <stdbool.h> /* bool, false, true */
 #include <stdint.h> /* SIZE_MAX */
+
 #else
+
 typedef int bool;
 #define false 0
 #define true 1
+
 #define SIZE_MAX ((size_t )-1)
+
 #endif
+
 #if _POSIX_C_SOURCE >= 200112L
+
 #define execv cheat_execv
 #include <unistd.h> /* STDOUT_FILENO */
 #undef execv
-/*
-Replaces the standard prototype of execv, because
- it is not qualified const correctly.
-*/
-int execv(char const*, char const* const*);
+
 #include <sys/types.h> /* pid_t, ssize_t */
 #include <sys/wait.h>
+
+/*
+Replaces the standard prototype of execv, because
+ it is not correctly qualified const.
+*/
+int execv(char const*, char const* const*);
+
+/*
+Return the file descriptors for reading from a pipe.
+*/
+static int cheat_reader(int const pipe[2]) {
+	return pipe[0];
+}
+
+/*
+Return the file descriptors for writing to a pipe.
+*/
+static int cheat_writer(int const pipe[2]) {
+	return pipe[1];
+}
+
 #elif defined _WIN32
+
 #include <windows.h> /* spaghetti */
+
 #endif
 
 enum cheat_outcome {
@@ -760,7 +787,7 @@ Prints an error message.
 __attribute__ ((__io__, __nonnull__))
 static void cheat_print_failure(struct cheat_suite* const suite,
 		char const* const expression,
-		char const* const filename,
+		char const* const file,
 		size_t const line) {
 	bool print_assertion;
 	char const* assertion_format;
@@ -788,7 +815,7 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 	if (print_assertion) {
 		if (suite->harness == CHEAT_SAFE)
 			cheat_print(assertion_format, suite->captured_stdout,
-					3, filename, line, expression);
+					3, file, line, expression);
 		else {
 			size_t size;
 			char* buffer;
@@ -796,12 +823,12 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 #define CHEAT_SIZE_LENGTH(x) (CHAR_BIT * sizeof (size_t)) /* TODO Calculate. */
 
 			size = strlen(assertion_format)
-					+ strlen(filename)
+					+ strlen(file)
 					+ CHEAT_SIZE_LENGTH(line)
 					+ strlen(expression); /* TODO Check overflow. */
 			buffer = malloc(size);
 			cheat_print_string(assertion_format, buffer,
-					3, filename, line, expression);
+					3, file, line, expression);
 
 			cheat_append_message(suite, (unsigned char* )buffer, size);
 
@@ -818,11 +845,11 @@ __attribute__ ((__io__, __nonnull__))
 static void cheat_check(struct cheat_suite* const suite,
 		int const result,
 		char const* const expression,
-		char const* const filename,
+		char const* const file,
 		size_t const line) {
 	if (!result) {
 		suite->outcome = CHEAT_FAILURE;
-		cheat_print_failure(suite, expression, filename, line);
+		cheat_print_failure(suite, expression, file, line);
 	}
 }
 
@@ -833,7 +860,9 @@ Creates a subprocess and
 __attribute__ ((__io__, __nonnull__))
 static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 		struct cheat_suite* const suite) {
+
 #if _POSIX_C_SOURCE >= 200112L
+
 	pid_t pid;
 	int pipefd[2];
 
@@ -848,13 +877,12 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 	} else if (pid == 0) {
 		char const** arguments;
 
-		/* Make pipe write only. */
-		if (close(pipefd[0]) == -1) {
+		if (close(cheat_reader(pipefd)) == -1) {
 			perror("close");
 			exit(EXIT_FAILURE);
 		}
 		/* Redirect stdout to pipe. */
-		if (dup2(pipefd[1], STDOUT_FILENO) == -1) {
+		if (dup2(cheat_writer(pipefd), STDOUT_FILENO) == -1) {
 			perror("dup2");
 			exit(EXIT_FAILURE);
 		}
@@ -878,12 +906,12 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 		int status;
 
 		/* Make pipe read only. */
-		if (close(pipefd[1]) == -1) {
+		if (close(cheat_writer(pipefd)) == -1) {
 			perror("close");
 			exit(EXIT_FAILURE);
 		}
 		/* Smoke pipe. */
-		while ((size = read(pipefd[0], buf, sizeof buf)) != 0) {
+		while ((size = read(cheat_reader(pipefd), buf, sizeof buf)) != 0) {
 			if (size == -1) {
 				perror("read");
 				exit(EXIT_FAILURE);
@@ -896,7 +924,7 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 			exit(EXIT_FAILURE);
 		}
 		/* Throw away pipe. */
-		if (close(pipefd[0]) == -1) {
+		if (close(cheat_reader(pipefd)) == -1) {
 			perror("close");
 			exit(EXIT_FAILURE);
 		}
@@ -907,7 +935,9 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 		} else
 			suite->outcome = CHEAT_CRASHED;
 	}
+
 #elif defined _WIN32
+
 	SECURITY_ATTRIBUTES sa;
 	sa.nLength = sizeof (SECURITY_ATTRIBUTES);
 	sa.bInheritHandle = TRUE;
@@ -964,10 +994,14 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 	CloseHandle(pi.hProcess);
 	CloseHandle(pi.hThread);
 #else /* TODO Move into main and fall back to CHEAT_UNSAFE. */
+
 #warning "Isolated tests are unsupported. See the README file for help."
+
 	cheat_print_error("cheat_run_isolated_test");
 	exit(EXIT_FAILURE);
+
 #endif
+
 }
 
 /*
@@ -1103,7 +1137,7 @@ static void cheat_parse(struct cheat_suite* const suite) {
 					index < cheat_procedure_count;
 					++index) {
 				struct cheat_procedure const* procedure;
-				enum cheat_outcome outcome;
+				enum cheat_outcome outcome; /* TODO Read and use. */
 
 				procedure = &cheat_procedures[index];
 				if (procedure->type != CHEAT_TESTER)
