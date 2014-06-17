@@ -78,15 +78,15 @@ int execv(char const*, char const* const*);
 /*
 Return the file descriptors for reading from a pipe.
 */
-static int cheat_reader(int const pipe[2]) {
-	return pipe[0];
+static int cheat_reader(int const fds[2]) {
+	return fds[0];
 }
 
 /*
 Return the file descriptors for writing to a pipe.
 */
-static int cheat_writer(int const pipe[2]) {
-	return pipe[1];
+static int cheat_writer(int const fds[2]) {
+	return fds[1];
 }
 
 #elif defined _WIN32
@@ -864,9 +864,9 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 #if _POSIX_C_SOURCE >= 200112L
 
 	pid_t pid;
-	int pipefd[2];
+	int fds[2];
 
-	if (pipe(pipefd) == -1) {
+	if (pipe(fds) == -1) {
 		perror("pipe");
 		exit(EXIT_FAILURE);
 	}
@@ -877,12 +877,12 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 	} else if (pid == 0) {
 		char const** arguments;
 
-		if (close(cheat_reader(pipefd)) == -1) {
+		if (close(cheat_reader(fds)) == -1) {
 			perror("close");
 			exit(EXIT_FAILURE);
 		}
 		/* Redirect stdout to pipe. */
-		if (dup2(cheat_writer(pipefd), STDOUT_FILENO) == -1) {
+		if (dup2(cheat_writer(fds), STDOUT_FILENO) == -1) {
 			perror("dup2");
 			exit(EXIT_FAILURE);
 		}
@@ -890,6 +890,10 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 		/* TODO Is suite->arguments reliable? */
 		/* TODO Is this safe or even correct? */
 		arguments = malloc((1 + suite->argument_count + 2) * sizeof *suite->arguments);
+		if (arguments == NULL) {
+			perror("malloc");
+			exit(EXIT_FAILURE);
+		}
 		arguments[0] = suite->program;
 		arguments[1] = test->name;
 		memcpy(&arguments[2], suite->arguments, suite->argument_count * sizeof *suite->arguments);
@@ -905,13 +909,11 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 		unsigned char buf[BUFSIZ];
 		int status;
 
-		/* Make pipe read only. */
-		if (close(cheat_writer(pipefd)) == -1) {
+		if (close(cheat_writer(fds)) == -1) {
 			perror("close");
 			exit(EXIT_FAILURE);
 		}
-		/* Smoke pipe. */
-		while ((size = read(cheat_reader(pipefd), buf, sizeof buf)) != 0) {
+		while ((size = read(cheat_reader(fds), buf, sizeof buf)) != 0) {
 			if (size == -1) {
 				perror("read");
 				exit(EXIT_FAILURE);
@@ -923,8 +925,7 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 			perror("waitpid");
 			exit(EXIT_FAILURE);
 		}
-		/* Throw away pipe. */
-		if (close(cheat_reader(pipefd)) == -1) {
+		if (close(cheat_reader(fds)) == -1) {
 			perror("close");
 			exit(EXIT_FAILURE);
 		}
@@ -1005,6 +1006,35 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 }
 
 /*
+Runs all utility procedures of a certain type.
+*/
+__attribute__ ((__io__, __nonnull__))
+static void cheat_run_utilities(enum cheat_type const type) {
+	size_t index;
+
+	for (index = 0;
+			index < cheat_procedure_count;
+			++index)
+		if (cheat_procedures[index].type == type)
+			((cheat_utility* )cheat_procedures[index].procedure)();
+}
+
+/*
+Runs the core of a test or
+ terminates the program in case of an error.
+*/
+__attribute__ ((__io__, __nonnull__))
+static void cheat_run_core(struct cheat_suite* const suite,
+		struct cheat_procedure const* const procedure) {
+	if (procedure->type == CHEAT_TESTER)
+		((cheat_test* )procedure->procedure)(suite);
+	else {
+		cheat_print_error("cheat_run_core");
+		exit(EXIT_FAILURE);
+	}
+}
+
+/*
 Runs a test from
  a test suite.
 */
@@ -1015,19 +1045,9 @@ static enum cheat_outcome cheat_run_test(struct cheat_suite* const suite,
 
 	suite->outcome = CHEAT_SUCCESS;
 
-	for (index = 0;
-			index < cheat_procedure_count;
-			++index)
-		if (cheat_procedures[index].type == CHEAT_UP_SETTER)
-			((cheat_utility* )cheat_procedures[index].procedure)();
-
-	((cheat_test* )procedure->procedure)(suite);
-
-	for (index = 0;
-			index < cheat_procedure_count;
-			++index)
-		if (cheat_procedures[index].type == CHEAT_DOWN_TEARER)
-			((cheat_utility* )cheat_procedures[index].procedure)();
+	cheat_run_utilities(CHEAT_UP_SETTER);
+	cheat_run_core(suite, procedure);
+	cheat_run_utilities(CHEAT_DOWN_TEARER);
 
 	return suite->outcome;
 }
