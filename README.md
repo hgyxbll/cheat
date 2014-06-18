@@ -6,12 +6,12 @@ It has no dependencies and requires no installation or configuration.
 The design philosophy is that time spent not writing tests is time wasted.
 Only a header file and a statement block is needed.
 
-    #include <cheat.h>
+	#include <cheat.h>
 
-    CHEAT_TEST(mathematics_still_work, {
-        cheat_assert(2 + 2 == 4);
-        cheat_assert(2 + 2 != 5);
-    })
+	CHEAT_TEST(mathematics_still_work, {
+		cheat_assert(2 + 2 == 4);
+		cheat_assert(2 + 2 != 5);
+	})
 
 ## Explanation
 
@@ -51,25 +51,25 @@ In short, copies and derivative works are permitted
 The core components are defined in a single header file, so
  the only necessary step is to download it.
 
-    [user@computer ~]$ cd /usr/include
-    [user@computer /usr/include]$ sudo wget -q https://github.com/Tuplanolla/cheat/raw/master/cheat.h
+	[user@computer ~]$ cd /usr/include
+	[user@computer include]$ sudo wget -q https://github.com/Tuplanolla/cheat/raw/master/cheat.h
 
 ### Writing Tests
 
 Tests should be put in their own source file,
 
-    [user@computer ~/project]$ cat > tests.c
+	[user@computer project]$ cat > tests.c
 
  which has to define `__BASE_FILE__`,
 
-    #ifndef __BASE_FILE__
-    #define __BASE_FILE__ __FILE__
-    #endif
+	#ifndef __BASE_FILE__
+	#define __BASE_FILE__ __FILE__
+	#endif
 
  if the compiler does not, and
  include `cheat.h`.
 
-    #include <cheat.h>
+	#include <cheat.h>
 
 For example GCC defines `__BASE_FILE__`, but
  the condition should be used anyway for portability.
@@ -86,17 +86,17 @@ Examples are in the `cheat-example.c` file, which
 
 Tests compile into an executable
 
-    [user@computer ~/project]$ gcc -o tests tests.c
+	[user@computer project]$ gcc -o tests tests.c
 
  that takes care of running the tests and reporting their outcomes.
 
-    [user@computer ~/project]$ ./tests
-    .:..!.??
-    ---
-    tests.c:42: assertion failed: '2 + 2 == 5'
-    ---
-    4 successful and 2 failed of 8 run
-    FAILURE
+	[user@computer project]$ ./tests
+	.:..!.??
+	---
+	tests.c:42: assertion failed: '2 + 2 == 5'
+	---
+	4 successful and 2 failed of 8 run
+	FAILURE
 
 The executable runs tests in
  an isolated subprocess by default, so
@@ -117,8 +117,8 @@ The `-c` for `--colorful` option makes everything colorful,
  the `-m` for `--minimal` option makes the report machine readable and
  the `-x` for `--xml` option does nothing for good measure.
 
-    [user@computer ~/project]$ ./tests -m
-    4 2 8
+	[user@computer project]$ ./tests -m
+	4 2 8
 
 Other obvious options are
  `-h` for `--help`,
@@ -132,7 +132,7 @@ More complicated tests are easy to define with
  the assistance of CHEAT helpers that
  exist in `cheat-helpers.h`.
 
-    #include <cheat-helpers.h>
+	#include <cheat-helpers.h>
 
 Helpers cover things like
  stream redirection and
