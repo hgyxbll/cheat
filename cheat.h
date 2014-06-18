@@ -197,7 +197,14 @@ These are ISO/IEC 6429 escape sequences for
 Computes the compiled size of an array (not a pointer) and returns it.
 */
 #define CHEAT_ARRAY_SIZE(array) \
-		(sizeof array / sizeof *array)
+	(sizeof array / sizeof *array)
+
+/*
+Computes the maximum string length of an unsigned integer type and returns it.
+*/
+#define CHEAT_INTEGER_LENGTH(type) \
+	(CHAR_BIT * sizeof type / 3 + 1) /* This is an upper bound for
+			the base 2 logarithm of 10. */
 
 #define CHEAT_PASS 1 /* This is informational. */
 
@@ -206,17 +213,17 @@ Some of the symbols used here are defined in the third pass.
 */
 
 #define CHEAT_TEST(name, body) \
-		static void cheat_test_##name(struct cheat_suite*);
+	static void cheat_test_##name(struct cheat_suite*);
 #define CHEAT_SET_UP(body) \
-		static void cheat_set_up(void);
+	static void cheat_set_up(void);
 #define CHEAT_TEAR_DOWN(body) \
-		static void cheat_tear_down(void);
+	static void cheat_tear_down(void);
 #define CHEAT_DECLARE(body)
 
 #define CHEAT_TEST_IGNORE(name, body) \
-		CHEAT_TEST(name, { \
-			cheat_suite->outcome = CHEAT_IGNORED; \
-		})
+	CHEAT_TEST(name, { \
+		cheat_suite->outcome = CHEAT_IGNORED; \
+	})
 
 #include __BASE_FILE__
 
@@ -230,23 +237,23 @@ Some of the symbols used here are defined in the third pass.
 #define CHEAT_PASS 2
 
 #define CHEAT_TEST(name, body) \
-		{ \
-			#name, \
-			CHEAT_TESTER, \
-			(cheat_procedure* )cheat_test_##name \
-		},
+	{ \
+		#name, \
+		CHEAT_TESTER, \
+		(cheat_procedure* )cheat_test_##name \
+	},
 #define CHEAT_SET_UP(body) \
-		{ \
-			NULL, \
-			CHEAT_UP_SETTER, \
-			(cheat_procedure* )cheat_set_up \
-		},
+	{ \
+		NULL, \
+		CHEAT_UP_SETTER, \
+		(cheat_procedure* )cheat_set_up \
+	},
 #define CHEAT_TEAR_DOWN(body) \
-		{ \
-			NULL, \
-			CHEAT_DOWN_TEARER, \
-			(cheat_procedure* )cheat_tear_down \
-		},
+	{ \
+		NULL, \
+		CHEAT_DOWN_TEARER, \
+		(cheat_procedure* )cheat_tear_down \
+	},
 #define CHEAT_DECLARE(body)
 
 static struct cheat_procedure const cheat_procedures[] = {
@@ -269,16 +276,16 @@ Some of the symbols defined here are used in the first pass.
 */
 
 #define CHEAT_TEST(name, body) \
-		static void cheat_test_##name(struct cheat_suite* cheat_suite) body
+	static void cheat_test_##name(struct cheat_suite* cheat_suite) body
 #define CHEAT_SET_UP(body) \
-		static void cheat_set_up(void) body
+	static void cheat_set_up(void) body
 #define CHEAT_TEAR_DOWN(body) \
-		static void cheat_tear_down(void) body
+	static void cheat_tear_down(void) body
 #define CHEAT_DECLARE(body) \
-		body
+	body
 
 #define cheat_assert(expression) \
-		cheat_check(cheat_suite, expression, #expression, __FILE__, __LINE__)
+	cheat_check(cheat_suite, expression, #expression, __FILE__, __LINE__)
 
 /*
 The third pass continues past the end of this file, but
@@ -755,7 +762,7 @@ static void cheat_append_message(struct cheat_suite* const suite,
 	message = cheat_malloc_total(size, 1); /* Memory B. */
 	if (message == NULL) {
 		perror("malloc");
-		exit(EXIT_FAILURE);
+		exit(EXIT_FAILURE); /* TODO Preallocate "..." and use it instead. */
 	}
 	memcpy(message, data, size);
 	message[size] = '\0';
@@ -796,9 +803,9 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 	case CHEAT_COLORFUL:
 		print_assertion = true;
 		assertion_format = CHEAT_BOLD "%s:%zu:"
-				CHEAT_RESET " assertion failed: '"
-				CHEAT_BOLD "%s"
-				CHEAT_RESET "'\n";
+			CHEAT_RESET " assertion failed: '"
+			CHEAT_BOLD "%s"
+			CHEAT_RESET "'\n";
 		break;
 	case CHEAT_PLAIN:
 		print_assertion = true;
@@ -820,12 +827,10 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 			size_t size;
 			char* buffer;
 
-#define CHEAT_SIZE_LENGTH(x) (CHAR_BIT * sizeof (size_t)) /* TODO Calculate. */
-
 			size = strlen(assertion_format)
-					+ strlen(file)
-					+ CHEAT_SIZE_LENGTH(line)
-					+ strlen(expression); /* TODO Check overflow. */
+				+ strlen(file)
+				+ CHEAT_INTEGER_LENGTH(line)
+				+ strlen(expression); /* TODO Check overflow. */
 			buffer = malloc(size);
 			cheat_print_string(assertion_format, buffer,
 					3, file, line, expression);
