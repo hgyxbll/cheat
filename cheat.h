@@ -51,6 +51,7 @@ These headers are also
 #include <stdint.h> /* SIZE_MAX */
 
 #define CHEAT_SIZE_FORMAT "%zu"
+
 #define CHEAT_CAST_SIZE(size) \
 	(size)
 
