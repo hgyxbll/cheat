@@ -1,9 +1,9 @@
 #ifndef CHEAT_HELPERS_H
 #define CHEAT_HELPERS_H
 
-#include <stdio.h> /* FILE, fflush(), fread(), fseek(), ftell(), setbuf() */
-#include <stdlib.h> /* exit(), free(), malloc(), mkstemp() */
-#include <string.h> /* strstr() */
+#include <stdio.h> /* FILE */
+#include <stdlib.h>
+#include <string.h>
 
 int cheat_stream_contains(FILE* stream, char const* contents);
 
@@ -57,12 +57,12 @@ int cheat_stream_contains(FILE* stream, char const* contents) {
 
 #if _POSIX_C_SOURCE >= 200112L
 
-#include <unistd.h> /* dup(), dup2() */
+#include <unistd.h>
 
-#elif defined _WIN32
+#elif defined not_WIN32
 
-#include <windows.h> /* ... */
-#include <fcntl.h> /* ... */
+#include <fcntl.h>
+#include <windows.h> /* spaghetti */
 
 #define dup _dup
 #define dup2 _dup2
@@ -94,7 +94,9 @@ int mkstemp(char* pattern) {
 
 #else
 
+#ifndef _WIN32
 #warning "Capturing output isn't supported on this platform. Capturing tests will be ignored."
+#endif
 
 #undef CHEAT_TEST_WITH_CAPTURED_STDOUT
 #undef CHEAT_TEST_WITH_CAPTURED_STDERR

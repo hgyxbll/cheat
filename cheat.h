@@ -50,13 +50,24 @@ These headers are also
 #include <stdbool.h> /* bool, false, true */
 #include <stdint.h> /* SIZE_MAX */
 
+#define CHEAT_SIZE_FORMAT "%zu"
+#define CHEAT_CAST_SIZE(size) \
+	(size)
+
 #else
 
 typedef int bool;
 #define false 0
 #define true 1
 
+#ifndef SIZE_MAX
 #define SIZE_MAX ((size_t )-1)
+#endif
+
+#define CHEAT_SIZE_FORMAT "%lu"
+
+#define CHEAT_CAST_SIZE(size) \
+	((unsigned long )(size))
 
 #endif
 
@@ -148,7 +159,8 @@ struct cheat_suite {
 enum cheat_type {
 	CHEAT_TESTER, /* Something to test. */
 	CHEAT_UP_SETTER, /* Something to do before tests. */
-	CHEAT_DOWN_TEARER /* Something to do after tests. */
+	CHEAT_DOWN_TEARER, /* Something to do after tests. */
+	CHEAT_TERMINATOR /* Nothing to do. */
 };
 
 typedef void (cheat_procedure)(void); /* An untyped procedure. */
@@ -196,13 +208,13 @@ These are ISO/IEC 6429 escape sequences for
 /*
 Computes the compiled size of an array (not a pointer) and returns it.
 */
-#define CHEAT_ARRAY_SIZE(array) \
+#define CHEAT_SIZE(array) \
 	(sizeof array / sizeof *array)
 
 /*
 Computes the maximum string length of an unsigned integer type and returns it.
 */
-#define CHEAT_INTEGER_LENGTH(type) \
+#define CHEAT_LENGTH(type) \
 	(CHAR_BIT * sizeof type / 3 + 1) /* This is an upper bound for
 			the base 2 logarithm of 10. */
 
@@ -214,10 +226,13 @@ Some of the symbols used here are defined in the third pass.
 
 #define CHEAT_TEST(name, body) \
 	static void cheat_test_##name(struct cheat_suite*);
+
 #define CHEAT_SET_UP(body) \
 	static void cheat_set_up(void);
+
 #define CHEAT_TEAR_DOWN(body) \
 	static void cheat_tear_down(void);
+
 #define CHEAT_DECLARE(body)
 
 #define CHEAT_TEST_IGNORE(name, body) \
@@ -242,25 +257,35 @@ Some of the symbols used here are defined in the third pass.
 		CHEAT_TESTER, \
 		(cheat_procedure* )cheat_test_##name \
 	},
+
 #define CHEAT_SET_UP(body) \
 	{ \
 		NULL, \
 		CHEAT_UP_SETTER, \
 		(cheat_procedure* )cheat_set_up \
 	},
+
 #define CHEAT_TEAR_DOWN(body) \
 	{ \
 		NULL, \
 		CHEAT_DOWN_TEARER, \
 		(cheat_procedure* )cheat_tear_down \
 	},
+
 #define CHEAT_DECLARE(body)
 
 static struct cheat_procedure const cheat_procedures[] = {
 #include __BASE_FILE__
+	{
+		NULL,
+		CHEAT_TERMINATOR,
+		NULL
+	} /* This terminator only exists to avoid
+		the problems some compilers have with
+		trailing commas or arrays with zero size. */
 };
 
-static size_t const cheat_procedure_count = CHEAT_ARRAY_SIZE(cheat_procedures);
+static size_t const cheat_procedure_count = CHEAT_SIZE(cheat_procedures) - 1;
 
 #undef CHEAT_TEST
 #undef CHEAT_SET_UP
@@ -277,10 +302,13 @@ Some of the symbols defined here are used in the first pass.
 
 #define CHEAT_TEST(name, body) \
 	static void cheat_test_##name(struct cheat_suite* cheat_suite) body
+
 #define CHEAT_SET_UP(body) \
 	static void cheat_set_up(void) body
+
 #define CHEAT_TEAR_DOWN(body) \
 	static void cheat_tear_down(void) body
+
 #define CHEAT_DECLARE(body) \
 	body
 
@@ -570,10 +598,14 @@ static void cheat_print_outcome(struct cheat_suite* const suite) {
 		break;
 	case CHEAT_COLORFUL:
 		print_bar = true;
-		success = CHEAT_BACKGROUND_GREEN "." CHEAT_RESET;
-		failure = CHEAT_BACKGROUND_RED ":" CHEAT_RESET;
-		ignored = CHEAT_BACKGROUND_YELLOW "?" CHEAT_RESET;
-		crashed = CHEAT_BACKGROUND_RED "!" CHEAT_RESET;
+		success = CHEAT_BACKGROUND_GREEN
+			"." CHEAT_RESET;
+		failure = CHEAT_BACKGROUND_RED
+			":" CHEAT_RESET;
+		ignored = CHEAT_BACKGROUND_YELLOW
+			"?" CHEAT_RESET;
+		crashed = CHEAT_BACKGROUND_RED
+			"!" CHEAT_RESET;
 		break;
 	case CHEAT_MINIMAL:
 		print_bar = false;
@@ -636,11 +668,11 @@ static void cheat_print_summary(struct cheat_suite* const suite) {
 		print_conclusion = true;
 		print_zero = false;
 		separator_string = "---";
-		successful_format = "%zu successful";
+		successful_format = CHEAT_SIZE_FORMAT " successful";
 		and_string = " and ";
-		failed_format = "%zu failed";
+		failed_format = CHEAT_SIZE_FORMAT " failed";
 		of_string = " of ";
-		run_format = "%zu run";
+		run_format = CHEAT_SIZE_FORMAT " run";
 		if (!any_failures)
 			conclusion_string = "SUCCESS";
 		else
@@ -651,27 +683,33 @@ static void cheat_print_summary(struct cheat_suite* const suite) {
 		print_summary = true;
 		print_conclusion = true;
 		print_zero = false;
-		separator_string = CHEAT_FOREGROUND_GRAY "---" CHEAT_RESET;
-		successful_format = CHEAT_FOREGROUND_GREEN "%zu successful" CHEAT_RESET;
+		separator_string = CHEAT_FOREGROUND_GRAY
+			"---" CHEAT_RESET;
+		successful_format = CHEAT_FOREGROUND_GREEN
+			CHEAT_SIZE_FORMAT " successful" CHEAT_RESET;
 		and_string = " and ";
-		failed_format = CHEAT_FOREGROUND_RED "%zu failed" CHEAT_RESET;
+		failed_format = CHEAT_FOREGROUND_RED
+			CHEAT_SIZE_FORMAT " failed" CHEAT_RESET;
 		of_string = " of ";
-		run_format = CHEAT_FOREGROUND_YELLOW "%zu run" CHEAT_RESET;
+		run_format = CHEAT_FOREGROUND_YELLOW
+			CHEAT_SIZE_FORMAT " run" CHEAT_RESET;
 		if (!any_failures)
-			conclusion_string = CHEAT_FOREGROUND_GREEN "SUCCESS" CHEAT_RESET;
+			conclusion_string = CHEAT_FOREGROUND_GREEN
+				"SUCCESS" CHEAT_RESET;
 		else
-			conclusion_string = CHEAT_FOREGROUND_RED "FAILURE" CHEAT_RESET;
+			conclusion_string = CHEAT_FOREGROUND_RED
+				"FAILURE" CHEAT_RESET;
 		break;
 	case CHEAT_MINIMAL:
 		print_messages = false;
 		print_summary = true;
 		print_conclusion = false;
 		print_zero = true;
-		successful_format = "%zu";
+		successful_format = CHEAT_SIZE_FORMAT;
 		and_string = " ";
-		failed_format = "%zu";
+		failed_format = CHEAT_SIZE_FORMAT;
 		of_string = " ";
-		run_format = "%zu";
+		run_format = CHEAT_SIZE_FORMAT;
 		break;
 	default:
 		cheat_print_error("cheat_print_summary");
@@ -696,16 +734,16 @@ static void cheat_print_summary(struct cheat_suite* const suite) {
 	if (print_summary) {
 		if (print_zero || any_successes)
 			cheat_print(successful_format, suite->captured_stdout,
-					1, suite->tests_successful);
+					1, CHEAT_CAST_SIZE(suite->tests_successful));
 		if (print_zero || (any_successes && any_failures))
 			fputs(and_string, suite->captured_stdout);
 		if (print_zero || any_failures)
 			cheat_print(failed_format, suite->captured_stdout,
-					1, suite->tests_failed);
+					1, CHEAT_CAST_SIZE(suite->tests_failed));
 		if (print_zero || (any_successes || any_failures))
 			fputs(of_string, suite->captured_stdout);
 		cheat_print(run_format, suite->captured_stdout,
-				1, suite->tests_run);
+				1, CHEAT_CAST_SIZE(suite->tests_run));
 		fputc('\n', suite->captured_stdout);
 	}
 	if (print_conclusion) {
@@ -802,14 +840,14 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 	switch (suite->style) {
 	case CHEAT_COLORFUL:
 		print_assertion = true;
-		assertion_format = CHEAT_BOLD "%s:%zu:"
+		assertion_format = CHEAT_BOLD "%s:" CHEAT_SIZE_FORMAT ":"
 			CHEAT_RESET " assertion failed: '"
 			CHEAT_BOLD "%s"
 			CHEAT_RESET "'\n";
 		break;
 	case CHEAT_PLAIN:
 		print_assertion = true;
-		assertion_format = "%s:%zu: assertion failed: '%s'\n";
+		assertion_format = "%s:" CHEAT_SIZE_FORMAT ": assertion failed: '%s'\n";
 		break;
 	case CHEAT_MINIMAL:
 		print_assertion = false;
@@ -829,11 +867,11 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 
 			size = strlen(assertion_format)
 				+ strlen(file)
-				+ CHEAT_INTEGER_LENGTH(line)
+				+ CHEAT_LENGTH(line)
 				+ strlen(expression); /* TODO Check overflow. */
 			buffer = malloc(size);
 			cheat_print_string(assertion_format, buffer,
-					3, file, line, expression);
+					3, file, CHEAT_CAST_SIZE(line), expression);
 
 			cheat_append_message(suite, (unsigned char* )buffer, size);
 
@@ -942,7 +980,7 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 			suite->outcome = CHEAT_CRASHED;
 	}
 
-#elif defined _WIN32
+#elif defined not_WIN32 /* TODO Make this actually work. */
 
 	SECURITY_ATTRIBUTES sa;
 	sa.nLength = sizeof (SECURITY_ATTRIBUTES);
@@ -1001,7 +1039,10 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 	CloseHandle(pi.hThread);
 #else /* TODO Move into main and fall back to CHEAT_UNSAFE. */
 
+#ifndef _WIN32 /* This thing was originally for Windows, but
+	Windows is the only platform it does not work on. Fun. */
 #warning "Isolated tests are unsupported. See the README file for help."
+#endif
 
 	cheat_print_error("cheat_run_isolated_test");
 	exit(EXIT_FAILURE);
@@ -1046,8 +1087,6 @@ Runs a test from
 __attribute__ ((__io__, __nonnull__, __warn_unused_result__))
 static enum cheat_outcome cheat_run_test(struct cheat_suite* const suite,
 		struct cheat_procedure const* const procedure) {
-	size_t index;
-
 	suite->outcome = CHEAT_SUCCESS;
 
 	cheat_run_utilities(CHEAT_UP_SETTER);
@@ -1106,7 +1145,7 @@ static void cheat_parse(struct cheat_suite* const suite) {
 				minimal = true;
 			else if (strcmp(suite->arguments[index], "-p") == 0
 					|| strcmp(suite->arguments[index], "--plain") == 0)
-				safe = true;
+				plain = true;
 			else if (strcmp(suite->arguments[index], "-s") == 0
 					|| strcmp(suite->arguments[index], "--safe") == 0)
 				safe = true;
