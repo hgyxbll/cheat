@@ -72,7 +72,11 @@ typedef int bool;
 
 #endif
 
-#if _POSIX_C_SOURCE >= 200112L
+#ifdef _WIN32
+
+#include <windows.h> /* spaghetti */
+
+#elif _POSIX_C_SOURCE >= 200112L
 
 #define execv cheat_execv
 #include <unistd.h> /* STDOUT_FILENO */
@@ -100,10 +104,6 @@ Return the file descriptors for writing to a pipe.
 static int cheat_writer(int const fds[2]) {
 	return fds[1];
 }
-
-#elif defined _WIN32
-
-#include <windows.h> /* spaghetti */
 
 #endif
 
@@ -440,18 +440,26 @@ Prints a formatted string to a string or
  fails safely in case the amount of conversion specifiers in
  the format string does not match the expected count.
 */
-__attribute__ ((__format__ (printf, 1, 4), __io__, __nonnull__ (1)))
+__attribute__ ((__format__ (printf, 1, 5), __io__, __nonnull__ (1)))
 static int cheat_print_string(char const* const format,
 		char* const destination,
-		size_t const count, ...) {
+		size_t const count, size_t const size, ...) {
 	va_list list;
 	int result;
 
 	if (cheat_format_specifiers(format) != count)
 		return -1;
 
-	va_start(list, count);
+	va_start(list, size);
+
+#ifdef _WIN32
+	result = vsprintf_s(destination, size, format, list);
+#elif __STDC_VERSION__ >= 199901L
+	result = vsnprintf(destination, size, format, list);
+#else
 	result = vsprintf(destination, format, list);
+#endif
+
 	va_end(list);
 
 	return result;
@@ -872,7 +880,7 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 				+ strlen(expression); /* TODO Check overflow. */
 			buffer = malloc(size);
 			cheat_print_string(assertion_format, buffer,
-					3, file, CHEAT_CAST_SIZE(line), expression);
+					3, size, file, CHEAT_CAST_SIZE(line), expression);
 
 			cheat_append_message(suite, (unsigned char* )buffer, size);
 
