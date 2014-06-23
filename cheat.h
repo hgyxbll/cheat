@@ -91,20 +91,6 @@ Replaces the standard prototype of execv, because
 */
 int execv(char const*, char const* const*);
 
-/*
-Return the file descriptors for reading from a pipe.
-*/
-static int cheat_reader(int const fds[2]) {
-	return fds[0];
-}
-
-/*
-Return the file descriptors for writing to a pipe.
-*/
-static int cheat_writer(int const fds[2]) {
-	return fds[1];
-}
-
 #endif
 
 enum cheat_outcome {
@@ -917,11 +903,16 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 
 	pid_t pid;
 	int fds[2];
+	int reader;
+	int writer;
 
 	if (pipe(fds) == -1) {
 		perror("pipe");
 		exit(EXIT_FAILURE);
 	}
+	reader = fds[0];
+	writer = fds[1];
+
 	pid = fork();
 	if (pid == -1) {
 		perror("fork");
@@ -929,12 +920,12 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 	} else if (pid == 0) {
 		char const** arguments;
 
-		if (close(cheat_reader(fds)) == -1) {
+		if (close(reader) == -1) {
 			perror("close");
 			exit(EXIT_FAILURE);
 		}
 		/* Redirect stdout to pipe. */
-		if (dup2(cheat_writer(fds), STDOUT_FILENO) == -1) {
+		if (dup2(writer, STDOUT_FILENO) == -1) {
 			perror("dup2");
 			exit(EXIT_FAILURE);
 		}
@@ -961,11 +952,11 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 		unsigned char buf[BUFSIZ];
 		int status;
 
-		if (close(cheat_writer(fds)) == -1) {
+		if (close(writer) == -1) {
 			perror("close");
 			exit(EXIT_FAILURE);
 		}
-		while ((size = read(cheat_reader(fds), buf, sizeof buf)) != 0) {
+		while ((size = read(reader, buf, sizeof buf)) != 0) {
 			if (size == -1) {
 				perror("read");
 				exit(EXIT_FAILURE);
@@ -977,7 +968,7 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 			perror("waitpid");
 			exit(EXIT_FAILURE);
 		}
-		if (close(cheat_reader(fds)) == -1) {
+		if (close(reader) == -1) {
 			perror("close");
 			exit(EXIT_FAILURE);
 		}
