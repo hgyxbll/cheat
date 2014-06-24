@@ -21,12 +21,6 @@ Identifiers starting with
 #error "The __BASE_FILE__ symbol is not defined. See the README file for help."
 #endif
 
-#ifdef _WIN32
-#elif _POSIX_C_SOURCE >= 200112L
-#else
-#error "Isolating tests is not supported. See the README file for help."
-#endif
-
 /*
 This disables GNU extensions when
  using compilers that do not support them.
