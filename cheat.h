@@ -21,6 +21,12 @@ Identifiers starting with
 #error "The __BASE_FILE__ symbol is not defined. See the README file for help."
 #endif
 
+#ifdef _WIN32
+#elif _POSIX_C_SOURCE >= 200112L
+#else
+#error "Isolating tests is not supported. See the README file for help."
+#endif
+
 /*
 This disables GNU extensions when
  using compilers that do not support them.
@@ -73,32 +79,19 @@ typedef int bool;
 #endif
 
 #ifdef _WIN32
-
 #include <windows.h> /* spaghetti */
-
 #elif _POSIX_C_SOURCE >= 200112L
-
-#define execv cheat_execv
-#include <unistd.h> /* STDOUT_FILENO */
-#undef execv
-
 #include <sys/types.h> /* pid_t, ssize_t */
 #include <sys/wait.h>
-
-/*
-Replaces the standard prototype of execv, because
- it is not correctly qualified const.
-*/
-int execv(char const*, char const* const*);
-
+#include <unistd.h> /* STDOUT_FILENO */
 #endif
 
 enum cheat_outcome {
 	CHEAT_INDETERMINATE, /* Nothing happened. */
 	CHEAT_SUCCESS, /* A success happened. */
 	CHEAT_FAILURE, /* A failure happened. */
-	CHEAT_IGNORED, /* Anything could have happened. */
-	CHEAT_CRASHED /* A segmentation fault happened. */
+	CHEAT_CRASHED, /* A critical failure happened. */
+	CHEAT_IGNORED /* Anything could have happened. */
 };
 
 enum cheat_harness {
@@ -131,10 +124,10 @@ struct cheat_suite {
 			more memory has to be allocated. */
 	char** messages; /* The messages so far. */
 
-	char const* program; /* The program name given to main(). */
+	char* program; /* The program name given to main(). */
 
 	size_t argument_count; /* The amount of arguments for the program. */
-	char const* const* arguments; /* The arguments for the program. */
+	char** arguments; /* The arguments for the program. */
 
 	enum cheat_harness harness; /* The security measures to use. */
 
@@ -157,7 +150,7 @@ typedef void (cheat_test)(struct cheat_suite*); /* A test procedure. */
 typedef void (cheat_utility)(void); /* A utility procedure. */
 
 struct cheat_procedure {
-	char const* name; /* The name to use for
+	char* name; /* The name to use for
 			generating identifiers and
 			reporting test results. */
 
@@ -193,6 +186,12 @@ These are ISO/IEC 6429 escape sequences for
 #define CHEAT_BACKGROUND_GRAY "\x1b[47;1m"
 
 /*
+These make preprocessor directives work like statements.
+*/
+#define CHEAT_BEGIN do {
+#define CHEAT_END } while (false)
+
+/*
 Computes the compiled size of an array (not a pointer) and returns it.
 */
 #define CHEAT_SIZE(array) \
@@ -203,7 +202,19 @@ Computes the maximum string length of an unsigned integer type and returns it.
 */
 #define CHEAT_LENGTH(type) \
 	(CHAR_BIT * sizeof type / 3 + 1) /* This is an upper bound for
-			the base 2 logarithm of 10. */
+		the base 2 logarithm of 10. */
+
+/*
+Prints an error message and
+ terminates the program.
+*/
+#define cheat_death(message) \
+	CHEAT_BEGIN \
+		fprintf(stderr, \
+				"%s:%d: %s\n", \
+				__FILE__, __LINE__, message); \
+		exit(EXIT_FAILURE); \
+	CHEAT_END
 
 #define CHEAT_PASS 1 /* This is informational. */
 
@@ -528,7 +539,7 @@ static void cheat_handle_outcome(struct cheat_suite* const suite) {
 	case CHEAT_CRASHED:
 		++suite->tests_failed;
 		break;
-	case CHEAT_INDETERMINATE:
+	case CHEAT_INDETERMINATE: /* TODO Remove. */
 		break;
 	default:
 		cheat_print_error("cheat_handle_outcome");
@@ -640,7 +651,7 @@ static void cheat_print_outcome(struct cheat_suite* const suite) {
 		case CHEAT_CRASHED:
 			fputs(crashed, suite->captured_stdout);
 			break;
-		case CHEAT_INDETERMINATE:
+		case CHEAT_INDETERMINATE: /* TODO Remove. */
 			break;
 		default:
 			cheat_print_error("cheat_print_outcome");
@@ -786,8 +797,6 @@ static struct cheat_procedure const* cheat_find_test(char const* const name) {
 	return NULL;
 }
 
-/* --- Things below this line are bad. --- */
-
 /*
 Adds a message in
  the form of a byte buffer to
@@ -804,33 +813,25 @@ static void cheat_append_message(struct cheat_suite* const suite,
 	if (size == 0)
 		return;
 
-	if (suite->message_count == SIZE_MAX) {
-		cheat_print_error("cheat_append_message");
-		exit(EXIT_FAILURE);
-	}
+	if (suite->message_count == SIZE_MAX)
+		cheat_death("too many messages");
 	message_count = suite->message_count + 1;
 
 	message = cheat_malloc_total(size, 1); /* Memory B. */
-	if (message == NULL) {
-		perror("malloc");
-		exit(EXIT_FAILURE); /* TODO Preallocate "..." and use it instead. */
-	}
+	if (message == NULL)
+		cheat_death("no memory for a new message");
 	memcpy(message, data, size);
 	message[size] = '\0';
 
 	if (suite->message_count == suite->message_capacity) {
 		message_capacity = cheat_expand(suite->message_capacity);
-		if (message_capacity == suite->message_capacity) {
-			cheat_print_error("cheat_append_message");
-			exit(EXIT_FAILURE);
-		}
+		if (message_capacity == suite->message_capacity)
+			cheat_death("too many messages");
 		messages = cheat_realloc_array(suite->messages,
 				message_capacity,
 				sizeof *suite->messages); /* Memory A. */
-		if (messages == NULL) {
-			perror("realloc");
-			exit(EXIT_FAILURE);
-		}
+		if (messages == NULL)
+			cheat_death("no memory for a longer message queue");
 		suite->message_capacity = message_capacity;
 		suite->messages = messages;
 	}
@@ -910,7 +911,8 @@ static void cheat_check(struct cheat_suite* const suite,
 }
 
 __attribute__ ((__malloc__, __nonnull__, __warn_unused_result__))
-static char* cheat_joined(char const* const* const words, size_t const count) {
+static char* cheat_allocate_joined(char const* const* const words,
+		size_t const count) {
 	size_t* lengths;
 	size_t length;
 	char* line;
@@ -975,10 +977,8 @@ static void cheat_run_core(struct cheat_suite* const suite,
 		struct cheat_procedure const* const procedure) {
 	if (procedure->type == CHEAT_TESTER)
 		((cheat_test* )procedure->procedure)(suite);
-	else {
-		cheat_print_error("cheat_run_core");
-		exit(EXIT_FAILURE);
-	}
+	else
+		cheat_death("not a test");
 }
 
 /*
@@ -1012,78 +1012,83 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 	SECURITY_ATTRIBUTES security;
 	STARTUPINFO startup;
 	PROCESS_INFORMATION process;
-	CHAR command[255];
-	DWORD len;
-	DWORD maxlen;
-	CHAR buffer[255];
+	PCHAR* arguments;
+	PCHAR command;
 	DWORD status;
-	char** arguments;
-	char* shell;
 
 	security.nLength = sizeof security;
 	security.lpSecurityDescriptor = NULL;
 	security.bInheritHandle = TRUE;
 
-	if (CreatePipe(&reader, &writer, &security, 0) == 0) {
-		perror("CreatePipe");
-		exit(EXIT_FAILURE);
-	}
-
-	ZeroMemory(&process, sizeof process);
-	ZeroMemory(&startup, sizeof startup);
+	if (!CreatePipe(&reader, &writer, &security, 0))
+		cheat_death("failed to create a pipe");
 
 	startup.cb = sizeof startup;
+	startup.lpReserved = NULL;
+	startup.lpDesktop = NULL;
+	startup.lpTitle = NULL;
 	startup.dwFlags = STARTF_USESTDHANDLES;
+	startup.cbReserved2 = 0;
+	startup.lpReserved2 = NULL;
+	startup.hStdInput = NULL;
 	startup.hStdOutput = writer;
+	startup.hStdError = NULL; /* TODO Consider capturing. */
 
-	/* TODO Obvious. */
-	arguments = malloc((1 + suite->argument_count + 2) * sizeof *suite->arguments);
-	if (arguments == NULL) {
-		perror("malloc");
-		exit(EXIT_FAILURE);
-	}
+	if (suite->argument_count > SIZE_MAX - 3)
+		cheat_death("too many arguments");
+	arguments = cheat_malloc_array(suite->argument_count + 3,
+			sizeof *suite->arguments);
+	if (arguments == NULL)
+		cheat_death("failed to allocate enough memory for an argument list");
 	arguments[0] = suite->program;
 	arguments[1] = test->name;
-	memcpy(&arguments[2], suite->arguments, suite->argument_count * sizeof *suite->arguments);
-	arguments[1 + suite->argument_count + 1] = NULL;
-	shell = cheat_joined(arguments, suite->argument_count + 2);
+	memcpy(&arguments[2], suite->arguments,
+			suite->argument_count * sizeof *suite->arguments);
+	arguments[suite->argument_count + 2] = NULL;
+
+	command = cheat_allocate_joined(arguments, suite->argument_count + 2);
 	free(arguments);
-	if (shell == NULL) {
-		cheat_print_error("cheat_run_isolated_test");
-		exit(EXIT_FAILURE);
+	if (command == NULL)
+		cheat_death("failed to allocate enough memory for a command");
+	if (!CreateProcess(suite->program, command, NULL, NULL,
+				TRUE, NORMAL_PRIORITY_CLASS, NULL, NULL,
+				&startup, &process)) {
+		free(command);
+		cheat_death("failed to create a process");
 	}
-	if (CreateProcess(suite->program,
-			shell,
-			NULL,
-			NULL,
-			TRUE,
-			NORMAL_PRIORITY_CLASS,
-			NULL,
-			NULL,
-			&startup,
-			&process) == 0)
-		printf("something: %d or 0x%x\n", GetLastError(), GetLastError());
-	free(shell);
+	free(command);
 
-	CloseHandle(writer);
-
-	maxlen = 255;
+	if (!CloseHandle(writer))
+		cheat_death("failed to close the write end of a pipe");
 
 	do {
-		ReadFile(reader, buffer, maxlen, &len, NULL);
-		buffer[len] = '\0'; /* TODO This is probably wrong. */
-		cheat_append_message(suite, buffer, len);
-	} while (len > 0);
+		UCHAR buffer[BUFSIZ];
+		DWORD size;
 
-	WaitForSingleObject(process.hProcess, INFINITE);
+		/* TODO This always fails or something. */
+		if (!ReadFile(reader, buffer, sizeof buffer, &size, NULL))
+			break;
+		cheat_append_message(suite, buffer, (size_t )size);
+	} while (TRUE);
 
-	GetExitCodeProcess(process.hProcess, &status);
+	if (!CloseHandle(reader))
+		cheat_death("failed to close the read end of a pipe");
 
-	suite->status = (status & 0x80000000) ? CHEAT_CRASHED : status;
-	suite->outcome = suite->status;
+	if (WaitForSingleObject(process.hProcess, INFINITE) == WAIT_FAILED)
+		cheat_death("failed to wait for a process");
 
-	if (CloseHandle(process.hProcess) == 0); /* TODO Check the rest. */
-	if (CloseHandle(process.hThread) == 0);
+	if (!GetExitCodeProcess(process.hProcess, &status))
+		cheat_death("failed to retrieve the exit status of a process");
+
+	if (!CloseHandle(process.hProcess))
+		cheat_death("failed to close a process handle");
+	if (!CloseHandle(process.hThread))
+		cheat_death("failed to close a thread handle");
+
+	/* TODO This is sometimes bogus; only 0 is guaranteed to mean successful. */
+	/* printf(" [%s -> %d]\n", test->name, status); */
+	suite->status = status;
+	suite->outcome = status == 3 ? CHEAT_CRASHED : status;
 
 #elif _POSIX_C_SOURCE >= 200112L
 
@@ -1118,22 +1123,25 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 		/* TODO Is this safe or even correct? */
 		exit(cheat_run_test(suite, test));
 	} else {
-		ssize_t size;
-		unsigned char buf[BUFSIZ];
 		int status;
 
 		if (close(writer) == -1) {
 			perror("close");
 			exit(EXIT_FAILURE);
 		}
-		while ((size = read(reader, buf, sizeof buf)) != 0) {
-			if (size == -1) {
-				perror("read");
-				exit(EXIT_FAILURE);
-			}
-			cheat_append_message(suite, buf, (size_t )size);
-			/* This should contain the outcome, not the low bits of status. */
-		}
+		do {
+			unsigned char buffer[BUFSIZ];
+			ssize_t size;
+
+			/* TODO This should contain the outcome,
+				not the low bits of status. */
+			size = read(reader, buffer, sizeof buffer);
+			if (size == -1)
+				cheat_death("failed to read from a pipe");
+			if (size == 0)
+				break;
+			cheat_append_message(suite, buffer, (size_t )size);
+		} while (true);
 		if (waitpid(pid, &status, 0) == -1) {
 			perror("waitpid");
 			exit(EXIT_FAILURE);
@@ -1143,6 +1151,7 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 			exit(EXIT_FAILURE);
 		}
 		/* TODO The outcome should be sent through the pipe instead. */
+		/* printf(" [%s -> %d]\n", test->name, status); */
 		if (WIFEXITED(status)) {
 			suite->outcome = WEXITSTATUS(status);
 			suite->status = WEXITSTATUS(status);
@@ -1150,15 +1159,9 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 			suite->outcome = CHEAT_CRASHED;
 	}
 
-#else /* TODO Move into main and fall back to CHEAT_UNSAFE. */
+#else
 
-#ifndef _WIN32 /* This thing was originally for Windows, but
-	Windows is the only platform it does not work on. Fun. */
-#warning "Isolated tests are unsupported. See the README file for help."
-#endif
-
-	cheat_print_error("cheat_run_isolated_test");
-	exit(EXIT_FAILURE);
+	cheat_death("failed to isolate a test");
 
 #endif
 
@@ -1250,13 +1253,15 @@ static void cheat_parse(struct cheat_suite* const suite) {
 			suite->harness = CHEAT_DANGEROUS;
 		if (test) {
 			struct cheat_procedure const* procedure;
+			enum cheat_outcome outcome; /* TODO Write and use. */
 
 			procedure = cheat_find_test(name);
 			if (procedure == NULL) {
 				cheat_print_error("cheat_parse");
 				exit(EXIT_FAILURE);
 			}
-			exit(cheat_run_test(suite, procedure)); /* TODO Type check. */
+			outcome = cheat_run_test(suite, procedure);
+			exit(outcome); /* TODO Type check. */
 		} else {
 			if (suite->harness == CHEAT_DANGEROUS) {
 				signal(SIGABRT, cheat_handle_signal);
@@ -1299,8 +1304,7 @@ Runs tests from the main test suite and
  returns EXIT_SUCCESS in case all tests passed or
  EXIT_FAILURE in case of an error.
 */
-__attribute__ ((__io__, __nonnull__))
-static int cheat_main(int const count, char const* const* const arguments) {
+int main(int const count, char** const arguments) {
 	struct cheat_suite suite;
 	size_t result;
 
@@ -1316,14 +1320,6 @@ static int cheat_main(int const count, char const* const* const arguments) {
 	if (result == 0)
 		return EXIT_SUCCESS;
 	return EXIT_FAILURE;
-}
-
-/*
-Replaces the standard prototype of main, because
- it is not qualified const correctly.
-*/
-int main(int const count, char** const arguments) {
-	return cheat_main(count, (char const* const* )arguments);
 }
 
 #endif
