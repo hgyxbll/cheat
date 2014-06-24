@@ -385,6 +385,20 @@ static void* cheat_malloc_total(size_t const size, size_t const extra_size) {
 }
 
 /*
+Safely allocates memory for
+ an array of size (count * size) and
+ returns a pointer to the allocated region or
+ returns NULL in case of a failure.
+*/
+__attribute__ ((__warn_unused_result__))
+static void* cheat_malloc_array(size_t const count, size_t const size) {
+	if (count > SIZE_MAX / size)
+		return NULL;
+
+	return malloc(count * size);
+}
+
+/*
 Safely reallocates memory for
  an array of size (count * size) and
  returns a pointer to the allocated region or
@@ -514,6 +528,8 @@ static void cheat_handle_outcome(struct cheat_suite* const suite) {
 	case CHEAT_CRASHED:
 		++suite->tests_failed;
 		break;
+	case CHEAT_INDETERMINATE:
+		break;
 	default:
 		cheat_print_error("cheat_handle_outcome");
 		exit(EXIT_FAILURE);
@@ -623,6 +639,8 @@ static void cheat_print_outcome(struct cheat_suite* const suite) {
 			break;
 		case CHEAT_CRASHED:
 			fputs(crashed, suite->captured_stdout);
+			break;
+		case CHEAT_INDETERMINATE:
 			break;
 		default:
 			cheat_print_error("cheat_print_outcome");
@@ -891,6 +909,49 @@ static void cheat_check(struct cheat_suite* const suite,
 	}
 }
 
+__attribute__ ((__malloc__, __nonnull__, __warn_unused_result__))
+static char* cheat_joined(char const* const* const words, size_t const count) {
+	size_t* lengths;
+	size_t length;
+	char* line;
+	size_t index;
+
+	lengths = cheat_malloc_array(count, sizeof *lengths);
+	if (lengths == NULL)
+		return NULL;
+	for (index = 0;
+			index < count;
+			++index)
+		lengths[index] = strlen(words[index]);
+	length = 1;
+	for (index = 0;
+			index < count;
+			++index) {
+		if (lengths[index] > SIZE_MAX - length - 1) {
+			free(lengths);
+			return NULL;
+		}
+		length += lengths[index] + 1;
+	}
+	line = malloc(length);
+	if (line == NULL) {
+		free(lengths);
+		return NULL;
+	}
+	length = 0;
+	for (index = 0;
+			index < count;
+			++index) {
+		memcpy(&line[length], words[index], lengths[index]);
+		length += lengths[index];
+		line[length] = ' ';
+		++length;
+	}
+	line[length - 1] = '\0';
+	free(lengths);
+	return line;
+}
+
 /*
 Creates a subprocess and
  runs a test in it.
@@ -899,7 +960,134 @@ __attribute__ ((__io__, __nonnull__))
 static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 		struct cheat_suite* const suite) {
 
-#if _POSIX_C_SOURCE >= 200112L
+#ifdef _WIN32
+
+	HANDLE reader;
+	HANDLE writer;
+	SECURITY_ATTRIBUTES security;
+	STARTUPINFO startup;
+	PROCESS_INFORMATION process;
+	CHAR command[255];
+	DWORD len;
+	DWORD maxlen;
+	CHAR buffer[255];
+	DWORD status;
+	char** arguments;
+	char* shell;
+
+	security.nLength = sizeof security;
+	security.lpSecurityDescriptor = NULL;
+	security.bInheritHandle = TRUE;
+
+	/*
+	The parameters of CreatePipe are
+	  _Out_     PHANDLE                hReadPipe
+	  _Out_     PHANDLE                hWritePipe
+	  _In_opt_  LPSECURITY_ATTRIBUTES  lpPipeAttributes
+	  _In_      DWORD                  nSize.
+	*/
+	if (CreatePipe(&reader, &writer, &security, 0) == 0) {
+		perror("CreatePipe");
+		exit(EXIT_FAILURE);
+	}
+
+	/*
+	The parameters of ZeroMemory are
+	  _In_  PVOID   Destination
+	  _In_  SIZE_T  Length.
+	*/
+	ZeroMemory(&process, sizeof process);
+	ZeroMemory(&startup, sizeof startup);
+
+	startup.cb = sizeof startup;
+	startup.dwFlags = STARTF_USESTDHANDLES;
+	startup.hStdOutput = writer;
+
+	/* TODO Obvious. */
+	arguments = malloc((1 + suite->argument_count + 2) * sizeof *suite->arguments);
+	if (arguments == NULL) {
+		perror("malloc");
+		exit(EXIT_FAILURE);
+	}
+	arguments[0] = suite->program;
+	arguments[1] = test->name;
+	memcpy(&arguments[2], suite->arguments, suite->argument_count * sizeof *suite->arguments);
+	arguments[1 + suite->argument_count + 1] = NULL;
+	shell = cheat_joined(arguments, suite->argument_count + 2);
+	free(arguments);
+	if (shell == NULL) {
+		cheat_print_error("cheat_run_isolated_test");
+		exit(EXIT_FAILURE);
+	}
+	/*
+	The parameters of CreateProcess are
+	  _In_opt_     LPCTSTR                lpApplicationName
+	  _Inout_opt_  LPTSTR                 lpCommandLine
+	  _In_opt_     LPSECURITY_ATTRIBUTES  lpProcessAttributes
+	  _In_opt_     LPSECURITY_ATTRIBUTES  lpThreadAttributes
+	  _In_         BOOL                   bInheritHandles
+	  _In_         DWORD                  dwCreationFlags
+	  _In_opt_     LPVOID                 lpEnvironment
+	  _In_opt_     LPCTSTR                lpCurrentDirectory
+	  _In_         LPSTARTUPINFO          lpStartupInfo
+	  _Out_        LPPROCESS_INFORMATION  lpProcessInformation.
+	*/
+	if (CreateProcess(suite->program,
+			shell,
+			NULL,
+			NULL,
+			TRUE,
+			NORMAL_PRIORITY_CLASS,
+			NULL,
+			NULL,
+			&startup,
+			&process) == 0)
+		printf("something: %d or 0x%x\n", GetLastError(), GetLastError());
+	free(shell);
+
+	/*
+	The parameters of CloseHandle are
+	  _In_  HANDLE  hObject.
+	*/
+	CloseHandle(writer);
+
+	maxlen = 255;
+
+	/*
+	The parameters of ReadFile are
+	  _In_         HANDLE        hFile
+	  _Out_        LPVOID        lpBuffer
+	  _In_         DWORD         nNumberOfBytesToRead
+	  _Out_opt_    LPDWORD       lpNumberOfBytesRead
+	  _Inout_opt_  LPOVERLAPPED  lpOverlapped.
+	*/
+	do {
+		ReadFile(reader, buffer, maxlen, &len, NULL);
+		buffer[len] = '\0'; /* TODO This is probably wrong. */
+		cheat_append_message(suite, buffer, len);
+	} while (len > 0);
+
+	/*
+	The parameters of WaitForSingleObject are
+	  _In_  HANDLE  hHandle
+	  _In_  DWORD   dwMilliseconds.
+	*/
+	WaitForSingleObject(process.hProcess, INFINITE);
+
+	/*
+	The parameters of GetExitCodeProcess are
+	  _In_   HANDLE   hProcess
+	  _Out_  LPDWORD  lpExitCode.
+	*/
+	GetExitCodeProcess(process.hProcess, &status);
+
+	suite->status = (status & 0x80000000) ? CHEAT_CRASHED : status;
+	suite->outcome = suite->status;
+
+	if (CloseHandle(process.hProcess) == 0); /* TODO Check the rest. */
+	if (CloseHandle(process.hThread) == 0);
+
+#elif _POSIX_C_SOURCE >= 200112L
 
 	pid_t pid;
 	int fds[2];
@@ -980,63 +1168,6 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 			suite->outcome = CHEAT_CRASHED;
 	}
 
-#elif defined not_WIN32 /* TODO Make this actually work. */
-
-	SECURITY_ATTRIBUTES sa;
-	sa.nLength = sizeof (SECURITY_ATTRIBUTES);
-	sa.bInheritHandle = TRUE;
-	sa.lpSecurityDescriptor = NULL;
-
-	HANDLE stdoutPipe_read;
-	HANDLE stdoutPipe_write;
-	CreatePipe(&stdoutPipe_read, &stdoutPipe_write, &sa, 0);
-
-	STARTUPINFO si = { /* Only in C99. */
-		.cb = sizeof (STARTUPINFO),
-		.dwFlags = STARTF_USESTDHANDLES,
-		.hStdOutput = stdoutPipe_write
-	};
-
-	PROCESS_INFORMATION pi = {0};
-
-	CHAR command[255];
-	/* TODO Only in C99. */
-	/* TODO Fix inheritance too. */
-	snprintf(command, 255, "%s %s", suite->program, test->name);
-
-	CreateProcess(
-		NULL,
-		command,
-		NULL,
-		NULL,
-		TRUE,
-		0,
-		NULL,
-		NULL,
-		&si,
-		&pi);
-
-	CloseHandle(stdoutPipe_write);
-
-	DWORD len;
-	DWORD maxlen = 255;
-	CHAR buffer[255];
-
-	do {
-		ReadFile(stdoutPipe_read, buffer, maxlen, &len, NULL);
-		buffer[len] = '\0'; /* TODO This is probably wrong. */
-		cheat_append_message(suite, buffer, len);
-	} while (len > 0);
-
-	WaitForSingleObject(pi.hProcess, INFINITE);
-
-	DWORD status;
-	GetExitCodeProcess(pi.hProcess, &status);
-
-	suite->status = (status & 0x80000000) ? CHEAT_CRASHED : status;
-
-	CloseHandle(pi.hProcess);
-	CloseHandle(pi.hThread);
 #else /* TODO Move into main and fall back to CHEAT_UNSAFE. */
 
 #ifndef _WIN32 /* This thing was originally for Windows, but

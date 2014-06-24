@@ -1,3 +1,4 @@
+CC=gcc
 warnings=`cat gcc-4_7_0-release` -Wno-error -Wno-system-headers \
 	-Wno-c++-compat -Wno-traditional -Wno-traditional-conversion \
 	-Wno-format-nonliteral
