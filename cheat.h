@@ -953,12 +953,57 @@ static char* cheat_joined(char const* const* const words, size_t const count) {
 }
 
 /*
+Runs all utility procedures of a certain type.
+*/
+__attribute__ ((__io__, __nonnull__))
+static void cheat_run_utilities(enum cheat_type const type) {
+	size_t index;
+
+	for (index = 0;
+			index < cheat_procedure_count;
+			++index)
+		if (cheat_procedures[index].type == type)
+			((cheat_utility* )cheat_procedures[index].procedure)();
+}
+
+/*
+Runs the core of a test or
+ terminates the program in case of an error.
+*/
+__attribute__ ((__io__, __nonnull__))
+static void cheat_run_core(struct cheat_suite* const suite,
+		struct cheat_procedure const* const procedure) {
+	if (procedure->type == CHEAT_TESTER)
+		((cheat_test* )procedure->procedure)(suite);
+	else {
+		cheat_print_error("cheat_run_core");
+		exit(EXIT_FAILURE);
+	}
+}
+
+/*
+Runs a test from
+ a test suite.
+*/
+__attribute__ ((__io__, __nonnull__, __warn_unused_result__))
+static enum cheat_outcome cheat_run_test(struct cheat_suite* const suite,
+		struct cheat_procedure const* const procedure) {
+	suite->outcome = CHEAT_SUCCESS;
+
+	cheat_run_utilities(CHEAT_UP_SETTER);
+	cheat_run_core(suite, procedure);
+	cheat_run_utilities(CHEAT_DOWN_TEARER);
+
+	return suite->outcome;
+}
+
+/*
 Creates a subprocess and
  runs a test in it.
 */
 __attribute__ ((__io__, __nonnull__))
-static void cheat_run_isolated_test(struct cheat_procedure const* const test,
-		struct cheat_suite* const suite) {
+static void cheat_run_isolated_test(struct cheat_suite* const suite,
+		struct cheat_procedure const* const test) {
 
 #ifdef _WIN32
 
@@ -979,23 +1024,11 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 	security.lpSecurityDescriptor = NULL;
 	security.bInheritHandle = TRUE;
 
-	/*
-	The parameters of CreatePipe are
-	  _Out_     PHANDLE                hReadPipe
-	  _Out_     PHANDLE                hWritePipe
-	  _In_opt_  LPSECURITY_ATTRIBUTES  lpPipeAttributes
-	  _In_      DWORD                  nSize.
-	*/
 	if (CreatePipe(&reader, &writer, &security, 0) == 0) {
 		perror("CreatePipe");
 		exit(EXIT_FAILURE);
 	}
 
-	/*
-	The parameters of ZeroMemory are
-	  _In_  PVOID   Destination
-	  _In_  SIZE_T  Length.
-	*/
 	ZeroMemory(&process, sizeof process);
 	ZeroMemory(&startup, sizeof startup);
 
@@ -1019,19 +1052,6 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 		cheat_print_error("cheat_run_isolated_test");
 		exit(EXIT_FAILURE);
 	}
-	/*
-	The parameters of CreateProcess are
-	  _In_opt_     LPCTSTR                lpApplicationName
-	  _Inout_opt_  LPTSTR                 lpCommandLine
-	  _In_opt_     LPSECURITY_ATTRIBUTES  lpProcessAttributes
-	  _In_opt_     LPSECURITY_ATTRIBUTES  lpThreadAttributes
-	  _In_         BOOL                   bInheritHandles
-	  _In_         DWORD                  dwCreationFlags
-	  _In_opt_     LPVOID                 lpEnvironment
-	  _In_opt_     LPCTSTR                lpCurrentDirectory
-	  _In_         LPSTARTUPINFO          lpStartupInfo
-	  _Out_        LPPROCESS_INFORMATION  lpProcessInformation.
-	*/
 	if (CreateProcess(suite->program,
 			shell,
 			NULL,
@@ -1045,40 +1065,18 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 		printf("something: %d or 0x%x\n", GetLastError(), GetLastError());
 	free(shell);
 
-	/*
-	The parameters of CloseHandle are
-	  _In_  HANDLE  hObject.
-	*/
 	CloseHandle(writer);
 
 	maxlen = 255;
 
-	/*
-	The parameters of ReadFile are
-	  _In_         HANDLE        hFile
-	  _Out_        LPVOID        lpBuffer
-	  _In_         DWORD         nNumberOfBytesToRead
-	  _Out_opt_    LPDWORD       lpNumberOfBytesRead
-	  _Inout_opt_  LPOVERLAPPED  lpOverlapped.
-	*/
 	do {
 		ReadFile(reader, buffer, maxlen, &len, NULL);
 		buffer[len] = '\0'; /* TODO This is probably wrong. */
 		cheat_append_message(suite, buffer, len);
 	} while (len > 0);
 
-	/*
-	The parameters of WaitForSingleObject are
-	  _In_  HANDLE  hHandle
-	  _In_  DWORD   dwMilliseconds.
-	*/
 	WaitForSingleObject(process.hProcess, INFINITE);
 
-	/*
-	The parameters of GetExitCodeProcess are
-	  _In_   HANDLE   hProcess
-	  _Out_  LPDWORD  lpExitCode.
-	*/
 	GetExitCodeProcess(process.hProcess, &status);
 
 	suite->status = (status & 0x80000000) ? CHEAT_CRASHED : status;
@@ -1117,24 +1115,8 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 			perror("dup2");
 			exit(EXIT_FAILURE);
 		}
-		/* TODO Why execv instead of calling? */
-		/* TODO Is suite->arguments reliable? */
 		/* TODO Is this safe or even correct? */
-		arguments = malloc((1 + suite->argument_count + 2) * sizeof *suite->arguments);
-		if (arguments == NULL) {
-			perror("malloc");
-			exit(EXIT_FAILURE);
-		}
-		arguments[0] = suite->program;
-		arguments[1] = test->name;
-		memcpy(&arguments[2], suite->arguments, suite->argument_count * sizeof *suite->arguments);
-		arguments[1 + suite->argument_count + 1] = NULL;
-		if (execv(suite->program, arguments) == -1) {
-			perror("execv");
-			exit(EXIT_FAILURE);
-		}
-		cheat_print_error("cheat_run_isolated_test");
-		exit(EXIT_FAILURE);
+		exit(cheat_run_test(suite, test));
 	} else {
 		ssize_t size;
 		unsigned char buf[BUFSIZ];
@@ -1180,51 +1162,6 @@ static void cheat_run_isolated_test(struct cheat_procedure const* const test,
 
 #endif
 
-}
-
-/*
-Runs all utility procedures of a certain type.
-*/
-__attribute__ ((__io__, __nonnull__))
-static void cheat_run_utilities(enum cheat_type const type) {
-	size_t index;
-
-	for (index = 0;
-			index < cheat_procedure_count;
-			++index)
-		if (cheat_procedures[index].type == type)
-			((cheat_utility* )cheat_procedures[index].procedure)();
-}
-
-/*
-Runs the core of a test or
- terminates the program in case of an error.
-*/
-__attribute__ ((__io__, __nonnull__))
-static void cheat_run_core(struct cheat_suite* const suite,
-		struct cheat_procedure const* const procedure) {
-	if (procedure->type == CHEAT_TESTER)
-		((cheat_test* )procedure->procedure)(suite);
-	else {
-		cheat_print_error("cheat_run_core");
-		exit(EXIT_FAILURE);
-	}
-}
-
-/*
-Runs a test from
- a test suite.
-*/
-__attribute__ ((__io__, __nonnull__, __warn_unused_result__))
-static enum cheat_outcome cheat_run_test(struct cheat_suite* const suite,
-		struct cheat_procedure const* const procedure) {
-	suite->outcome = CHEAT_SUCCESS;
-
-	cheat_run_utilities(CHEAT_UP_SETTER);
-	cheat_run_core(suite, procedure);
-	cheat_run_utilities(CHEAT_DOWN_TEARER);
-
-	return suite->outcome;
 }
 
 __attribute__ ((__io__, __nonnull__))
@@ -1319,7 +1256,7 @@ static void cheat_parse(struct cheat_suite* const suite) {
 				cheat_print_error("cheat_parse");
 				exit(EXIT_FAILURE);
 			}
-			exit(cheat_run_test(suite, procedure)); /* TODO Something. */
+			exit(cheat_run_test(suite, procedure)); /* TODO Type check. */
 		} else {
 			if (suite->harness == CHEAT_DANGEROUS) {
 				signal(SIGABRT, cheat_handle_signal);
@@ -1338,7 +1275,7 @@ static void cheat_parse(struct cheat_suite* const suite) {
 				if (procedure->type != CHEAT_TESTER)
 					continue;
 				if (suite->harness == CHEAT_SAFE)
-					cheat_run_isolated_test(procedure, suite);
+					cheat_run_isolated_test(suite, procedure);
 				else if (suite->harness == CHEAT_DANGEROUS) {
 					if (setjmp(cheat_jmp_buf) == 0)
 						outcome = cheat_run_test(suite, procedure);
