@@ -1,6 +1,14 @@
 #include <wtypes.h>
 
 WINBASEAPI
+VOID
+WINAPI
+ZeroMemory(
+		_In_  PVOID   Destination,
+		_In_  SIZE_T  Length
+	);
+
+WINBASEAPI
 BOOL
 WINAPI
 CreatePipe(
@@ -11,11 +19,11 @@ CreatePipe(
 	);
 
 WINBASEAPI
-VOID
+__checkReturn
+DWORD
 WINAPI
-ZeroMemory(
-		_In_  PVOID   Destination,
-		_In_  SIZE_T  Length
+GetLastError(
+		VOID
 	);
 
 WINBASEAPI

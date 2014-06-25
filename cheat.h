@@ -36,6 +36,7 @@ These headers are also
  available externally even though
  they do not need to be.
 */
+#include <errno.h> /* errno */
 #include <limits.h> /* INT_MAX */
 #include <setjmp.h> /* jmp_buf */
 #include <signal.h> /* SIGABRT, SIGFPE, SIGILL, SIGSEGV, SIGTERM */
@@ -144,7 +145,7 @@ typedef void (cheat_test)(struct cheat_suite*); /* A test procedure. */
 typedef void (cheat_utility)(void); /* A utility procedure. */
 
 struct cheat_procedure {
-	char* name; /* The name to use for
+	char const* name; /* The name to use for
 			generating identifiers and
 			reporting test results. */
 
@@ -201,12 +202,14 @@ Computes the maximum string length of an unsigned integer type and returns it.
 /*
 Prints an error message and
  terminates the program.
+The error number is context sensitive and
+ might only contain the least significant bytes of the actual error code.
 */
-#define cheat_death(message) \
+#define cheat_death(message, number) \
 	CHEAT_BEGIN \
 		fprintf(stderr, \
-				"%s:%d: %s\n", \
-				__FILE__, __LINE__, message); \
+				"%s:%d: %s (0x%x)\n", \
+				__FILE__, __LINE__, message, number); \
 		exit(EXIT_FAILURE); \
 	CHEAT_END
 
@@ -393,7 +396,7 @@ static void* cheat_malloc_total(size_t const size, size_t const extra_size) {
 Safely allocates memory for
  an array of size (count * size) and
  returns a pointer to the allocated region or
- returns NULL in case of a failure.
+ returns NULL and sets errno in case of a failure.
 */
 __attribute__ ((__warn_unused_result__))
 static void* cheat_malloc_array(size_t const count, size_t const size) {
@@ -407,7 +410,7 @@ static void* cheat_malloc_array(size_t const count, size_t const size) {
 Safely reallocates memory for
  an array of size (count * size) and
  returns a pointer to the allocated region or
- returns NULL in case of a failure.
+ returns NULL and sets errno in case of a failure.
 */
 __attribute__ ((__warn_unused_result__))
 static void* cheat_realloc_array(void* const pointer,
@@ -471,16 +474,9 @@ static int cheat_print_string(char const* const format,
 }
 
 /*
-Prints a custom error message.
-*/
-__attribute__ ((__io__, __nonnull__))
-static void cheat_print_error(char const* const message) {
-	fputs(message, stderr); /* TODO Replace perror() with more detail. */
-	fputs(": Failure\n", stderr);
-}
-
-/*
 Clears a test suite.
+Memory reserved for messages is freed, but
+ everything else is lost.
 */
 __attribute__ ((__nonnull__))
 static void cheat_clear(struct cheat_suite* const suite) {
@@ -536,8 +532,7 @@ static void cheat_handle_outcome(struct cheat_suite* const suite) {
 	case CHEAT_INDETERMINATE: /* TODO Remove. */
 		break;
 	default:
-		cheat_print_error("cheat_handle_outcome");
-		exit(EXIT_FAILURE);
+		cheat_death("invalid outcome", (int )suite->outcome);
 	}
 }
 
@@ -546,17 +541,17 @@ Prints a usage summary.
 */
 __attribute__ ((__io__, __nonnull__))
 static void cheat_print_usage(struct cheat_suite const* const suite) {
-	fputs("Usage: ", suite->captured_stdout);
-	fputs(suite->program, suite->captured_stdout);
-	fputs(" [option] [another option] [...]\n", suite->captured_stdout);
-	fputs("\
+	(void )fputs("Usage: ", suite->captured_stdout);
+	(void )fputs(suite->program, suite->captured_stdout);
+	(void )fputs(" [option] [another option] [...]\n", suite->captured_stdout);
+	(void )fputs("\
 Options: -c  --colorful   Use ISO/IEC 6429 escape codes to color reports\n\
          -d  --dangerous  Pretend that crashing tests do\n\
                           not cause undefined behavior\n\
          -h  --help       Show this help\n\
          -l  --list       List test cases\n\
 ", suite->captured_stdout); /* String literals must fit into 509 bytes. */
-	fputs("\
+	(void )fputs("\
          -m  --minimal    Only report the amounts of successes, failures\n\
                           and tests run in a machine readable format\n\
          -p  --plain      Present reports in plain text\n\
@@ -582,12 +577,12 @@ static void cheat_print_tests(struct cheat_suite const* const suite) {
 		procedure = &cheat_procedures[index];
 		if (procedure->type == CHEAT_TESTER) {
 			if (first) {
-				fputs("Tests: ", suite->captured_stdout);
+				(void )fputs("Tests: ", suite->captured_stdout);
 				first = false;
 			} else
-				fputs("       ", suite->captured_stdout);
-			fputs(procedure->name, suite->captured_stdout);
-			fputc('\n', suite->captured_stdout);
+				(void )fputs("       ", suite->captured_stdout);
+			(void )fputs(procedure->name, suite->captured_stdout);
+			(void )fputc('\n', suite->captured_stdout);
 		}
 	}
 }
@@ -627,31 +622,29 @@ static void cheat_print_outcome(struct cheat_suite* const suite) {
 		print_bar = false;
 		break;
 	default:
-		cheat_print_error("cheat_print_outcome");
-		exit(EXIT_FAILURE);
+		cheat_death("invalid style", (int )suite->style);
 	}
 
 	if (print_bar) {
 		switch (suite->outcome) {
 		case CHEAT_SUCCESS:
-			fputs(success, suite->captured_stdout);
+			(void )fputs(success, suite->captured_stdout);
 			break;
 		case CHEAT_FAILURE:
-			fputs(failure, suite->captured_stdout);
+			(void )fputs(failure, suite->captured_stdout);
 			break;
 		case CHEAT_IGNORED:
-			fputs(ignored, suite->captured_stdout);
+			(void )fputs(ignored, suite->captured_stdout);
 			break;
 		case CHEAT_CRASHED:
-			fputs(crashed, suite->captured_stdout);
+			(void )fputs(crashed, suite->captured_stdout);
 			break;
 		case CHEAT_INDETERMINATE: /* TODO Remove. */
 			break;
 		default:
-			cheat_print_error("cheat_print_outcome");
-			exit(EXIT_FAILURE);
+			cheat_death("invalid outcome", (int )suite->outcome);
 		}
-		fflush(suite->captured_stdout);
+		(void )fflush(suite->captured_stdout);
 	}
 }
 
@@ -730,43 +723,42 @@ static void cheat_print_summary(struct cheat_suite* const suite) {
 		run_format = CHEAT_SIZE_FORMAT;
 		break;
 	default:
-		cheat_print_error("cheat_print_summary");
-		exit(EXIT_FAILURE);
+		cheat_death("invalid style", (int )suite->style);
 	}
 
 	if (print_messages && any_run) {
-		fputc('\n', suite->captured_stdout);
+		(void )fputc('\n', suite->captured_stdout);
 		if (suite->messages != NULL) {
 			size_t index;
 
-			fputs(separator_string, suite->captured_stdout);
-			fputc('\n', suite->captured_stdout);
+			(void )fputs(separator_string, suite->captured_stdout);
+			(void )fputc('\n', suite->captured_stdout);
 			for (index = 0;
 					index < suite->message_count;
 					++index)
-				fputs(suite->messages[index], suite->captured_stdout);
+				(void )fputs(suite->messages[index], suite->captured_stdout);
 		}
-		fputs(separator_string, suite->captured_stdout);
-		fputc('\n', suite->captured_stdout);
+		(void )fputs(separator_string, suite->captured_stdout);
+		(void )fputc('\n', suite->captured_stdout);
 	}
 	if (print_summary) {
 		if (print_zero || any_successes)
-			cheat_print(successful_format, suite->captured_stdout,
+			(void )cheat_print(successful_format, suite->captured_stdout,
 					1, CHEAT_CAST_SIZE(suite->tests_successful));
 		if (print_zero || (any_successes && any_failures))
-			fputs(and_string, suite->captured_stdout);
+			(void )fputs(and_string, suite->captured_stdout);
 		if (print_zero || any_failures)
-			cheat_print(failed_format, suite->captured_stdout,
+			(void )cheat_print(failed_format, suite->captured_stdout,
 					1, CHEAT_CAST_SIZE(suite->tests_failed));
 		if (print_zero || (any_successes || any_failures))
-			fputs(of_string, suite->captured_stdout);
-		cheat_print(run_format, suite->captured_stdout,
+			(void )fputs(of_string, suite->captured_stdout);
+		(void )cheat_print(run_format, suite->captured_stdout,
 				1, CHEAT_CAST_SIZE(suite->tests_run));
-		fputc('\n', suite->captured_stdout);
+		(void )fputc('\n', suite->captured_stdout);
 	}
 	if (print_conclusion) {
-		fputs(conclusion_string, suite->captured_stdout);
-		fputc('\n', suite->captured_stdout);
+		(void )fputs(conclusion_string, suite->captured_stdout);
+		(void )fputc('\n', suite->captured_stdout);
 	}
 }
 
@@ -808,24 +800,25 @@ static void cheat_append_message(struct cheat_suite* const suite,
 		return;
 
 	if (suite->message_count == SIZE_MAX)
-		cheat_death("too many messages");
+		cheat_death("too many messages", (int )suite->message_count);
 	message_count = suite->message_count + 1;
 
 	message = cheat_malloc_total(size, 1); /* Memory B. */
 	if (message == NULL)
-		cheat_death("no memory for a new message");
+		cheat_death("failed to allocate memory for a new message", errno);
 	memcpy(message, data, size);
 	message[size] = '\0';
 
 	if (suite->message_count == suite->message_capacity) {
 		message_capacity = cheat_expand(suite->message_capacity);
 		if (message_capacity == suite->message_capacity)
-			cheat_death("too many messages");
+			cheat_death("message capacity exceeded",
+					(int )suite->message_capacity);
 		messages = cheat_realloc_array(suite->messages,
 				message_capacity,
 				sizeof *suite->messages); /* Memory A. */
 		if (messages == NULL)
-			cheat_death("no memory for a longer message queue");
+			cheat_death("failed to allocate more memory for messages", errno);
 		suite->message_capacity = message_capacity;
 		suite->messages = messages;
 	}
@@ -861,13 +854,12 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 		print_assertion = false;
 		break;
 	default:
-		cheat_print_error("cheat_check");
-		exit(EXIT_FAILURE);
+		cheat_death("invalid style", (int )suite->style);
 	}
 
 	if (print_assertion) {
 		if (suite->harness == CHEAT_SAFE)
-			cheat_print(assertion_format, suite->captured_stdout,
+			(void )cheat_print(assertion_format, suite->captured_stdout,
 					3, file, line, expression);
 		else {
 			size_t size;
@@ -972,7 +964,7 @@ static void cheat_run_core(struct cheat_suite* const suite,
 	if (procedure->type == CHEAT_TESTER)
 		((cheat_test* )procedure->procedure)(suite);
 	else
-		cheat_death("not a test");
+		cheat_death("not a test", (int )procedure->type);
 }
 
 /*
@@ -1006,16 +998,27 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 	SECURITY_ATTRIBUTES security;
 	STARTUPINFO startup;
 	PROCESS_INFORMATION process;
+	SIZE_T size;
+	DWORD error;
+	PCHAR program;
 	PCHAR* arguments;
 	PCHAR command;
 	DWORD status;
+
+	/*
+	The memory behind the structures is zeroed to
+	 avoid compatibility issues if their fields change.
+	*/
+	ZeroMemory(&security, sizeof security);
+	ZeroMemory(&startup, sizeof startup);
+	ZeroMemory(&process, sizeof process);
 
 	security.nLength = sizeof security;
 	security.lpSecurityDescriptor = NULL;
 	security.bInheritHandle = TRUE;
 
 	if (!CreatePipe(&reader, &writer, &security, 0))
-		cheat_death("failed to create a pipe");
+		cheat_death("failed to create a pipe", GetLastError());
 
 	startup.cb = sizeof startup;
 	startup.lpReserved = NULL;
@@ -1028,32 +1031,41 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 	startup.hStdOutput = writer;
 	startup.hStdError = NULL; /* TODO Consider capturing. */
 
+	size = strlen(suite->program) + 1;
+	program = malloc(size);
+	if (program == NULL)
+		cheat_death("failed to allocate memory for the program name", errno);
+	memcpy(program, suite->program, size);
+
 	if (suite->argument_count > SIZE_MAX - 3)
-		cheat_death("too many arguments");
+		cheat_death("too many arguments", (int )suite->argument_count);
 	arguments = cheat_malloc_array(suite->argument_count + 3,
 			sizeof *suite->arguments);
 	if (arguments == NULL)
-		cheat_death("failed to allocate enough memory for an argument list");
-	arguments[0] = suite->program;
+		cheat_death("failed to allocate memory for an argument list", errno);
+	arguments[0] = program;
 	arguments[1] = test->name;
 	memcpy(&arguments[2], suite->arguments,
 			suite->argument_count * sizeof *suite->arguments);
 	arguments[suite->argument_count + 2] = NULL;
 
 	command = cheat_allocate_joined(arguments, suite->argument_count + 2);
+	error = errno;
+	free(program);
 	free(arguments);
 	if (command == NULL)
-		cheat_death("failed to allocate enough memory for a command");
+		cheat_death("failed to allocate memory for a command", error);
 	if (!CreateProcess(suite->program, command, NULL, NULL,
 				TRUE, NORMAL_PRIORITY_CLASS, NULL, NULL,
 				&startup, &process)) {
+		error = GetLastError();
 		free(command);
-		cheat_death("failed to create a process");
+		cheat_death("failed to create a process", error);
 	}
 	free(command);
 
 	if (!CloseHandle(writer))
-		cheat_death("failed to close the write end of a pipe");
+		cheat_death("failed to close the write end of a pipe", GetLastError());
 
 	do {
 		UCHAR buffer[BUFSIZ];
@@ -1066,18 +1078,19 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 	} while (TRUE);
 
 	if (!CloseHandle(reader))
-		cheat_death("failed to close the read end of a pipe");
+		cheat_death("failed to close the read end of a pipe", GetLastError());
 
 	if (WaitForSingleObject(process.hProcess, INFINITE) == WAIT_FAILED)
-		cheat_death("failed to wait for a process");
+		cheat_death("failed to wait for a process", GetLastError());
 
 	if (!GetExitCodeProcess(process.hProcess, &status))
-		cheat_death("failed to retrieve the exit status of a process");
+		cheat_death("failed to retrieve the exit status of a process",
+				GetLastError());
 
 	if (!CloseHandle(process.hProcess))
-		cheat_death("failed to close a process handle");
+		cheat_death("failed to close a process handle", GetLastError());
 	if (!CloseHandle(process.hThread))
-		cheat_death("failed to close a thread handle");
+		cheat_death("failed to close a thread handle", GetLastError());
 
 	/* TODO This is sometimes bogus; only 0 is guaranteed to mean successful. */
 	/* printf(" [%s -> %d]\n", test->name, status); */
@@ -1091,59 +1104,57 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 	int reader;
 	int writer;
 
-	if (pipe(fds) == -1) {
-		perror("pipe");
-		exit(EXIT_FAILURE);
-	}
+	if (pipe(fds) == -1)
+		cheat_death("failed to create a pipe", errno);
 	reader = fds[0];
 	writer = fds[1];
 
 	pid = fork();
-	if (pid == -1) {
-		perror("fork");
-		exit(EXIT_FAILURE);
-	} else if (pid == 0) {
-		char const** arguments;
+	if (pid == -1)
+		cheat_death("failed to create a process", errno);
+	else if (pid == 0) {
+		enum cheat_outcome outcome;
 
-		if (close(reader) == -1) {
-			perror("close");
-			exit(EXIT_FAILURE);
-		}
-		/* Redirect stdout to pipe. */
-		if (dup2(writer, STDOUT_FILENO) == -1) {
-			perror("dup2");
-			exit(EXIT_FAILURE);
-		}
-		/* TODO Is this safe or even correct? */
-		exit(cheat_run_test(suite, test));
+		if (close(reader) == -1)
+			cheat_death("failed to close the read end of a pipe", errno);
+		if (dup2(writer, STDOUT_FILENO) == -1)
+			cheat_death("failed to redirect standard output", errno);
+		outcome = cheat_run_test(suite, test);
+		if (close(writer) == -1)
+			cheat_death("failed to close the write end of a pipe", errno);
+		exit(outcome);
 	} else {
 		int status;
 
-		if (close(writer) == -1) {
-			perror("close");
-			exit(EXIT_FAILURE);
-		}
+		if (close(writer) == -1)
+			cheat_death("failed to close the write end of a pipe", errno);
 		do {
 			unsigned char buffer[BUFSIZ];
 			ssize_t size;
 
-			/* TODO This should contain the outcome,
-				not the low bits of status. */
+			/* TODO Outcome, not status. */
+			/*
+			Okay, here's the plan.
+			If the buffer contains a '\0' before the end, then
+			 the message ends at the terminator as usual, but
+			 the outcome comes after it.
+			The size of the exit status variable depends on
+			 how many bytes are left over; while
+			 some assumptions about its size have to be made,
+			 it is not fixed between implementations.
+			Least significant bytes come first.
+			*/
 			size = read(reader, buffer, sizeof buffer);
 			if (size == -1)
-				cheat_death("failed to read from a pipe");
+				cheat_death("failed to read from a pipe", errno);
 			if (size == 0)
 				break;
 			cheat_append_message(suite, buffer, (size_t )size);
 		} while (true);
-		if (waitpid(pid, &status, 0) == -1) {
-			perror("waitpid");
-			exit(EXIT_FAILURE);
-		}
-		if (close(reader) == -1) {
-			perror("close");
-			exit(EXIT_FAILURE);
-		}
+		if (waitpid(pid, &status, 0) == -1)
+			cheat_death("failed to wait for a process", errno);
+		if (close(reader) == -1)
+			cheat_death("failed to close the read end of a pipe", errno);
 		/* TODO The outcome should be sent through the pipe instead. */
 		/* printf(" [%s -> %d]\n", test->name, status); */
 		if (WIFEXITED(status)) {
@@ -1155,7 +1166,7 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 
 #else
 
-	cheat_death("failed to isolate a test");
+	cheat_death("failed to isolate a test", 0);
 
 #endif
 
@@ -1217,10 +1228,8 @@ static void cheat_parse(struct cheat_suite* const suite) {
 			else if (strcmp(suite->arguments[index], "-u") == 0
 					|| strcmp(suite->arguments[index], "--unsafe") == 0)
 				unsafe = true;
-			else {
-				cheat_print_error("cheat_parse");
-				exit(EXIT_FAILURE);
-			}
+			else
+				cheat_death("invalid option", (int )index);
 		} else {
 			++names;
 			name = suite->arguments[index];
@@ -1250,19 +1259,23 @@ static void cheat_parse(struct cheat_suite* const suite) {
 			enum cheat_outcome outcome; /* TODO Write and use. */
 
 			procedure = cheat_find_test(name);
-			if (procedure == NULL) {
-				cheat_print_error("cheat_parse");
-				exit(EXIT_FAILURE);
-			}
+			if (procedure == NULL)
+				cheat_death("test not found", 0);
 			outcome = cheat_run_test(suite, procedure);
-			exit(outcome); /* TODO Type check. */
+			/* TODO Outcome, not status. */
+			exit(outcome);
 		} else {
 			if (suite->harness == CHEAT_DANGEROUS) {
-				signal(SIGABRT, cheat_handle_signal);
-				signal(SIGFPE, cheat_handle_signal);
-				signal(SIGILL, cheat_handle_signal);
-				signal(SIGSEGV, cheat_handle_signal);
-				signal(SIGTERM, cheat_handle_signal);
+				if (signal(SIGABRT, cheat_handle_signal) == SIG_ERR)
+					cheat_death("failed to disable the ABRT signal", errno);
+				if (signal(SIGFPE, cheat_handle_signal) == SIG_ERR)
+					cheat_death("failed to disable the FPE signal", errno);
+				if (signal(SIGILL, cheat_handle_signal) == SIG_ERR)
+					cheat_death("failed to disable the ILL signal", errno);
+				if (signal(SIGSEGV, cheat_handle_signal) == SIG_ERR)
+					cheat_death("failed to disable the SEGV signal", errno);
+				if (signal(SIGTERM, cheat_handle_signal) == SIG_ERR)
+					cheat_death("failed to disable the TERM signal", errno);
 			}
 			for (index = 0;
 					index < cheat_procedure_count;
@@ -1287,10 +1300,8 @@ static void cheat_parse(struct cheat_suite* const suite) {
 			}
 			cheat_print_summary(suite);
 		}
-	} else {
-		cheat_print_error("cheat_parse");
-		exit(EXIT_FAILURE);
-	}
+	} else
+		cheat_death("invalid combination of options", 0);
 }
 
 /*

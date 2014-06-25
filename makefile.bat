@@ -1,5 +1,6 @@
 set cc=cl
-set warnings=/W4
+set warnings=/W4 ^
+	/wd4127
 set debug=%warnings% /Od /Zi
 set deploy=/Ox
 set cflags=%debug% ^
