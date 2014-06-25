@@ -35,6 +35,9 @@ This disables GNU extensions when
 
 extern "C" {
 
+/*
+This is used to cast a void pointer to any other pointer type.
+*/
 #define CHEAT_CAST(type) \
 	(type )
 
@@ -310,7 +313,7 @@ Some of the symbols defined here are used in the first pass.
 */
 
 #define CHEAT_TEST(name, body) \
-	static void cheat_test_##name(struct cheat_suite* cheat_suite) body
+	static void cheat_test_##name(struct cheat_suite* const cheat_suite) body
 
 #define CHEAT_SET_UP(body) \
 	static void cheat_set_up(void) body
