@@ -44,7 +44,7 @@ int cheat_stream_contains(FILE* stream, char const* contents) {
 	len = (size_t )what;
 	fseek(stream, 0, SEEK_SET);
 
-	buffer = malloc(len + 1);
+	buffer = (char* )malloc(len + 1); /* This is kind of bad. */
 	fread(buffer, 1, len, stream);
 	buffer[len] = '\0';
 

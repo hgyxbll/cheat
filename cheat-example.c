@@ -8,11 +8,11 @@
 #include <string.h>
 
 CHEAT_DECLARE(
-	char *tmp_string;
+	char* tmp_string;
 )
 
 CHEAT_SET_UP({
-	tmp_string = calloc(1, 50);
+	tmp_string = (char* )calloc(1, 50); /* This is stupid. */
 })
 
 CHEAT_TEAR_DOWN({

@@ -79,8 +79,7 @@ Tests can then be defined with `CHEAT_TEST(name, block)`,
  initialization with `CHEAT_SET_UP(block)` and
  finalization with `CHEAT_TEAR_DOWN(block)`.
 
-Examples are in the `cheat-example.c` file, which
- can be compiled with `make` and run with `make test`.
+Some examples are in the `cheat-example.c` file.
 
 ### Running Tests
 
@@ -104,9 +103,9 @@ The executable runs tests in
  one of the tests does.
 The `-u` for `--unsafe` option allows
  running everything in the same process if
- `fork()` is unsupported, fails or
- something else equally fun happens and
- the `-d` for `--dangerous` option allows
+ `fork()` or `CreateProcess()` is unsupported, fails or
+ something else equally fun happens.
+In those cases the `-d` for `--dangerous` option provides some stability by
  suppressing signals like `SIGFPE` and `SIGSEGV`,
  most likely leading to undefined behavior.
 Luckily undefined behavior is often defined enough behavior.
@@ -120,11 +119,28 @@ The `-c` for `--colorful` option makes everything colorful,
 	[user@computer project]$ ./tests -m
 	4 2 8
 
-Other obvious options are
- `-h` for `--help`,
- `-l` for `--list`,
- `-p` for `--plain` and
+The default options are `-p` for `--plain` and
  `-s` for `--safe`.
+
+Option parsing can be disabled with `--` if
+ some of the arguments begin with a dash when they should not.
+
+### Individual Tests
+
+More exotic use cases may require running individual tests.
+The names of the tests follow the ones given in the source file, but
+ there is also `-l` for `--list`.
+
+	[user@computer project]$ ./tests -l
+	Tests: mathematics_still_work
+	       physics_still_work
+	       philosophy_never_actually_worked
+
+They can be given as arguments to specify the tests to run.
+
+	[user@computer project]$ ./tests mathematics_still_work physics_still_work
+	[user@computer project]$ echo returned $?
+	returned 0
 
 ### Complicated Tests
 
@@ -137,6 +153,13 @@ More complicated tests are easy to define with
 Helpers cover things like
  stream redirection and
  signal handlers.
+
+## Compatibility
+
+CHEAT is designed for C, but
+ it works with C++ after wading through a million warnings.
+
+	[user@computer project]$ make -e CC=g++ -f makefile.gcc
 
 ## Bugs and Limitations
 
@@ -172,3 +195,14 @@ If `__BASE_FILE__` is defined in a file
  that does not directly include `cheat.h`, then
  CHEAT will refuse to cooperate until
  the definition is moved.
+
+### Broken Compiler
+
+If the compiler works like Microsoft C/C++ (commonly known as `cl.exe`) and
+ defines either `__BASE_FILE__` or `__FILE__` wrong, then
+ the test suite will be empty.
+
+There are a few `makefile`s for different compilers that
+ show how to hammer out most of the problems.
+
+	[user@computer project]$ make -f makefile.gcc
