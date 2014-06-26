@@ -226,7 +226,7 @@ The error number is context sensitive and
 	CHEAT_BEGIN \
 		(void )fprintf(stderr, \
 				"%s:%d: %s (0x%x)\n", \
-				__FILE__, __LINE__, message, (int )number); \
+				__FILE__, __LINE__, message, (unsigned int )number); \
 		exit(EXIT_FAILURE); \
 	CHEAT_END /* Using cheat_print() is intentionally avoided here. */
 
@@ -286,7 +286,7 @@ Some of the symbols used here are defined in the third pass.
 
 #define CHEAT_DECLARE(body)
 
-static struct cheat_unit const cheat_procedures[] = {
+static struct cheat_unit const cheat_units[] = {
 #include __BASE_FILE__
 	{
 		NULL,
@@ -297,7 +297,7 @@ static struct cheat_unit const cheat_procedures[] = {
 		trailing commas or arrays with zero size. */
 };
 
-static size_t const cheat_procedure_count = CHEAT_SIZE(cheat_procedures) - 1;
+static size_t const cheat_unit_count = CHEAT_SIZE(cheat_units) - 1;
 
 #undef CHEAT_TEST
 #undef CHEAT_SET_UP
@@ -488,33 +488,32 @@ static char* cheat_allocate_joined(char const* const* const words,
 }
 
 /*
-Prints a formatted string to a stream or
- fails safely in case the amount of conversion specifiers in
- the format string does not match the expected count.
+Finds a test by its name and
+ returns a pointer to it or
+ returns NULL in case no test is found.
 */
-__attribute__ ((__format__ (printf, 1, 4), __io__, __nonnull__ (1)))
-static int cheat_print(char const* const format,
-		FILE* const stream,
-		size_t const count, ...) {
-	va_list list;
-	int result;
+__attribute__ ((__nonnull__, __pure__, __warn_unused_result__))
+static struct cheat_unit const* cheat_find_test(char const* const name) {
+	struct cheat_unit const* unit;
+	size_t index;
 
-	if (cheat_format_specifiers(format) != count)
-		return -1;
-
-	va_start(list, count);
-	result = vfprintf(stream, format, list);
-	va_end(list);
-
-	return result;
+	for (index = 0;
+			index < cheat_unit_count;
+			++index) {
+		unit = &cheat_units[index];
+		if (unit->type == CHEAT_TESTER
+				&& strcmp(unit->name, name) == 0)
+			return unit;
+	}
+	return NULL;
 }
 
 /*
-Prints a formatted string to a string or
+Prints a formatted string into a string or
  fails safely in case the amount of conversion specifiers in
  the format string does not match the expected count.
 */
-__attribute__ ((__format__ (printf, 1, 5), __io__, __nonnull__ (1)))
+__attribute__ ((__format__ (__printf__, 1, 5), __pure__, __nonnull__ (1)))
 static int cheat_print_string(char const* const format,
 		char* const destination,
 		size_t const count, size_t const size, ...) {
@@ -534,6 +533,28 @@ static int cheat_print_string(char const* const format,
 	result = vsprintf(destination, format, list);
 #endif
 
+	va_end(list);
+
+	return result;
+}
+
+/*
+Prints a formatted string to a stream or
+ fails safely in case the amount of conversion specifiers in
+ the format string does not match the expected count.
+*/
+__attribute__ ((__format__ (__printf__, 1, 4), __io__, __nonnull__ (1)))
+static int cheat_print(char const* const format,
+		FILE* const stream,
+		size_t const count, ...) {
+	va_list list;
+	int result;
+
+	if (cheat_format_specifiers(format) != count)
+		return -1;
+
+	va_start(list, count);
+	result = vfprintf(stream, format, list);
 	va_end(list);
 
 	return result;
@@ -575,6 +596,49 @@ static void cheat_initialize(struct cheat_suite* const suite) {
 	suite->message_capacity = 0;
 	suite->messages = NULL;
 	cheat_clear(suite);
+}
+
+/*
+Adds a message in
+ the form of a byte buffer to
+ the message queue of a test suite.
+*/
+__attribute__ ((__nonnull__))
+static void cheat_append_message(struct cheat_suite* const suite,
+		unsigned char const* const data, size_t const size) {
+	size_t message_capacity;
+	size_t message_count;
+	char** messages;
+	char* message;
+
+	if (size == 0)
+		return;
+
+	if (suite->message_count == SIZE_MAX)
+		cheat_death("too many messages", suite->message_count);
+	message_count = suite->message_count + 1;
+
+	message = CHEAT_CAST(char*) cheat_allocate_more(size, 1); /* Memory B. */
+	if (message == NULL)
+		cheat_death("failed to allocate memory for a new message", errno);
+	memcpy(message, data, size);
+	message[size] = '\0';
+	/* message[0] = '|'; */ /* This showcases the wrong! */
+
+	if (suite->message_count == suite->message_capacity) {
+		message_capacity = cheat_expand(suite->message_capacity);
+		if (message_capacity == suite->message_capacity)
+			cheat_death("message capacity exceeded", suite->message_capacity);
+		messages = CHEAT_CAST(char**) cheat_reallocate_array(suite->messages,
+				message_capacity, sizeof *suite->messages); /* Memory A. */
+		if (messages == NULL)
+			cheat_death("failed to allocate more memory for messages", errno);
+		suite->message_capacity = message_capacity;
+		suite->messages = messages;
+	}
+	suite->messages[suite->message_count] = message;
+
+	suite->message_count = message_count;
 }
 
 /*
@@ -637,18 +701,18 @@ static void cheat_print_tests(struct cheat_suite const* const suite) {
 
 	first = true;
 	for (index = 0;
-			index < cheat_procedure_count;
+			index < cheat_unit_count;
 			++index) {
-		struct cheat_unit const* procedure;
+		struct cheat_unit const* unit;
 
-		procedure = &cheat_procedures[index];
-		if (procedure->type == CHEAT_TESTER) {
+		unit = &cheat_units[index];
+		if (unit->type == CHEAT_TESTER) {
 			if (first) {
 				(void )fputs("Tests: ", suite->captured_stdout);
 				first = false;
 			} else
 				(void )fputs("       ", suite->captured_stdout);
-			(void )fputs(procedure->name, suite->captured_stdout);
+			(void )fputs(unit->name, suite->captured_stdout);
 			(void )fputc('\n', suite->captured_stdout);
 		}
 	}
@@ -830,70 +894,6 @@ static void cheat_print_summary(struct cheat_suite* const suite) {
 }
 
 /*
-Finds a test by its name and
- returns a pointer to it or
- returns NULL in case no test is found.
-*/
-__attribute__ ((__nonnull__, __pure__, __warn_unused_result__))
-static struct cheat_unit const* cheat_find_test(char const* const name) {
-	struct cheat_unit const* procedure;
-	size_t index;
-
-	for (index = 0;
-			index < cheat_procedure_count;
-			++index) {
-		procedure = &cheat_procedures[index];
-		if (procedure->type == CHEAT_TESTER
-				&& strcmp(procedure->name, name) == 0)
-			return procedure;
-	}
-	return NULL;
-}
-
-/*
-Adds a message in
- the form of a byte buffer to
- the queue of a test suite.
-*/
-__attribute__ ((__nonnull__))
-static void cheat_append_message(struct cheat_suite* const suite,
-		unsigned char const* const data, size_t const size) {
-	size_t message_capacity;
-	size_t message_count;
-	char** messages;
-	char* message;
-
-	if (size == 0)
-		return;
-
-	if (suite->message_count == SIZE_MAX)
-		cheat_death("too many messages", suite->message_count);
-	message_count = suite->message_count + 1;
-
-	message = CHEAT_CAST(char*) cheat_allocate_more(size, 1); /* Memory B. */
-	if (message == NULL)
-		cheat_death("failed to allocate memory for a new message", errno);
-	memcpy(message, data, size);
-	message[size] = '\0';
-
-	if (suite->message_count == suite->message_capacity) {
-		message_capacity = cheat_expand(suite->message_capacity);
-		if (message_capacity == suite->message_capacity)
-			cheat_death("message capacity exceeded", suite->message_capacity);
-		messages = CHEAT_CAST(char**) cheat_reallocate_array(suite->messages,
-				message_capacity,
-				sizeof *suite->messages); /* Memory A. */
-		if (messages == NULL)
-			cheat_death("failed to allocate more memory for messages", errno);
-		suite->message_capacity = message_capacity;
-		suite->messages = messages;
-	}
-	suite->messages[suite->message_count] = message;
-
-	suite->message_count = message_count;
-}
-
-/*
 Prints an error message.
 */
 __attribute__ ((__io__, __nonnull__))
@@ -935,7 +935,7 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 				+ CHEAT_LENGTH(line)
 				+ strlen(expression); /* TODO Check overflow. */
 			buffer = CHEAT_CAST(char*) malloc(size);
-			cheat_print_string(assertion_format, buffer,
+			(void )cheat_print_string(assertion_format, buffer,
 					3, size, file, CHEAT_CAST_SIZE(line), expression);
 
 			cheat_append_message(suite, (unsigned char* )buffer, size);
@@ -968,10 +968,10 @@ static void cheat_run_utilities(enum cheat_type const type) {
 	size_t index;
 
 	for (index = 0;
-			index < cheat_procedure_count;
+			index < cheat_unit_count;
 			++index)
-		if (cheat_procedures[index].type == type)
-			((cheat_utility* )cheat_procedures[index].procedure)();
+		if (cheat_units[index].type == type)
+			((cheat_utility* )cheat_units[index].procedure)();
 }
 
 /*
@@ -980,11 +980,11 @@ Runs the core of a test or
 */
 __attribute__ ((__io__, __nonnull__))
 static void cheat_run_core(struct cheat_suite* const suite,
-		struct cheat_unit const* const procedure) {
-	if (procedure->type == CHEAT_TESTER)
-		((cheat_test* )procedure->procedure)(suite);
+		struct cheat_unit const* const unit) {
+	if (unit->type == CHEAT_TESTER)
+		((cheat_test* )unit->procedure)(suite);
 	else
-		cheat_death("not a test", procedure->type);
+		cheat_death("not a test", unit->type);
 }
 
 /*
@@ -993,11 +993,11 @@ Runs a test from
 */
 __attribute__ ((__io__, __nonnull__, __warn_unused_result__))
 static enum cheat_outcome cheat_run_test(struct cheat_suite* const suite,
-		struct cheat_unit const* const procedure) {
+		struct cheat_unit const* const unit) {
 	suite->outcome = CHEAT_SUCCESS;
 
 	cheat_run_utilities(CHEAT_UP_SETTER);
-	cheat_run_core(suite, procedure);
+	cheat_run_core(suite, unit);
 	cheat_run_utilities(CHEAT_DOWN_TEARER);
 
 	return suite->outcome;
@@ -1094,7 +1094,7 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 		/* TODO This always fails or something. */
 		if (!ReadFile(reader, buffer, sizeof buffer, &size, NULL))
 			break;
-		cheat_append_message(suite, buffer, (size_t )size);
+		cheat_append_message(suite, buffer, (size_t )size); /* This is wrong! */
 	} while (TRUE);
 
 	if (!CloseHandle(reader))
@@ -1154,8 +1154,9 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 
 			/* TODO Outcome, not status. */
 			/*
-			Okay, here's the plan.
-			If the buffer contains a '\0' before the end, then
+			Okay, here's the plan, at least approximately so.
+			Message splitting has still its share of problems.
+			If the buffer contains a double '\0' before the end, then
 			 the message ends at the terminator as usual, but
 			 the outcome comes after it.
 			The size of the exit status variable depends on
@@ -1169,7 +1170,7 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 				cheat_death("failed to read from a pipe", errno);
 			if (size == 0)
 				break;
-			cheat_append_message(suite, buffer, (size_t )size);
+			cheat_append_message(suite, buffer, (size_t )size); /* Wrong! */
 		} while (true);
 		if (waitpid(pid, &status, 0) == -1)
 			cheat_death("failed to wait for a process", errno);
@@ -1279,13 +1280,13 @@ static void cheat_parse(struct cheat_suite* const suite) {
 		if (dangerous)
 			suite->harness = CHEAT_DANGEROUS;
 		if (test) {
-			struct cheat_unit const* procedure;
+			struct cheat_unit const* unit;
 			enum cheat_outcome outcome; /* TODO Write and use. */
 
-			procedure = cheat_find_test(name);
-			if (procedure == NULL)
+			unit = cheat_find_test(name);
+			if (unit == NULL)
 				cheat_death("test not found", 0);
-			outcome = cheat_run_test(suite, procedure);
+			outcome = cheat_run_test(suite, unit);
 			/* TODO Outcome, not status. */
 			exit(outcome);
 		} else {
@@ -1302,23 +1303,23 @@ static void cheat_parse(struct cheat_suite* const suite) {
 					cheat_death("failed to disable the TERM signal", errno);
 			}
 			for (index = 0;
-					index < cheat_procedure_count;
+					index < cheat_unit_count;
 					++index) {
-				struct cheat_unit const* procedure;
+				struct cheat_unit const* unit;
 				enum cheat_outcome outcome; /* TODO Read and use. */
 
-				procedure = &cheat_procedures[index];
-				if (procedure->type != CHEAT_TESTER)
+				unit = &cheat_units[index];
+				if (unit->type != CHEAT_TESTER)
 					continue;
 				if (suite->harness == CHEAT_SAFE)
-					cheat_run_isolated_test(suite, procedure);
+					cheat_run_isolated_test(suite, unit);
 				else if (suite->harness == CHEAT_DANGEROUS) {
 					if (setjmp(cheat_jmp_buf) == 0)
-						outcome = cheat_run_test(suite, procedure);
+						outcome = cheat_run_test(suite, unit);
 					else
 						suite->outcome = CHEAT_CRASHED;
 				} else
-					outcome = cheat_run_test(suite, procedure);
+					outcome = cheat_run_test(suite, unit);
 				cheat_handle_outcome(suite);
 				cheat_print_outcome(suite);
 			}
