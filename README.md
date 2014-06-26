@@ -52,7 +52,7 @@ The core components are defined in a single header file, so
  the only necessary step is to download it.
 
 	[user@computer ~]$ cd /usr/include
-	[user@computer include]$ sudo wget -q https://github.com/Tuplanolla/cheat/raw/master/cheat.h
+	[user@computer include]$ sudo wget -q https://github.com/Tuplanolla/cheat/raw/stable/cheat.h
 
 ### Writing Tests
 
