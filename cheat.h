@@ -120,6 +120,12 @@ enum cheat_style {
 	CHEAT_MINIMAL /* Only numbered summaries are printed. */
 };
 
+/*
+It would not hurt to have
+  __attribute__ ((__reorder__))
+ on any of the structures since they are for internal use only.
+*/
+
 struct cheat_suite {
 	size_t tests_successful; /* The amount of successful tests so far. */
 	size_t tests_failed; /* The amount of failed tests so far. */
@@ -155,11 +161,11 @@ enum cheat_type {
 	CHEAT_TERMINATOR /* Nothing to do. */
 };
 
-typedef void (cheat_procedure)(void); /* An untyped procedure. */
+typedef void (* cheat_procedure)(void); /* An untyped procedure. */
 
-typedef void (cheat_test)(struct cheat_suite*); /* A test procedure. */
+typedef void (* cheat_test)(struct cheat_suite*); /* A test procedure. */
 
-typedef void (cheat_utility)(void); /* A utility procedure. */
+typedef void (* cheat_utility)(void); /* A utility procedure. */
 
 struct cheat_unit {
 	char const* name; /* The name to use for
@@ -168,7 +174,7 @@ struct cheat_unit {
 
 	enum cheat_type type; /* The type of the procedure. */
 
-	cheat_procedure* procedure; /* The procedure to call would be
+	cheat_procedure procedure; /* The procedure to call would be
 			a union of cheat_test and cheat_utility, but
 			initializing such a thing would be impossible if
 			it was qualified const. */
@@ -267,21 +273,21 @@ Some of the symbols used here are defined in the third pass.
 	{ \
 		#name, \
 		CHEAT_TESTER, \
-		(cheat_procedure* )cheat_test_##name \
+		(cheat_procedure )cheat_test_##name \
 	},
 
 #define CHEAT_SET_UP(body) \
 	{ \
 		NULL, \
 		CHEAT_UP_SETTER, \
-		(cheat_procedure* )cheat_set_up \
+		(cheat_procedure )cheat_set_up \
 	},
 
 #define CHEAT_TEAR_DOWN(body) \
 	{ \
 		NULL, \
 		CHEAT_DOWN_TEARER, \
-		(cheat_procedure* )cheat_tear_down \
+		(cheat_procedure )cheat_tear_down \
 	},
 
 #define CHEAT_DECLARE(body)
@@ -935,6 +941,8 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 				+ CHEAT_LENGTH(line)
 				+ strlen(expression); /* TODO Check overflow. */
 			buffer = CHEAT_CAST(char*) malloc(size);
+			if (buffer == NULL)
+				cheat_death("failed to allocate memory", errno);
 			(void )cheat_print_string(assertion_format, buffer,
 					3, size, file, CHEAT_CAST_SIZE(line), expression);
 
@@ -951,7 +959,7 @@ Checks a single assertion and
 */
 __attribute__ ((__io__, __nonnull__))
 static void cheat_check(struct cheat_suite* const suite,
-		int const result,
+		bool const result,
 		char const* const expression,
 		char const* const file, size_t const line) {
 	if (!result) {
@@ -971,7 +979,7 @@ static void cheat_run_utilities(enum cheat_type const type) {
 			index < cheat_unit_count;
 			++index)
 		if (cheat_units[index].type == type)
-			((cheat_utility* )cheat_units[index].procedure)();
+			((cheat_utility )cheat_units[index].procedure)();
 }
 
 /*
@@ -982,7 +990,7 @@ __attribute__ ((__io__, __nonnull__))
 static void cheat_run_core(struct cheat_suite* const suite,
 		struct cheat_unit const* const unit) {
 	if (unit->type == CHEAT_TESTER)
-		((cheat_test* )unit->procedure)(suite);
+		((cheat_test )unit->procedure)(suite);
 	else
 		cheat_death("not a test", unit->type);
 }
