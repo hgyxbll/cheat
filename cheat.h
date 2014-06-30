@@ -151,7 +151,8 @@ struct cheat_suite {
 
 	enum cheat_style style; /* The style of printed messages. */
 
-	FILE* captured_stdout; /* TODO Document. */
+	FILE* captured_stdout; /* The stream subprocesses use as
+			their standard output stream. */
 };
 
 enum cheat_type {
@@ -161,10 +162,12 @@ enum cheat_type {
 	CHEAT_TERMINATOR /* Nothing to do. */
 };
 
-typedef void (* cheat_procedure)(void); /* An untyped procedure. */
-
+/*
+These could be defined as function types instead of function pointer types, but
+ that would not be consistent with the standard library.
+*/
+typedef void (* cheat_procedure)(); /* An untyped procedure. */
 typedef void (* cheat_test)(struct cheat_suite*); /* A test procedure. */
-
 typedef void (* cheat_utility)(void); /* A utility procedure. */
 
 struct cheat_unit {
