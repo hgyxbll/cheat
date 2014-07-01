@@ -60,6 +60,7 @@ These headers are also
 #include <stddef.h> /* NULL, size_t */
 #include <stdio.h> /* BUFSIZ, FILE, stderr, stdout */
 #include <stdlib.h> /* EXIT_FAILURE, EXIT_SUCCESS */
+#include <string.h>
 
 #if __STDC_VERSION__ >= 199901L
 
@@ -696,7 +697,7 @@ Options: -c  --colorful   Use ISO/IEC 6429 escape codes to color reports\n\
                           and tests run in a machine readable format\n\
          -p  --plain      Present reports in plain text\n\
          -s  --safe       Run tests in isolated subprocesses\n\
-         -u  --unsafe     Let crashing tests to bring down the whole suite\n\
+         -u  --unsafe     Let crashing tests bring down the whole suite\n\
 ", suite->captured_stdout);
 }
 
