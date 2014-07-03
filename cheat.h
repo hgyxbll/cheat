@@ -1087,6 +1087,7 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 	free(arguments);
 	if (command == NULL)
 		cheat_death("failed to allocate memory for a command", error);
+	/* TODO Implicit file extensions and Unicode characters ruin this. */
 	if (!CreateProcess(suite->program, command, NULL, NULL,
 				TRUE, NORMAL_PRIORITY_CLASS, NULL, NULL,
 				&startup, &process)) {
