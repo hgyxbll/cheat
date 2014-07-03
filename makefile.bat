@@ -7,4 +7,5 @@ set cflags=%debug% ^
 	/D__STDC_VERSION__=199409L ^
 	/I.
 
-%cc% %cflags% /D__BASE_FILE__="""cheat-example.c""" /Fecheat-example cheat-example.c
+%cc% %cflags% ^
+	/D__BASE_FILE__="""cheat-example.c""" /Fecheat-example cheat-example.c
