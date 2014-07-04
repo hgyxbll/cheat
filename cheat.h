@@ -167,6 +167,7 @@ enum cheat_type {
 These could be defined as function types instead of function pointer types, but
  that would not be consistent with the standard library.
 */
+/* TODO Deprecate casting and rethink CHEAT_TEST_IGNORE. */
 typedef void (* cheat_procedure)(); /* An untyped procedure. */
 typedef void (* cheat_test)(struct cheat_suite*); /* A test procedure. */
 typedef void (* cheat_utility)(void); /* A utility procedure. */
@@ -1032,7 +1033,7 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 	PROCESS_INFORMATION process;
 	SIZE_T size;
 	DWORD error;
-	PCHAR name;
+	PCHAR name; /* TODO Check type conversions. */
 	PCHAR* arguments;
 	PCHAR command;
 	DWORD status;
