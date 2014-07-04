@@ -20,7 +20,7 @@ goto :eof
 :return
 
 :build
-%cc% %cflags% ^
+%cc% /nologo %cflags% ^
 	/D__BASE_FILE__="""cheat-example.c""" /Fecheat-example.exe cheat-example.c
 goto :eof
 

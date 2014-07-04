@@ -2,9 +2,10 @@
 
 for i in tests/*
 do
-	printf "%s %s %s\n" --- "$i" ---
-	o=`mktemp` && {
-		cc -I . -o "$o" -w "$i" && "$o" "$@"
+	printf "%s %s %s\n" --- "`basename "$i"`" ---
+	o=`printf "%s" "$i" | sed "s/\.[^.]\+\$//"`
+	cc -I . -o "$o" -w "$i" && {
+		"$o" "$@"
 		rm "$o"
 	}
 done
