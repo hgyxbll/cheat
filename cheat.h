@@ -99,6 +99,62 @@ typedef int bool;
 #include <unistd.h> /* STDOUT_FILENO */
 #endif
 
+/*
+These make preprocessor directives work like statements.
+*/
+#define CHEAT_BEGIN do {
+#define CHEAT_END } while (false)
+
+/*
+These are ISO/IEC 6429 escape sequences for
+ communicating text attributes to terminal emulators.
+*/
+#define CHEAT_RESET "\x1b[0m"
+#define CHEAT_BOLD "\x1b[1m"
+#define CHEAT_FOREGROUND_GRAY "\x1b[30;1m"
+#define CHEAT_FOREGROUND_RED "\x1b[31;1m"
+#define CHEAT_FOREGROUND_GREEN "\x1b[32;1m"
+#define CHEAT_FOREGROUND_YELLOW "\x1b[33;1m"
+#define CHEAT_FOREGROUND_BLUE "\x1b[34;1m"
+#define CHEAT_FOREGROUND_MAGENTA "\x1b[35;1m"
+#define CHEAT_FOREGROUND_CYAN "\x1b[36;1m"
+#define CHEAT_FOREGROUND_WHITE "\x1b[37;1m"
+#define CHEAT_BACKGROUND_BLACK "\x1b[40;1m"
+#define CHEAT_BACKGROUND_RED "\x1b[41;1m"
+#define CHEAT_BACKGROUND_GREEN "\x1b[42;1m"
+#define CHEAT_BACKGROUND_YELLOW "\x1b[43;1m"
+#define CHEAT_BACKGROUND_BLUE "\x1b[44;1m"
+#define CHEAT_BACKGROUND_MAGENTA "\x1b[45;1m"
+#define CHEAT_BACKGROUND_CYAN "\x1b[46;1m"
+#define CHEAT_BACKGROUND_GRAY "\x1b[47;1m"
+
+/*
+Computes the compiled size of an array (not a pointer) and returns it.
+*/
+#define CHEAT_SIZE(array) \
+	(sizeof array / sizeof *array)
+
+/*
+Computes the maximum string length of an unsigned integer type and returns it.
+*/
+#define CHEAT_LENGTH(type) \
+	(CHAR_BIT * sizeof type / 3 + 1) /* This is an upper bound for
+		the base 2 logarithm of 10. */
+
+/*
+Prints an error message and
+ terminates the program.
+The error number is context sensitive and
+ might only contain the least significant bytes of the actual error code.
+*/
+#define cheat_death(message, number) \
+	CHEAT_BEGIN \
+		(void )fprintf(stderr, \
+				"%s:%d: %s (0x%x)\n", \
+				__FILE__, __LINE__, message, (unsigned int )number); \
+		exit(EXIT_FAILURE); \
+	CHEAT_END /* Using cheat_print() is intentionally avoided here. */
+
 enum cheat_type {
 	CHEAT_TESTER, /* Something to test. */
 	CHEAT_UP_SETTER, /* Something to do before tests. */
@@ -185,163 +241,9 @@ struct cheat_suite {
 			their standard output stream. */
 };
 
-/*
-These are ISO/IEC 6429 escape sequences for
- communicating text attributes to terminal emulators.
-*/
-#define CHEAT_RESET "\x1b[0m"
-#define CHEAT_BOLD "\x1b[1m"
-#define CHEAT_FOREGROUND_GRAY "\x1b[30;1m"
-#define CHEAT_FOREGROUND_RED "\x1b[31;1m"
-#define CHEAT_FOREGROUND_GREEN "\x1b[32;1m"
-#define CHEAT_FOREGROUND_YELLOW "\x1b[33;1m"
-#define CHEAT_FOREGROUND_BLUE "\x1b[34;1m"
-#define CHEAT_FOREGROUND_MAGENTA "\x1b[35;1m"
-#define CHEAT_FOREGROUND_CYAN "\x1b[36;1m"
-#define CHEAT_FOREGROUND_WHITE "\x1b[37;1m"
-#define CHEAT_BACKGROUND_BLACK "\x1b[40;1m"
-#define CHEAT_BACKGROUND_RED "\x1b[41;1m"
-#define CHEAT_BACKGROUND_GREEN "\x1b[42;1m"
-#define CHEAT_BACKGROUND_YELLOW "\x1b[43;1m"
-#define CHEAT_BACKGROUND_BLUE "\x1b[44;1m"
-#define CHEAT_BACKGROUND_MAGENTA "\x1b[45;1m"
-#define CHEAT_BACKGROUND_CYAN "\x1b[46;1m"
-#define CHEAT_BACKGROUND_GRAY "\x1b[47;1m"
-
-/*
-These make preprocessor directives work like statements.
-*/
-#define CHEAT_BEGIN do {
-#define CHEAT_END } while (false)
-
-/*
-Computes the compiled size of an array (not a pointer) and returns it.
-*/
-#define CHEAT_SIZE(array) \
-	(sizeof array / sizeof *array)
-
-/*
-Computes the maximum string length of an unsigned integer type and returns it.
-*/
-#define CHEAT_LENGTH(type) \
-	(CHAR_BIT * sizeof type / 3 + 1) /* This is an upper bound for
-		the base 2 logarithm of 10. */
-
-/*
-Prints an error message and
- terminates the program.
-The error number is context sensitive and
- might only contain the least significant bytes of the actual error code.
-*/
-#define cheat_death(message, number) \
-	CHEAT_BEGIN \
-		(void )fprintf(stderr, \
-				"%s:%d: %s (0x%x)\n", \
-				__FILE__, __LINE__, message, (unsigned int )number); \
-		exit(EXIT_FAILURE); \
-	CHEAT_END /* Using cheat_print() is intentionally avoided here. */
-
-#define CHEAT_PASS 1 /* This is informational. */
-
-/*
-Some of the symbols used here are defined in the third pass.
-*/
-
-#define CHEAT_TEST(name, body) \
-	static void cheat_test_##name(void);
-
-#define CHEAT_SET_UP(body) \
-	static void cheat_set_up(void);
-
-#define CHEAT_TEAR_DOWN(body) \
-	static void cheat_tear_down(void);
-
-#define CHEAT_DECLARE(body)
-
-#include __BASE_FILE__
-
-#undef CHEAT_TEST
-#undef CHEAT_SET_UP
-#undef CHEAT_TEAR_DOWN
-#undef CHEAT_DECLARE
-
-#undef CHEAT_PASS
-
-#define CHEAT_PASS 2
-
-#define CHEAT_TEST(name, body) \
-	{ \
-		#name, \
-		CHEAT_TESTER, \
-		cheat_test_##name \
-	},
-
-#define CHEAT_SET_UP(body) \
-	{ \
-		NULL, \
-		CHEAT_UP_SETTER, \
-		cheat_set_up \
-	},
-
-#define CHEAT_TEAR_DOWN(body) \
-	{ \
-		NULL, \
-		CHEAT_DOWN_TEARER, \
-		cheat_tear_down \
-	},
-
-#define CHEAT_DECLARE(body)
-
-static struct cheat_unit const cheat_global_units[] = {
-#include __BASE_FILE__
-	{
-		NULL,
-		CHEAT_TERMINATOR,
-		NULL
-	} /* This terminator only exists to avoid
-		the problems some compilers have with
-		trailing commas or arrays with zero size. */
-};
-
-/* TODO Less verbosity. */
-static size_t const cheat_global_unit_count = CHEAT_SIZE(cheat_global_units) - 1;
-
-#undef CHEAT_TEST
-#undef CHEAT_SET_UP
-#undef CHEAT_TEAR_DOWN
-#undef CHEAT_DECLARE
-
-#undef CHEAT_PASS
-
-#define CHEAT_PASS 3
-
-/*
-Some of the symbols defined here are used in the first pass.
-*/
-
-#define CHEAT_TEST(name, body) \
-	static void cheat_test_##name(void) body
-
-#define CHEAT_SET_UP(body) \
-	static void cheat_set_up(void) body
-
-#define CHEAT_TEAR_DOWN(body) \
-	static void cheat_tear_down(void) body
-
-#define CHEAT_DECLARE(body) \
-	body
-
-#define cheat_assert(expression) \
-	cheat_check(&cheat_global_suite, expression, #expression, __FILE__, __LINE__)
-
-/*
-The third pass continues past the end of this file, but
- the definitions for it end here.
-*/
-
 /* TODO Carry out the plan to make the suite global,
 	hopefully allowing for a proper separation of side effects and state. */
-static struct cheat_suite cheat_global_suite;
+static struct cheat_suite cheat_suite;
 
 /*
 Suppresses a signal and
@@ -349,7 +251,7 @@ Suppresses a signal and
 */
 __attribute__ ((__noreturn__))
 static void cheat_handle_signal(int const number) {
-	longjmp(cheat_global_suite.cheat_jmp_buf, number);
+	longjmp(cheat_suite.cheat_jmp_buf, number);
 }
 
 /*
@@ -1343,6 +1245,104 @@ static void cheat_parse(struct cheat_suite* const suite) {
 		cheat_death("invalid combination of options", 0);
 }
 
+#define CHEAT_PASS 1 /* This is informational. */
+
+/*
+Some of the symbols used here are defined in the third pass.
+*/
+
+#define CHEAT_TEST(name, body) \
+	static void cheat_test_##name(void);
+
+#define CHEAT_SET_UP(body) \
+	static void cheat_set_up(void);
+
+#define CHEAT_TEAR_DOWN(body) \
+	static void cheat_tear_down(void);
+
+#define CHEAT_DECLARE(body)
+
+#include __BASE_FILE__
+
+#undef CHEAT_TEST
+#undef CHEAT_SET_UP
+#undef CHEAT_TEAR_DOWN
+#undef CHEAT_DECLARE
+
+#undef CHEAT_PASS
+
+#define CHEAT_PASS 2
+
+#define CHEAT_TEST(name, body) \
+	{ \
+		#name, \
+		CHEAT_TESTER, \
+		cheat_test_##name \
+	},
+
+#define CHEAT_SET_UP(body) \
+	{ \
+		NULL, \
+		CHEAT_UP_SETTER, \
+		cheat_set_up \
+	},
+
+#define CHEAT_TEAR_DOWN(body) \
+	{ \
+		NULL, \
+		CHEAT_DOWN_TEARER, \
+		cheat_tear_down \
+	},
+
+#define CHEAT_DECLARE(body)
+
+static struct cheat_unit const cheat_units[] = {
+#include __BASE_FILE__
+	{
+		NULL,
+		CHEAT_TERMINATOR,
+		NULL
+	} /* This terminator only exists to avoid
+		the problems some compilers have with
+		trailing commas or arrays with zero size. */
+};
+
+/* TODO Less verbosity. */
+static size_t const cheat_unit_count = CHEAT_SIZE(cheat_units) - 1;
+
+#undef CHEAT_TEST
+#undef CHEAT_SET_UP
+#undef CHEAT_TEAR_DOWN
+#undef CHEAT_DECLARE
+
+#undef CHEAT_PASS
+
+#define CHEAT_PASS 3
+
+/*
+Some of the symbols defined here are used in the first pass.
+*/
+
+#define CHEAT_TEST(name, body) \
+	static void cheat_test_##name(void) body
+
+#define CHEAT_SET_UP(body) \
+	static void cheat_set_up(void) body
+
+#define CHEAT_TEAR_DOWN(body) \
+	static void cheat_tear_down(void) body
+
+#define CHEAT_DECLARE(body) \
+	body
+
+#define cheat_assert(expression) \
+	cheat_check(&cheat_suite, expression, #expression, __FILE__, __LINE__)
+
+/*
+The third pass continues past the end of this file, but
+ the definitions for it end here.
+*/
+
 /*
 Runs tests from the main test suite and
  returns EXIT_SUCCESS in case all tests passed or
@@ -1353,9 +1353,9 @@ int main(int const count, char** const arguments) {
 	size_t result;
 
 	/* TODO Wrangle this around. */
-	suite = &cheat_global_suite;
-	suite->unit_count = &cheat_global_unit_count;
-	suite->units = cheat_global_units;
+	suite = &cheat_suite;
+	suite->unit_count = &cheat_unit_count;
+	suite->units = cheat_units;
 
 	cheat_initialize(suite);
 	suite->program = arguments[0];
