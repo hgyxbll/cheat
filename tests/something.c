@@ -10,16 +10,8 @@ CHEAT_TEST(failure, {
 	cheat_assert(0);
 })
 
-CHEAT_TEST_IGNORE(ignored, {
-	cheat_assert(0);
-})
-
 CHEAT_TEST(another_success, {})
 
 CHEAT_TEST(another_failure, {
-	cheat_assert(0);
-})
-
-CHEAT_TEST_IGNORE(another_ignored, {
 	cheat_assert(0);
 })

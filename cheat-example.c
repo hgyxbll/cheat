@@ -35,10 +35,6 @@ CHEAT_TEST(failure, {
 	cheat_assert(0);
 })
 
-CHEAT_TEST_IGNORE(ignored, {
-	some_invalid.test->code();
-})
-
 CHEAT_TEST(second_failure, {
 	cheat_assert(1 == 0);
 })
@@ -60,7 +56,7 @@ CHEAT_TEST_WITH_CAPTURED_STDERR(stderr_capture, {
 })
 
 CHEAT_TEST(segfault, {
-	int *foo = NULL;
+	int* foo = NULL;
 	printf("%d", *foo);
 	cheat_assert(0);
 })

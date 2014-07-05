@@ -6,8 +6,6 @@
 
 CHEAT_TEST(failure, {
 	cheat_assert(0);
-	cheat_suite->tests_successful = (size_t )-1;
-	cheat_suite->tests_failed = (size_t )-1;
-	cheat_suite->tests_run = (size_t )-1;
-	cheat_suite->outcome = CHEAT_SUCCESS;
+	cheat_global_suite->tests_failed = (size_t )-2;
+	cheat_global_suite->outcome = CHEAT_SUCCESS;
 })

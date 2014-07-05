@@ -87,7 +87,7 @@ typedef int bool;
 #define CHEAT_SIZE_FORMAT "%lu"
 
 #define CHEAT_CAST_SIZE(size) \
-	((unsigned long )(size))
+	((unsigned long int )(size))
 
 #endif
 
@@ -98,6 +98,36 @@ typedef int bool;
 #include <sys/wait.h>
 #include <unistd.h> /* STDOUT_FILENO */
 #endif
+
+enum cheat_type {
+	CHEAT_TESTER, /* Something to test. */
+	CHEAT_UP_SETTER, /* Something to do before tests. */
+	CHEAT_DOWN_TEARER, /* Something to do after tests. */
+	CHEAT_TERMINATOR /* Nothing to do. */
+};
+
+/*
+This could be defined as a function type instead of function pointer type, but
+ that would not be consistent with the standard library and
+ would confuse some old compilers.
+*/
+typedef void (* cheat_procedure)(void); /* A test or a utility procedure. */
+
+/*
+It would not hurt to have
+  __attribute__ ((__reorder__))
+ on any of these structures since they are only for internal use.
+*/
+
+struct cheat_unit {
+	char const* name; /* The name to use for
+			generating identifiers and
+			reporting test results. */
+
+	enum cheat_type const type; /* The type of the procedure. */
+
+	cheat_procedure const procedure; /* The procedure to call. */
+};
 
 enum cheat_outcome {
 	CHEAT_INDETERMINATE, /* Nothing happened. */
@@ -121,13 +151,12 @@ enum cheat_style {
 	CHEAT_MINIMAL /* Only numbered summaries are printed. */
 };
 
-/*
-It would not hurt to have
-  __attribute__ ((__reorder__))
- on any of the structures since they are for internal use only.
-*/
-
 struct cheat_suite {
+	size_t const* unit_count; /* The amount of procedures. */
+	struct cheat_unit const* units; /* The procedures. */
+
+	jmp_buf cheat_jmp_buf; /* The recovery point for fatal signals. */
+
 	size_t tests_successful; /* The amount of successful tests so far. */
 	size_t tests_failed; /* The amount of failed tests so far. */
 	size_t tests_run; /* The amount of tests run or ignored so far. */
@@ -154,35 +183,6 @@ struct cheat_suite {
 
 	FILE* captured_stdout; /* The stream subprocesses use as
 			their standard output stream. */
-};
-
-enum cheat_type {
-	CHEAT_TESTER, /* Something to test. */
-	CHEAT_UP_SETTER, /* Something to do before tests. */
-	CHEAT_DOWN_TEARER, /* Something to do after tests. */
-	CHEAT_TERMINATOR /* Nothing to do. */
-};
-
-/*
-These could be defined as function types instead of function pointer types, but
- that would not be consistent with the standard library.
-*/
-/* TODO Deprecate casting and rethink CHEAT_TEST_IGNORE. */
-typedef void (* cheat_procedure)(); /* An untyped procedure. */
-typedef void (* cheat_test)(struct cheat_suite*); /* A test procedure. */
-typedef void (* cheat_utility)(void); /* A utility procedure. */
-
-struct cheat_unit {
-	char const* name; /* The name to use for
-			generating identifiers and
-			reporting test results. */
-
-	enum cheat_type type; /* The type of the procedure. */
-
-	cheat_procedure procedure; /* The procedure to call would be
-			a union of cheat_test and cheat_utility, but
-			initializing such a thing would be impossible if
-			it was qualified const. */
 };
 
 /*
@@ -248,7 +248,7 @@ Some of the symbols used here are defined in the third pass.
 */
 
 #define CHEAT_TEST(name, body) \
-	static void cheat_test_##name(struct cheat_suite*);
+	static void cheat_test_##name(void);
 
 #define CHEAT_SET_UP(body) \
 	static void cheat_set_up(void);
@@ -257,11 +257,6 @@ Some of the symbols used here are defined in the third pass.
 	static void cheat_tear_down(void);
 
 #define CHEAT_DECLARE(body)
-
-#define CHEAT_TEST_IGNORE(name, body) \
-	CHEAT_TEST(name, { \
-		cheat_suite->outcome = CHEAT_IGNORED; \
-	})
 
 #include __BASE_FILE__
 
@@ -278,26 +273,26 @@ Some of the symbols used here are defined in the third pass.
 	{ \
 		#name, \
 		CHEAT_TESTER, \
-		(cheat_procedure )cheat_test_##name \
+		cheat_test_##name \
 	},
 
 #define CHEAT_SET_UP(body) \
 	{ \
 		NULL, \
 		CHEAT_UP_SETTER, \
-		(cheat_procedure )cheat_set_up \
+		cheat_set_up \
 	},
 
 #define CHEAT_TEAR_DOWN(body) \
 	{ \
 		NULL, \
 		CHEAT_DOWN_TEARER, \
-		(cheat_procedure )cheat_tear_down \
+		cheat_tear_down \
 	},
 
 #define CHEAT_DECLARE(body)
 
-static struct cheat_unit const cheat_units[] = {
+static struct cheat_unit const cheat_global_units[] = {
 #include __BASE_FILE__
 	{
 		NULL,
@@ -308,7 +303,8 @@ static struct cheat_unit const cheat_units[] = {
 		trailing commas or arrays with zero size. */
 };
 
-static size_t const cheat_unit_count = CHEAT_SIZE(cheat_units) - 1;
+/* TODO Less verbosity. */
+static size_t const cheat_global_unit_count = CHEAT_SIZE(cheat_global_units) - 1;
 
 #undef CHEAT_TEST
 #undef CHEAT_SET_UP
@@ -324,7 +320,7 @@ Some of the symbols defined here are used in the first pass.
 */
 
 #define CHEAT_TEST(name, body) \
-	static void cheat_test_##name(struct cheat_suite* const cheat_suite) body
+	static void cheat_test_##name(void) body
 
 #define CHEAT_SET_UP(body) \
 	static void cheat_set_up(void) body
@@ -336,14 +332,16 @@ Some of the symbols defined here are used in the first pass.
 	body
 
 #define cheat_assert(expression) \
-	cheat_check(cheat_suite, expression, #expression, __FILE__, __LINE__)
+	cheat_check(&cheat_global_suite, expression, #expression, __FILE__, __LINE__)
 
 /*
 The third pass continues past the end of this file, but
  the definitions for it end here.
 */
 
-static jmp_buf cheat_jmp_buf;
+/* TODO Carry out the plan to make the suite global,
+	hopefully allowing for a proper separation of side effects and state. */
+static struct cheat_suite cheat_global_suite;
 
 /*
 Suppresses a signal and
@@ -351,7 +349,7 @@ Suppresses a signal and
 */
 __attribute__ ((__noreturn__))
 static void cheat_handle_signal(int const number) {
-	longjmp(cheat_jmp_buf, number);
+	longjmp(cheat_global_suite.cheat_jmp_buf, number);
 }
 
 /*
@@ -504,14 +502,16 @@ Finds a test by its name and
  returns NULL in case no test is found.
 */
 __attribute__ ((__nonnull__, __pure__, __warn_unused_result__))
-static struct cheat_unit const* cheat_find_test(char const* const name) {
+static struct cheat_unit const* cheat_find_test(
+		struct cheat_suite const* const suite,
+		char const* const name) {
 	struct cheat_unit const* unit;
 	size_t index;
 
 	for (index = 0;
-			index < cheat_unit_count;
+			index < *suite->unit_count;
 			++index) {
-		unit = &cheat_units[index];
+		unit = &suite->units[index];
 		if (unit->type == CHEAT_TESTER
 				&& strcmp(unit->name, name) == 0)
 			return unit;
@@ -712,11 +712,11 @@ static void cheat_print_tests(struct cheat_suite const* const suite) {
 
 	first = true;
 	for (index = 0;
-			index < cheat_unit_count;
+			index < *suite->unit_count;
 			++index) {
 		struct cheat_unit const* unit;
 
-		unit = &cheat_units[index];
+		unit = &suite->units[index];
 		if (unit->type == CHEAT_TESTER) {
 			if (first) {
 				(void )fputs("Tests: ", suite->captured_stdout);
@@ -977,14 +977,15 @@ static void cheat_check(struct cheat_suite* const suite,
 Runs all utility procedures of a certain type.
 */
 __attribute__ ((__io__))
-static void cheat_run_utilities(enum cheat_type const type) {
+static void cheat_run_utilities(struct cheat_suite* const suite,
+		enum cheat_type const type) {
 	size_t index;
 
 	for (index = 0;
-			index < cheat_unit_count;
+			index < *suite->unit_count;
 			++index)
-		if (cheat_units[index].type == type)
-			((cheat_utility )cheat_units[index].procedure)();
+		if (suite->units[index].type == type)
+			(suite->units[index].procedure)();
 }
 
 /*
@@ -992,10 +993,9 @@ Runs the core of a test or
  terminates the program in case of an error.
 */
 __attribute__ ((__io__, __nonnull__))
-static void cheat_run_core(struct cheat_suite* const suite,
-		struct cheat_unit const* const unit) {
+static void cheat_run_core(struct cheat_unit const* const unit) {
 	if (unit->type == CHEAT_TESTER)
-		((cheat_test )unit->procedure)(suite);
+		(unit->procedure)();
 	else
 		cheat_death("not a test", unit->type);
 }
@@ -1009,9 +1009,9 @@ static enum cheat_outcome cheat_run_test(struct cheat_suite* const suite,
 		struct cheat_unit const* const unit) {
 	suite->outcome = CHEAT_SUCCESS;
 
-	cheat_run_utilities(CHEAT_UP_SETTER);
-	cheat_run_core(suite, unit);
-	cheat_run_utilities(CHEAT_DOWN_TEARER);
+	cheat_run_utilities(suite, CHEAT_UP_SETTER);
+	cheat_run_core(unit);
+	cheat_run_utilities(suite, CHEAT_DOWN_TEARER);
 
 	return suite->outcome;
 }
@@ -1297,7 +1297,7 @@ static void cheat_parse(struct cheat_suite* const suite) {
 			struct cheat_unit const* unit;
 			enum cheat_outcome outcome; /* TODO Write and use. */
 
-			unit = cheat_find_test(name);
+			unit = cheat_find_test(suite, name);
 			if (unit == NULL)
 				cheat_death("test not found", 0);
 			outcome = cheat_run_test(suite, unit);
@@ -1317,18 +1317,18 @@ static void cheat_parse(struct cheat_suite* const suite) {
 					cheat_death("failed to disable the TERM signal", errno);
 			}
 			for (index = 0;
-					index < cheat_unit_count;
+					index < *suite->unit_count;
 					++index) {
 				struct cheat_unit const* unit;
 				enum cheat_outcome outcome; /* TODO Read and use. */
 
-				unit = &cheat_units[index];
+				unit = &suite->units[index];
 				if (unit->type != CHEAT_TESTER)
 					continue;
 				if (suite->harness == CHEAT_SAFE)
 					cheat_run_isolated_test(suite, unit);
 				else if (suite->harness == CHEAT_DANGEROUS) {
-					if (setjmp(cheat_jmp_buf) == 0)
+					if (setjmp(suite->cheat_jmp_buf) == 0)
 						outcome = cheat_run_test(suite, unit);
 					else
 						suite->outcome = CHEAT_CRASHED;
@@ -1349,18 +1349,23 @@ Runs tests from the main test suite and
  EXIT_FAILURE in case of an error.
 */
 int main(int const count, char** const arguments) {
-	struct cheat_suite suite;
+	struct cheat_suite* suite;
 	size_t result;
 
-	cheat_initialize(&suite);
-	suite.program = arguments[0];
-	suite.argument_count = (size_t )(count - 1);
-	suite.arguments = &arguments[1];
-	suite.harness = CHEAT_SAFE;
-	suite.style = CHEAT_PLAIN;
-	cheat_parse(&suite);
-	result = suite.tests_failed;
-	cheat_clear(&suite);
+	/* TODO Wrangle this around. */
+	suite = &cheat_global_suite;
+	suite->unit_count = &cheat_global_unit_count;
+	suite->units = cheat_global_units;
+
+	cheat_initialize(suite);
+	suite->program = arguments[0];
+	suite->argument_count = (size_t )(count - 1);
+	suite->arguments = &arguments[1];
+	suite->harness = CHEAT_SAFE;
+	suite->style = CHEAT_PLAIN;
+	cheat_parse(suite);
+	result = suite->tests_failed;
+	cheat_clear(suite);
 	if (result == 0)
 		return EXIT_SUCCESS;
 	return EXIT_FAILURE;
