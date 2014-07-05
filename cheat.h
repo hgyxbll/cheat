@@ -163,11 +163,12 @@ enum cheat_type {
 };
 
 /*
-This could be defined as a function type instead of function pointer type, but
- that would not be consistent with the standard library and
- would confuse some old compilers.
+These could be defined as function types instead of function pointer types, but
+ that would be inconsistent with the standard library and
+ confuse some old compilers.
 */
 typedef void (* cheat_procedure)(void); /* A test or a utility procedure. */
+typedef void (* cheat_handler)(int); /* A recovery procedure. */
 
 /*
 It would not hurt to have
@@ -211,7 +212,8 @@ struct cheat_suite {
 	size_t const* unit_count; /* The amount of procedures. */
 	struct cheat_unit const* units; /* The procedures. */
 
-	jmp_buf cheat_jmp_buf; /* The recovery point for fatal signals. */
+	jmp_buf environment; /* The recovery point in case of fatal signals. */
+	cheat_handler handler; /* The procedure to handle the recovery. */
 
 	size_t tests_successful; /* The amount of successful tests so far. */
 	size_t tests_failed; /* The amount of failed tests so far. */
@@ -240,19 +242,6 @@ struct cheat_suite {
 	FILE* captured_stdout; /* The stream subprocesses use as
 			their standard output stream. */
 };
-
-/* TODO Carry out the plan to make the suite global,
-	hopefully allowing for a proper separation of side effects and state. */
-static struct cheat_suite cheat_suite;
-
-/*
-Suppresses a signal and
- returns to a point before it was raised.
-*/
-__attribute__ ((__noreturn__))
-static void cheat_handle_signal(int const number) {
-	longjmp(cheat_suite.cheat_jmp_buf, number);
-}
 
 /*
 Calculates the arithmetic mean of two sizes and
@@ -555,7 +544,7 @@ static void cheat_append_message(struct cheat_suite* const suite,
 }
 
 /*
-Adds the outcome of a single test to a suite or
+Adds the outcome of a single test to a test suite or
  terminates the program in case of an error.
 */
 __attribute__ ((__nonnull__))
@@ -869,6 +858,7 @@ static void cheat_check(struct cheat_suite* const suite,
 		bool const result,
 		char const* const expression,
 		char const* const file, size_t const line) {
+	/* TODO Cut the expression with ellipsis. */
 	if (!result) {
 		suite->outcome = CHEAT_FAILURE;
 		cheat_print_failure(suite, expression, file, line);
@@ -1207,15 +1197,15 @@ static void cheat_parse(struct cheat_suite* const suite) {
 			exit(outcome);
 		} else {
 			if (suite->harness == CHEAT_DANGEROUS) {
-				if (signal(SIGABRT, cheat_handle_signal) == SIG_ERR)
+				if (signal(SIGABRT, suite->handler) == SIG_ERR)
 					cheat_death("failed to disable the ABRT signal", errno);
-				if (signal(SIGFPE, cheat_handle_signal) == SIG_ERR)
+				if (signal(SIGFPE, suite->handler) == SIG_ERR)
 					cheat_death("failed to disable the FPE signal", errno);
-				if (signal(SIGILL, cheat_handle_signal) == SIG_ERR)
+				if (signal(SIGILL, suite->handler) == SIG_ERR)
 					cheat_death("failed to disable the ILL signal", errno);
-				if (signal(SIGSEGV, cheat_handle_signal) == SIG_ERR)
+				if (signal(SIGSEGV, suite->handler) == SIG_ERR)
 					cheat_death("failed to disable the SEGV signal", errno);
-				if (signal(SIGTERM, cheat_handle_signal) == SIG_ERR)
+				if (signal(SIGTERM, suite->handler) == SIG_ERR)
 					cheat_death("failed to disable the TERM signal", errno);
 			}
 			for (index = 0;
@@ -1230,7 +1220,7 @@ static void cheat_parse(struct cheat_suite* const suite) {
 				if (suite->harness == CHEAT_SAFE)
 					cheat_run_isolated_test(suite, unit);
 				else if (suite->harness == CHEAT_DANGEROUS) {
-					if (setjmp(suite->cheat_jmp_buf) == 0)
+					if (setjmp(suite->environment) == 0)
 						outcome = cheat_run_test(suite, unit);
 					else
 						suite->outcome = CHEAT_CRASHED;
@@ -1307,7 +1297,6 @@ static struct cheat_unit const cheat_units[] = {
 		trailing commas or arrays with zero size. */
 };
 
-/* TODO Less verbosity. */
 static size_t const cheat_unit_count = CHEAT_SIZE(cheat_units) - 1;
 
 #undef CHEAT_TEST
@@ -1335,13 +1324,26 @@ Some of the symbols defined here are used in the first pass.
 #define CHEAT_DECLARE(body) \
 	body
 
-#define cheat_assert(expression) \
-	cheat_check(&cheat_suite, expression, #expression, __FILE__, __LINE__)
-
 /*
 The third pass continues past the end of this file, but
  the definitions for it end here.
 */
+
+/*
+This global test suite contains a pointer to the test units instead of
+ encompassing the units themselves, because
+ their size is not known when the type of the suite defined.
+*/
+static struct cheat_suite cheat_suite;
+
+/*
+Suppresses a signal and
+ returns to a point before it was raised.
+*/
+__attribute__ ((__noreturn__))
+static void cheat_handle_signal(int const number) {
+	longjmp(cheat_suite.environment, number);
+}
 
 /*
 Runs tests from the main test suite and
@@ -1349,27 +1351,30 @@ Runs tests from the main test suite and
  EXIT_FAILURE in case of an error.
 */
 int main(int const count, char** const arguments) {
-	struct cheat_suite* suite;
 	size_t result;
 
-	/* TODO Wrangle this around. */
-	suite = &cheat_suite;
-	suite->unit_count = &cheat_unit_count;
-	suite->units = cheat_units;
-
-	cheat_initialize(suite);
-	suite->program = arguments[0];
-	suite->argument_count = (size_t )(count - 1);
-	suite->arguments = &arguments[1];
-	suite->harness = CHEAT_SAFE;
-	suite->style = CHEAT_PLAIN;
-	cheat_parse(suite);
-	result = suite->tests_failed;
-	cheat_clear(suite);
+	cheat_suite.unit_count = &cheat_unit_count;
+	cheat_suite.units = cheat_units;
+	cheat_suite.handler = cheat_handle_signal;
+	cheat_initialize(&cheat_suite); /* TODO Wrangle this around. */
+	cheat_suite.program = arguments[0];
+	cheat_suite.argument_count = (size_t )(count - 1);
+	cheat_suite.arguments = &arguments[1];
+	cheat_suite.harness = CHEAT_SAFE;
+	cheat_suite.style = CHEAT_PLAIN;
+	cheat_parse(&cheat_suite);
+	result = cheat_suite.tests_failed;
+	cheat_clear(&cheat_suite);
 	if (result == 0)
 		return EXIT_SUCCESS;
 	return EXIT_FAILURE;
 }
+
+/*
+This adds source information to assertions.
+*/
+#define cheat_assert(expression) \
+	cheat_check(&cheat_suite, expression, #expression, __FILE__, __LINE__)
 
 #ifdef __cplusplus
 }
