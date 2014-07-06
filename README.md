@@ -162,7 +162,7 @@ Helpers cover things like
 CHEAT is designed for C, but
  also works with C++ after wading through a million warnings.
 
-	[user@computer project]$ make -e CC=g++ -f makefile.gcc
+	[user@computer cheat]$ make -e CC=g++ -f makefile.gcc
 
 Many features are targeted for POSIX and Linux systems, but
  the most critical ones have Windows compatibility as well.
@@ -170,7 +170,7 @@ Many features are targeted for POSIX and Linux systems, but
 There are a few `makefile`s for different compilers that
  show how to hammer out most problems.
 
-	[user@computer project]$ make -f makefile.gcc
+	[user@computer cheat]$ make -f makefile.gcc
 
 	computer# make -f makefile.tcc
 
@@ -201,7 +201,7 @@ The expressions given to `cheat_assert()` should be
 
 It is not possible to attach a breakpoint to `cheat_assert()`, because
  it is erased by the preprocessor, but
- using `cheat_check()` should work instead.
+ using `cheat_check()` instead should work.
 
 ### Include Path
 
