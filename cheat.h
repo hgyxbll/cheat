@@ -187,11 +187,12 @@ struct cheat_unit {
 };
 
 enum cheat_outcome {
-	CHEAT_INDETERMINATE, /* Nothing happened. */
+	CHEAT_INDETERMINATE, /* Nothing happened so far. */
 	CHEAT_SUCCESS, /* A success happened. */
 	CHEAT_FAILURE, /* A failure happened. */
 	CHEAT_CRASHED, /* A critical failure happened. */
-	CHEAT_IGNORED /* Anything could have happened. */
+	CHEAT_IGNORED, /* Anything could have happened. */
+	CHEAT_SKIPPED /* Nothing happened. */
 };
 
 enum cheat_harness {
@@ -558,6 +559,7 @@ static void cheat_handle_outcome(struct cheat_suite* const suite) {
 		++suite->tests_failed;
 		break;
 	case CHEAT_IGNORED:
+	case CHEAT_SKIPPED:
 		break;
 	case CHEAT_CRASHED:
 		++suite->tests_failed;
@@ -667,6 +669,7 @@ static void cheat_print_outcome(struct cheat_suite* const suite) {
 			(void )fputs(failure, suite->captured_stdout);
 			break;
 		case CHEAT_IGNORED:
+		case CHEAT_SKIPPED:
 			(void )fputs(ignored, suite->captured_stdout);
 			break;
 		case CHEAT_CRASHED:
@@ -808,6 +811,7 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 	switch (suite->style) {
 	case CHEAT_COLORFUL:
 		print_assertion = true;
+		/* TODO Change "assertion" to the name of the test. */
 		assertion_format = CHEAT_BOLD "%s:" CHEAT_SIZE_FORMAT ":"
 			CHEAT_RESET " assertion failed: '"
 			CHEAT_BOLD "%s"
@@ -1244,6 +1248,12 @@ Some of the symbols used here are defined in the third pass.
 #define CHEAT_TEST(name, body) \
 	static void cheat_test_##name(void);
 
+#define CHEAT_IGNORE(name, body) \
+	CHEAT_TEST(name, body)
+
+#define CHEAT_SKIP(name, body) \
+	CHEAT_TEST(name, body)
+
 #define CHEAT_SET_UP(body) \
 	static void cheat_set_up(void);
 
@@ -1255,6 +1265,8 @@ Some of the symbols used here are defined in the third pass.
 #include __BASE_FILE__
 
 #undef CHEAT_TEST
+#undef CHEAT_IGNORE
+#undef CHEAT_SKIP
 #undef CHEAT_SET_UP
 #undef CHEAT_TEAR_DOWN
 #undef CHEAT_DECLARE
@@ -1269,6 +1281,12 @@ Some of the symbols used here are defined in the third pass.
 		CHEAT_TESTER, \
 		cheat_test_##name \
 	},
+
+#define CHEAT_IGNORE(name, body) \
+	CHEAT_TEST(name, body)
+
+#define CHEAT_SKIP(name, body) \
+	CHEAT_TEST(name, body)
 
 #define CHEAT_SET_UP(body) \
 	{ \
@@ -1300,6 +1318,8 @@ static struct cheat_unit const cheat_units[] = {
 static size_t const cheat_unit_count = CHEAT_SIZE(cheat_units) - 1;
 
 #undef CHEAT_TEST
+#undef CHEAT_IGNORE
+#undef CHEAT_SKIP
 #undef CHEAT_SET_UP
 #undef CHEAT_TEAR_DOWN
 #undef CHEAT_DECLARE
@@ -1313,13 +1333,35 @@ Some of the symbols defined here are used in the first pass.
 */
 
 #define CHEAT_TEST(name, body) \
-	static void cheat_test_##name(void) body
+	static void cheat_test_##name(void) { \
+		printf("'%s' started\n", #name); \
+		body \
+		printf("'%s' finished\n", #name); \
+	}
+
+#define CHEAT_IGNORE(name, body) \
+	static void cheat_test_##name(void) { \
+		printf("'%s' started\n", #name); \
+		body \
+		printf("'%s' finished\n", #name); \
+		cheat_suite.outcome = CHEAT_IGNORED; \
+	}
+
+#define CHEAT_SKIP(name, body) \
+	static void cheat_test_##name(void) { \
+		printf("'%s' did not start\n", #name); \
+		cheat_suite.outcome = CHEAT_SKIPPED; \
+	}
 
 #define CHEAT_SET_UP(body) \
-	static void cheat_set_up(void) body
+	static void cheat_set_up(void) { \
+		body \
+	}
 
 #define CHEAT_TEAR_DOWN(body) \
-	static void cheat_tear_down(void) body
+	static void cheat_tear_down(void) { \
+		body \
+	}
 
 #define CHEAT_DECLARE(body) \
 	body

@@ -35,6 +35,16 @@ CHEAT_TEST(failure, {
 	cheat_assert(0);
 })
 
+CHEAT_IGNORE(ignored, {
+	cheat_assert(strcmp("ignore",
+			"this is run, but the result is thrown away") == 0);
+})
+
+CHEAT_SKIP(skipped, {
+	cheat_assert(strcmp("skip",
+			"this is not even run") == 0);
+})
+
 CHEAT_TEST(second_failure, {
 	cheat_assert(1 == 0);
 })

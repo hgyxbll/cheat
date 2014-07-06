@@ -4,8 +4,8 @@
 
 #include <cheat.h>
 
-CHEAT_TEST(failure, {
+CHEAT_SKIP(success, {})
+
+CHEAT_SKIP(failure, {
 	cheat_assert(0);
-	cheat_suite.tests_failed = (size_t )-2;
-	cheat_suite.outcome = CHEAT_SUCCESS;
 })
