@@ -173,11 +173,7 @@ There are a few `makefile`s for different compilers that
 
 	[user@computer cheat]$ make -f makefile.gcc
 
-​
-
 	computer# make -f makefile.tcc
-
-​
 
 	C:\CHEAT> makefile.bat
 
