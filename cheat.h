@@ -67,10 +67,17 @@ These headers are also
 #include <stdbool.h> /* bool, false, true */
 #include <stdint.h> /* SIZE_MAX */
 
+/*
+These are needed to print size types.
+*/
 #define CHEAT_SIZE_FORMAT "%zu"
-
 #define CHEAT_CAST_SIZE(size) \
 	(size)
+
+/*
+This is used to truncate too long string literals.
+*/
+#define CHEAT_LENGTH_LIMIT 4095
 
 #else
 
@@ -85,9 +92,10 @@ typedef int bool;
 #endif
 
 #define CHEAT_SIZE_FORMAT "%lu"
-
 #define CHEAT_CAST_SIZE(size) \
 	((unsigned long int )(size))
+
+#define CHEAT_LENGTH_LIMIT 509
 
 #endif
 
@@ -220,11 +228,16 @@ struct cheat_suite {
 	size_t tests_failed; /* The amount of failed tests so far. */
 	size_t tests_run; /* The amount of tests run or ignored so far. */
 
+	char const* test; /* The name of the test to run next. */
 	enum cheat_outcome outcome; /* The outcome of
 			the most recently completed test. */
 	int status; /* The return value of
 			the most recently completed test in case it returned or
 			an undefined value in case it was aborted. */
+
+	/* TODO Something out of place. */
+	size_t length;
+	bool quiet;
 
 	size_t message_count; /* The amount of messages so far. */
 	size_t message_capacity; /* The amount of messages until
@@ -243,6 +256,17 @@ struct cheat_suite {
 	FILE* captured_stdout; /* The stream subprocesses use as
 			their standard output stream. */
 };
+
+/*
+Finds the minimum of two sizes and
+ returns it.
+*/
+__attribute__ ((__const__, __warn_unused_result__))
+static size_t cheat_minimum(size_t const size, size_t const another_size) {
+	if (another_size < size)
+		return another_size;
+	return size;
+}
 
 /*
 Calculates the arithmetic mean of two sizes and
@@ -341,7 +365,46 @@ static void* cheat_reallocate_array(void* const pointer,
 }
 
 /*
-Joins words into a line with spaces in between.
+Truncates a string to a certain length and
+ adds a marker to its end if it was longer or
+ returns NULL and sets errno in case of a failure.
+The allocated memory is left for the caller.
+*/
+__attribute__ ((__malloc__, __nonnull__, __warn_unused_result__))
+static char* cheat_allocate_cut(char const* const literal,
+		size_t const length,
+		char const* const marker) {
+	size_t literal_length;
+	size_t cut_length;
+	char* cut;
+
+	literal_length = strlen(literal);
+	cut_length = cheat_minimum(length, CHEAT_LENGTH_LIMIT);
+	if (literal_length > cut_length) {
+		size_t marker_length;
+		size_t paste_length;
+
+		marker_length = strlen(marker);
+		if (marker_length > cut_length)
+			return NULL;
+		cut = CHEAT_CAST(char*) malloc(cut_length + 1);
+		if (cut == NULL)
+			return NULL;
+		paste_length = cut_length - marker_length;
+		memcpy(cut, literal, paste_length);
+		memcpy(&cut[paste_length], marker, marker_length);
+	} else {
+		cut = CHEAT_CAST(char*) malloc(literal_length + 1);
+		if (cut == NULL)
+			return NULL;
+		memcpy(cut, literal, literal_length + 1);
+	}
+	return cut;
+}
+
+/*
+Joins words into a line with spaces in between or
+ returns NULL and sets errno in case of a failure.
 The allocated memory is left for the caller.
 */
 __attribute__ ((__malloc__, __nonnull__, __pure__, __warn_unused_result__))
@@ -550,18 +613,22 @@ Adds the outcome of a single test to a test suite or
 */
 __attribute__ ((__nonnull__))
 static void cheat_handle_outcome(struct cheat_suite* const suite) {
-	++suite->tests_run;
 	switch (suite->outcome) {
 	case CHEAT_SUCCESS:
+		++suite->tests_run;
 		++suite->tests_successful;
 		break;
 	case CHEAT_FAILURE:
+		++suite->tests_run;
 		++suite->tests_failed;
 		break;
 	case CHEAT_IGNORED:
+		++suite->tests_run;
+		break;
 	case CHEAT_SKIPPED:
 		break;
 	case CHEAT_CRASHED:
+		++suite->tests_run;
 		++suite->tests_failed;
 		break;
 	case CHEAT_INDETERMINATE: /* TODO Remove. */
@@ -669,8 +736,9 @@ static void cheat_print_outcome(struct cheat_suite* const suite) {
 			(void )fputs(failure, suite->captured_stdout);
 			break;
 		case CHEAT_IGNORED:
-		case CHEAT_SKIPPED:
 			(void )fputs(ignored, suite->captured_stdout);
+			break;
+		case CHEAT_SKIPPED:
 			break;
 		case CHEAT_CRASHED:
 			(void )fputs(crashed, suite->captured_stdout);
@@ -807,8 +875,6 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 		char const* const file, size_t const line) {
 	bool print_assertion;
 	char const* assertion_format;
-	/* TODO Change this to the name of the test. */
-	char const* name = "something";
 
 	switch (suite->style) {
 	case CHEAT_COLORFUL:
@@ -834,9 +900,14 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 	}
 
 	if (print_assertion) {
+		char* assertion;
+
+		assertion = cheat_allocate_cut(expression, suite->length, "...");
+		if (assertion == NULL)
+			cheat_death("failed to allocate memory", errno);
 		if (suite->harness == CHEAT_SAFE)
 			(void )cheat_print(assertion_format, suite->captured_stdout,
-					4, file, line, name, expression);
+					4, file, line, suite->test, assertion);
 		else {
 			size_t size;
 			char* buffer;
@@ -846,15 +917,19 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 				+ CHEAT_LENGTH(line)
 				+ strlen(expression); /* TODO Check overflow. */
 			buffer = CHEAT_CAST(char*) malloc(size);
-			if (buffer == NULL)
+			if (buffer == NULL) {
+				free(assertion);
 				cheat_death("failed to allocate memory", errno);
+			}
 			(void )cheat_print_string(assertion_format, buffer,
-					4, size, file, CHEAT_CAST_SIZE(line), name, expression);
+					4, size, file, CHEAT_CAST_SIZE(line),
+					suite->test, assertion);
 
 			cheat_append_message(suite, (unsigned char* )buffer, size);
 
 			free(buffer);
 		}
+		free(assertion);
 	}
 }
 
@@ -867,10 +942,11 @@ static void cheat_check(struct cheat_suite* const suite,
 		bool const result,
 		char const* const expression,
 		char const* const file, size_t const line) {
-	/* TODO Cut the expression with ellipsis. */
 	if (!result) {
 		suite->outcome = CHEAT_FAILURE;
-		cheat_print_failure(suite, expression, file, line);
+		/* TODO Check this. */
+		if (!suite->quiet)
+			cheat_print_failure(suite, expression, file, line);
 	}
 }
 
@@ -1319,22 +1395,27 @@ static size_t const cheat_unit_count = CHEAT_SIZE(cheat_units) - 1;
 
 #define CHEAT_TEST(name, body) \
 	static void cheat_test_##name(void) { \
-		printf("'%s' started\n", #name); /* TODO Remove print statements. */ \
+		cheat_suite.test = #name; \
+		cheat_suite.quiet = false; \
+		printf("debug: %s {\n", #name); /* TODO Remove print statements. */ \
 		body \
-		printf("'%s' finished\n", #name); \
+		printf("}\n", #name); \
 	}
 
 #define CHEAT_IGNORE(name, body) \
 	static void cheat_test_##name(void) { \
-		printf("'%s' started\n", #name); \
+		cheat_suite.test = #name; \
+		cheat_suite.quiet = true; \
+		printf("debug: %s {\n", #name); \
 		body \
-		printf("'%s' finished\n", #name); \
+		printf("}\n", #name); \
 		cheat_suite.outcome = CHEAT_IGNORED; \
 	}
 
 #define CHEAT_SKIP(name, body) \
 	static void cheat_test_##name(void) { \
-		printf("'%s' did not start\n", #name); \
+		cheat_suite.test = #name; \
+		printf("debug: %s {}\n", #name); \
 		cheat_suite.outcome = CHEAT_SKIPPED; \
 	}
 
@@ -1383,17 +1464,19 @@ int main(int const count, char** const arguments) {
 	cheat_suite.unit_count = &cheat_unit_count;
 	cheat_suite.units = cheat_units;
 	cheat_suite.handler = cheat_handle_signal;
+	cheat_suite.length = UCHAR_MAX;
 	cheat_initialize(&cheat_suite); /* TODO Wrangle this around. */
 	cheat_suite.program = arguments[0];
 	cheat_suite.argument_count = (size_t )(count - 1);
 	cheat_suite.arguments = &arguments[1];
-	cheat_suite.harness = CHEAT_UNSAFE;
+	cheat_suite.harness = CHEAT_DANGEROUS;
 	cheat_suite.style = CHEAT_PLAIN;
 #ifdef _WIN32
 	cheat_suite.harness = CHEAT_SAFE;
 #elif _POSIX_C_SOURCE >= 200112L
 	cheat_suite.harness = CHEAT_SAFE;
-	cheat_suite.style = CHEAT_COLORFUL;
+	if (isatty(STDOUT_FILENO) == 1)
+		cheat_suite.style = CHEAT_COLORFUL;
 #endif
 	cheat_parse(&cheat_suite);
 	result = cheat_suite.tests_failed;
