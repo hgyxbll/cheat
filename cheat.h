@@ -25,10 +25,10 @@ Identifiers starting with
 This disables GNU extensions when
  using compilers that do not support them.
 */
-#ifndef __GNUC__
-#define __attribute__(_)
-#else
+#if __GNUC__ >= 4
 #define __io__ __cold__ /* This is informational. */
+#else
+#define __attribute__(_)
 #endif
 
 #ifdef __cplusplus
@@ -213,7 +213,7 @@ struct cheat_suite {
 	size_t const* unit_count; /* The amount of procedures. */
 	struct cheat_unit const* units; /* The procedures. */
 
-	jmp_buf environment; /* The recovery point in case of fatal signals. */
+	jmp_buf environment; /* The recovery point in case of a fatal signal. */
 	cheat_handler handler; /* The procedure to handle the recovery. */
 
 	size_t tests_successful; /* The amount of successful tests so far. */
@@ -807,19 +807,24 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 		char const* const file, size_t const line) {
 	bool print_assertion;
 	char const* assertion_format;
+	/* TODO Change this to the name of the test. */
+	char const* name = "something";
 
 	switch (suite->style) {
 	case CHEAT_COLORFUL:
 		print_assertion = true;
-		/* TODO Change "assertion" to the name of the test. */
-		assertion_format = CHEAT_BOLD "%s:" CHEAT_SIZE_FORMAT ":"
-			CHEAT_RESET " assertion failed: '"
+		assertion_format = CHEAT_BOLD "%s:"
+			CHEAT_SIZE_FORMAT ":"
+			CHEAT_RESET " assertion in '"
+			CHEAT_BOLD "%s"
+			CHEAT_RESET "' failed: '"
 			CHEAT_BOLD "%s"
 			CHEAT_RESET "'\n";
 		break;
 	case CHEAT_PLAIN:
 		print_assertion = true;
-		assertion_format = "%s:" CHEAT_SIZE_FORMAT ": assertion failed: '%s'\n";
+		assertion_format = "%s:"
+			CHEAT_SIZE_FORMAT ": assertion in '%s' failed: '%s'\n";
 		break;
 	case CHEAT_MINIMAL:
 		print_assertion = false;
@@ -831,7 +836,7 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 	if (print_assertion) {
 		if (suite->harness == CHEAT_SAFE)
 			(void )cheat_print(assertion_format, suite->captured_stdout,
-					3, file, line, expression);
+					4, file, line, name, expression);
 		else {
 			size_t size;
 			char* buffer;
@@ -844,7 +849,7 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 			if (buffer == NULL)
 				cheat_death("failed to allocate memory", errno);
 			(void )cheat_print_string(assertion_format, buffer,
-					3, size, file, CHEAT_CAST_SIZE(line), expression);
+					4, size, file, CHEAT_CAST_SIZE(line), name, expression);
 
 			cheat_append_message(suite, (unsigned char* )buffer, size);
 
@@ -1063,18 +1068,6 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 			ssize_t size;
 
 			/* TODO Outcome, not status. */
-			/*
-			Okay, here's the plan, at least approximately so.
-			Message splitting has still its share of problems.
-			If the buffer contains a double '\0' before the end, then
-			 the message ends at the terminator as usual, but
-			 the outcome comes after it.
-			The size of the exit status variable depends on
-			 how many bytes are left over; while
-			 some assumptions about its size have to be made,
-			 it is not fixed between implementations.
-			Least significant bytes come first.
-			*/
 			size = read(reader, buffer, sizeof buffer);
 			if (size == -1)
 				cheat_death("failed to read from a pipe", errno);

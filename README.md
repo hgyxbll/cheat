@@ -78,6 +78,9 @@ Tests can then be defined with `CHEAT_TEST(name, block)`,
  global variables with `CHEAT_DECLARE(declarations)`,
  initialization with `CHEAT_SET_UP(block)` and
  finalization with `CHEAT_TEAR_DOWN(block)`.
+It is also possible to
+ ignore the outcome of a test with `CHEAT_IGNORE(block)` or
+ skip running it altogether with `CHEAT_SKIP(block)`.
 
 Some examples are in the `cheat-example.c` file.
 
@@ -92,7 +95,7 @@ Tests compile into an executable
 	[user@computer project]$ ./tests
 	.:..!.??
 	---
-	tests.c:42: assertion failed: '2 + 2 == 5'
+	tests.c:42: assertion in 'physics_still_work' failed: '2 + 2 == 5'
 	---
 	4 successful and 2 failed of 8 run
 	FAILURE
@@ -157,9 +160,21 @@ Helpers cover things like
 ## Compatibility
 
 CHEAT is designed for C, but
- it works with C++ after wading through a million warnings.
+ also works with C++ after wading through a million warnings.
 
 	[user@computer project]$ make -e CC=g++ -f makefile.gcc
+
+Many features are targeted for POSIX and Linux systems, but
+ the most critical ones have Windows compatibility as well.
+
+There are a few `makefile`s for different compilers that
+ show how to hammer out most problems.
+
+	[user@computer project]$ make -f makefile.gcc
+
+	computer# make -f makefile.tcc
+
+	C:\CHEAT> makefile.bat
 
 ## Bugs and Limitations
 
@@ -175,6 +190,12 @@ Identifiers starting with
  `CHEAT_` and `cheat_` are
  reserved for internal use as
  C does not have namespaces.
+
+### Expressions
+
+The expressions given to `cheat_assert()` should be
+ at most 509 characters long since
+ they are converted into string literals during compilation.
 
 ### Debugging
 
@@ -201,8 +222,3 @@ If `__BASE_FILE__` is defined in a file
 If the compiler works like Microsoft C/C++ (commonly known as `cl.exe`) and
  defines either `__BASE_FILE__` or `__FILE__` wrong, then
  the test suite will be empty.
-
-There are a few `makefile`s for different compilers that
- show how to hammer out most of the problems.
-
-	[user@computer project]$ make -f makefile.gcc
