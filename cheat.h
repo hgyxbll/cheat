@@ -1334,7 +1334,7 @@ Some of the symbols defined here are used in the first pass.
 
 #define CHEAT_TEST(name, body) \
 	static void cheat_test_##name(void) { \
-		printf("'%s' started\n", #name); \
+		printf("'%s' started\n", #name); /* TODO Remove print statements. */ \
 		body \
 		printf("'%s' finished\n", #name); \
 	}

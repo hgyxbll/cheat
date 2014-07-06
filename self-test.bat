@@ -1,6 +1,6 @@
 @echo off
 
-for %%i in (tests/*) do (
+for %%i in (tests\*) do (
 	set n=%%~ni
 	set x=%%~xi
 	set s=%%~ni.obj
