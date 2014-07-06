@@ -1234,10 +1234,6 @@ static void cheat_parse(struct cheat_suite* const suite) {
 
 #define CHEAT_PASS 1 /* This is informational. */
 
-/*
-Some of the symbols used here are defined in the third pass.
-*/
-
 #define CHEAT_TEST(name, body) \
 	static void cheat_test_##name(void);
 
@@ -1321,10 +1317,6 @@ static size_t const cheat_unit_count = CHEAT_SIZE(cheat_units) - 1;
 
 #define CHEAT_PASS 3
 
-/*
-Some of the symbols defined here are used in the first pass.
-*/
-
 #define CHEAT_TEST(name, body) \
 	static void cheat_test_##name(void) { \
 		printf("'%s' started\n", #name); /* TODO Remove print statements. */ \
@@ -1395,8 +1387,14 @@ int main(int const count, char** const arguments) {
 	cheat_suite.program = arguments[0];
 	cheat_suite.argument_count = (size_t )(count - 1);
 	cheat_suite.arguments = &arguments[1];
-	cheat_suite.harness = CHEAT_SAFE;
+	cheat_suite.harness = CHEAT_UNSAFE;
 	cheat_suite.style = CHEAT_PLAIN;
+#ifdef _WIN32
+	cheat_suite.harness = CHEAT_SAFE;
+#elif _POSIX_C_SOURCE >= 200112L
+	cheat_suite.harness = CHEAT_SAFE;
+	cheat_suite.style = CHEAT_COLORFUL;
+#endif
 	cheat_parse(&cheat_suite);
 	result = cheat_suite.tests_failed;
 	cheat_clear(&cheat_suite);

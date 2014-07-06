@@ -101,29 +101,30 @@ Tests compile into an executable
 	FAILURE
 
 The executable runs tests in
- an isolated subprocess by default, so
+ an isolated subprocess if possible, so
  the suite does not crash if
  one of the tests does.
 The `-u` for `--unsafe` option allows
  running everything in the same process if
  `fork()` or `CreateProcess()` is unsupported, fails or
- something else equally fun happens.
-In those cases the `-d` for `--dangerous` option provides some stability by
- suppressing signals like `SIGFPE` and `SIGSEGV`,
+ something equally fun happens.
+Conversely the `-s` for `--safe` option disallows
+ running tests in the same process.
+Additionally the `-d` for `--dangerous` option provides some stability by
+ attempting to recover from signals like `SIGFPE` and `SIGSEGV`,
  most likely leading to undefined behavior.
 Luckily undefined behavior is often defined enough behavior.
 
-The results are reported in plain text by default, but
- the format can be changed easily.
-The `-c` for `--colorful` option makes everything colorful,
+The results are reported in a format similar to
+ what many popular C compilers produce.
+As an added bonus the `-c` for `--colorful` option makes everything colorful,
  the `-m` for `--minimal` option makes the report machine readable and
  the `-x` for `--xml` option does nothing for good measure.
 
 	[user@computer project]$ ./tests -m
 	4 2 8
 
-The default options are `-p` for `--plain` and
- `-s` for `--safe`.
+The default options depend on the target platform.
 
 Option parsing can be disabled with `--` if
  some of the arguments begin with a dash when they should not.
@@ -172,7 +173,11 @@ There are a few `makefile`s for different compilers that
 
 	[user@computer cheat]$ make -f makefile.gcc
 
+​
+
 	computer# make -f makefile.tcc
+
+​
 
 	C:\CHEAT> makefile.bat
 
