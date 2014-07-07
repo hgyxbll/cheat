@@ -27,6 +27,22 @@ GetLastError(
 	);
 
 WINBASEAPI
+__out
+LPSTR
+WINAPI
+GetCommandLineA(
+		VOID
+	);
+
+WINBASEAPI
+__out
+LPWSTR
+WINAPI
+GetCommandLineW(
+		VOID
+	);
+
+WINBASEAPI
 BOOL
 WINAPI
 CreateProcessA(
@@ -93,4 +109,11 @@ WINAPI
 GetExitCodeProcess(
 		__in   HANDLE   hProcess,
 		__out  LPDWORD  lpExitCode
+	);
+
+WINBASEAPI
+VOID
+WINAPI
+Sleep(
+		__in  DWORD  dwMilliseconds
 	);

@@ -194,8 +194,8 @@ struct cheat_unit {
 	cheat_procedure const procedure; /* The procedure to call. */
 };
 
-enum cheat_outcome {
-	CHEAT_INDETERMINATE, /* Nothing happened so far. */
+enum cheat_outcome { /* TODO Shift these back. */
+	CHEAT_INDETERMINATE = 48, /* Nothing happened so far. */
 	CHEAT_SUCCESS, /* A success happened. */
 	CHEAT_FAILURE, /* A failure happened. */
 	CHEAT_CRASHED, /* A critical failure happened. */
@@ -392,7 +392,7 @@ static char* cheat_allocate_cut(char const* const literal,
 			return NULL;
 		paste_length = cut_length - marker_length;
 		memcpy(cut, literal, paste_length);
-		memcpy(&cut[paste_length], marker, marker_length);
+		memcpy(&cut[paste_length], marker, marker_length + 1);
 	} else {
 		cut = CHEAT_CAST(char*) malloc(literal_length + 1);
 		if (cut == NULL)
@@ -400,55 +400,6 @@ static char* cheat_allocate_cut(char const* const literal,
 		memcpy(cut, literal, literal_length + 1);
 	}
 	return cut;
-}
-
-/*
-Joins words into a line with spaces in between or
- returns NULL and sets errno in case of a failure.
-The allocated memory is left for the caller.
-*/
-__attribute__ ((__malloc__, __nonnull__, __pure__, __warn_unused_result__))
-static char* cheat_allocate_joined(char const* const* const words,
-		size_t const count) {
-	size_t* lengths;
-	size_t length;
-	char* line;
-	size_t index;
-
-	lengths = CHEAT_CAST(size_t*) cheat_allocate_array(count, sizeof *lengths);
-	if (lengths == NULL)
-		return NULL;
-	for (index = 0;
-			index < count;
-			++index)
-		lengths[index] = strlen(words[index]);
-	length = 1;
-	for (index = 0;
-			index < count;
-			++index) {
-		if (lengths[index] > SIZE_MAX - length - 1) {
-			free(lengths);
-			return NULL;
-		}
-		length += lengths[index] + 1;
-	}
-	line = CHEAT_CAST(char*) malloc(length);
-	if (line == NULL) {
-		free(lengths);
-		return NULL;
-	}
-	length = 0;
-	for (index = 0;
-			index < count;
-			++index) {
-		memcpy(&line[length], words[index], lengths[index]);
-		length += lengths[index];
-		line[length] = ' ';
-		++length;
-	}
-	line[length - 1] = '\0';
-	free(lengths);
-	return line;
 }
 
 /*
@@ -570,6 +521,8 @@ Adds a message in
  the message queue of a test suite.
 */
 __attribute__ ((__nonnull__))
+/* TODO One should continue to append to messages that
+	do not have a terminator in them. */
 static void cheat_append_message(struct cheat_suite* const suite,
 		unsigned char const* const data, size_t const size) {
 	size_t message_capacity;
@@ -1008,11 +961,9 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 	SECURITY_ATTRIBUTES security;
 	STARTUPINFO startup;
 	PROCESS_INFORMATION process;
-	SIZE_T size;
-	DWORD error;
-	PCHAR name; /* TODO Check type conversions. */
-	PCHAR* arguments;
-	PCHAR command;
+	SIZE_T command_length;
+	SIZE_T name_length;
+	LPTSTR command;
 	DWORD status;
 
 	/*
@@ -1041,38 +992,24 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 	startup.hStdOutput = writer;
 	startup.hStdError = NULL; /* TODO Consider capturing. */
 
-	size = strlen(test->name) + 1;
-	name = malloc(size);
-	if (name == NULL)
-		cheat_death("failed to allocate memory for the name of a test", errno);
-	memcpy(name, test->name, size);
-
-	if (suite->argument_count > SIZE_MAX - 3)
-		cheat_death("too many arguments", suite->argument_count);
-	arguments = cheat_allocate_array(suite->argument_count + 3,
-			sizeof *suite->arguments);
-	if (arguments == NULL)
-		cheat_death("failed to allocate memory for an argument list", errno);
-	arguments[0] = suite->program;
-	arguments[1] = name;
-	memcpy(&arguments[2], suite->arguments,
-			suite->argument_count * sizeof *suite->arguments);
-	arguments[suite->argument_count + 2] = NULL;
-
-	command = cheat_allocate_joined(arguments, suite->argument_count + 2);
-	error = errno;
-	free(name);
-	free(arguments);
+	command_length = strlen(GetCommandLine());
+	name_length = strlen(test->name);
+	command = cheat_allocate_more(command_length + 1, name_length + 1);
 	if (command == NULL)
-		cheat_death("failed to allocate memory for a command", error);
-	/* TODO Implicit file extensions and Unicode characters ruin this. */
-	if (!CreateProcess(suite->program, command, NULL, NULL,
+		cheat_death("failed to allocate memory for a command", errno);
+	memcpy(command, GetCommandLine(), command_length);
+	command[command_length] = ' ';
+	memcpy(&command[command_length + 1], test->name, name_length + 1);
+	if (!CreateProcess(NULL, command, NULL, NULL,
 				TRUE, NORMAL_PRIORITY_CLASS, NULL, NULL,
-				&startup, &process)) {
-		error = GetLastError();
-		free(command);
-		cheat_death("failed to create a process", error);
-	}
+				&startup, &process)) /* There is CommandLineToArgvW(), but
+		nothing like ArgvToCommandLineW() exists, so
+		GetCommandLine() is used even though
+		it is not guaranteed to return the correct result for file paths that
+		lack a file extension,
+		contain spaces or
+		are not entirely built from printable ASCII characters. */
+		cheat_death("failed to create a process", GetLastError());
 	free(command);
 
 	if (!CloseHandle(writer))
@@ -1082,10 +1019,15 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 		UCHAR buffer[BUFSIZ];
 		DWORD size;
 
-		/* TODO This always fails or something. */
-		if (!ReadFile(reader, buffer, sizeof buffer, &size, NULL))
+		if (!ReadFile(reader, buffer, sizeof buffer, &size, NULL)) {
+			DWORD error;
+
+			error = GetLastError();
+			if (error != ERROR_BROKEN_PIPE)
+				cheat_death("failed to read from a pipe", error);
 			break;
-		cheat_append_message(suite, buffer, (size_t )size); /* This is wrong! */
+		}
+		cheat_append_message(suite, buffer, (size_t )size);
 	} while (TRUE);
 
 	if (!CloseHandle(reader))
@@ -1095,8 +1037,7 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 		cheat_death("failed to wait for a process", GetLastError());
 
 	if (!GetExitCodeProcess(process.hProcess, &status))
-		cheat_death("failed to retrieve the exit status of a process",
-				GetLastError());
+		cheat_death("failed to get the exit code of a process", GetLastError());
 
 	if (!CloseHandle(process.hProcess))
 		cheat_death("failed to close a process handle", GetLastError());
@@ -1105,8 +1046,11 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 
 	/* TODO This is sometimes bogus; only 0 is guaranteed to mean successful. */
 	/* printf(" [%s -> %d]\n", test->name, status); */
-	suite->status = status;
-	suite->outcome = status == 3 ? CHEAT_CRASHED : status;
+	if (status >= 48 && status <= 72) {
+		suite->status = status;
+		suite->outcome = (enum cheat_outcome )status;
+	} else
+		suite->outcome = CHEAT_CRASHED;
 
 #elif _POSIX_C_SOURCE >= 200112L
 
@@ -1128,7 +1072,7 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 
 		if (close(reader) == -1)
 			cheat_death("failed to close the read end of a pipe", errno);
-		if (dup2(writer, STDOUT_FILENO) == -1)
+		if (dup2(writer, STDOUT_FILENO) == -1) /* TODO Consider capturing. */
 			cheat_death("failed to redirect standard output", errno);
 		outcome = cheat_run_test(suite, test);
 		if (close(writer) == -1)
@@ -1143,13 +1087,12 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 			unsigned char buffer[BUFSIZ];
 			ssize_t size;
 
-			/* TODO Outcome, not status. */
 			size = read(reader, buffer, sizeof buffer);
 			if (size == -1)
 				cheat_death("failed to read from a pipe", errno);
 			if (size == 0)
 				break;
-			cheat_append_message(suite, buffer, (size_t )size); /* Wrong! */
+			cheat_append_message(suite, buffer, (size_t )size);
 		} while (true);
 		if (waitpid(pid, &status, 0) == -1)
 			cheat_death("failed to wait for a process", errno);
@@ -1158,8 +1101,8 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 		/* TODO The outcome should be sent through the pipe instead. */
 		/* printf(" [%s -> %d]\n", test->name, status); */
 		if (WIFEXITED(status)) {
-			suite->outcome = (enum cheat_outcome )WEXITSTATUS(status);
 			suite->status = WEXITSTATUS(status);
+			suite->outcome = (enum cheat_outcome )suite->status;
 		} else
 			suite->outcome = CHEAT_CRASHED;
 	}
@@ -1397,25 +1340,20 @@ static size_t const cheat_unit_count = CHEAT_SIZE(cheat_units) - 1;
 	static void cheat_test_##name(void) { \
 		cheat_suite.test = #name; \
 		cheat_suite.quiet = false; \
-		printf("debug: %s {\n", #name); /* TODO Remove print statements. */ \
 		body \
-		printf("}\n", #name); \
 	}
 
 #define CHEAT_IGNORE(name, body) \
 	static void cheat_test_##name(void) { \
 		cheat_suite.test = #name; \
 		cheat_suite.quiet = true; \
-		printf("debug: %s {\n", #name); \
 		body \
-		printf("}\n", #name); \
 		cheat_suite.outcome = CHEAT_IGNORED; \
 	}
 
 #define CHEAT_SKIP(name, body) \
 	static void cheat_test_##name(void) { \
 		cheat_suite.test = #name; \
-		printf("debug: %s {}\n", #name); \
 		cheat_suite.outcome = CHEAT_SKIPPED; \
 		return; \
 		body /* This ensures the test is compiled and checked. */ \

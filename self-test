@@ -2,8 +2,8 @@
 
 for i in tests/*
 do
-	printf "%s %s %s\n" --- "`basename "$i"`" ---
 	o=`printf "%s" "$i" | sed "s/\.[^.]\+\$//"`
+	printf "%s %s %s\n" --- "`basename "$o"`" ---
 	cc -I . -o "$o" -w "$i" && {
 		"$o" "$@"
 		rm "$o"
