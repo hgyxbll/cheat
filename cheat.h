@@ -1417,6 +1417,8 @@ static size_t const cheat_unit_count = CHEAT_SIZE(cheat_units) - 1;
 		cheat_suite.test = #name; \
 		printf("debug: %s {}\n", #name); \
 		cheat_suite.outcome = CHEAT_SKIPPED; \
+		return; \
+		body /* This ensures the test is compiled and checked. */ \
 	}
 
 #define CHEAT_SET_UP(body) \
@@ -1464,7 +1466,7 @@ int main(int const count, char** const arguments) {
 	cheat_suite.unit_count = &cheat_unit_count;
 	cheat_suite.units = cheat_units;
 	cheat_suite.handler = cheat_handle_signal;
-	cheat_suite.length = UCHAR_MAX;
+	cheat_suite.length = UCHAR_MAX; /* This is arbitrary. */
 	cheat_initialize(&cheat_suite); /* TODO Wrangle this around. */
 	cheat_suite.program = arguments[0];
 	cheat_suite.argument_count = (size_t )(count - 1);
