@@ -81,6 +81,9 @@ Tests can then be defined with `CHEAT_TEST(name, block)`,
 It is also possible to
  ignore the outcome of a test with `CHEAT_IGNORE(block)` or
  skip running it altogether with `CHEAT_SKIP(block)`.
+Additionally
+ a reference to test can be retrieved with `CHEAT_GET(name)` or
+ it can be directly called with `CHEAT_CALL(name)`.
 
 Some examples are in the `cheat-example.c` file.
 

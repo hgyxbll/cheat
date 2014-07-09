@@ -77,7 +77,7 @@ These are needed to print size types.
 /*
 This is used to truncate too long string literals.
 */
-#define CHEAT_LENGTH_LIMIT 4095
+#define CHEAT_LIMIT 4095
 
 #else
 
@@ -95,7 +95,7 @@ typedef int bool;
 #define CHEAT_CAST_SIZE(size) \
 	((unsigned long int )(size))
 
-#define CHEAT_LENGTH_LIMIT 509
+#define CHEAT_LIMIT 509
 
 #endif
 
@@ -379,7 +379,7 @@ static char* cheat_allocate_cut(char const* const literal,
 	char* cut;
 
 	literal_length = strlen(literal);
-	cut_length = cheat_minimum(length, CHEAT_LENGTH_LIMIT);
+	cut_length = cheat_minimum(length, CHEAT_LIMIT);
 	if (literal_length > cut_length) {
 		size_t marker_length;
 		size_t paste_length;
@@ -602,10 +602,10 @@ static void cheat_print_usage(struct cheat_suite const* const suite) {
 	(void )fputs("\
 Options: -c  --colorful   Use ISO/IEC 6429 escape codes to color reports\n\
          -d  --dangerous  Pretend that crashing tests do\n\
-                          not cause undefined behavior\n\
+                          not raise signals and cause undefined behavior\n\
          -h  --help       Show this help\n\
          -l  --list       List test cases\n\
-", suite->captured_stdout); /* String literals must fit into 509 bytes. */
+", suite->captured_stdout); /* String literals must not exceed CHEAT_LIMIT. */
 	(void )fputs("\
          -m  --minimal    Only report the amounts of successes, failures\n\
                           and tests run in a machine readable format\n\
@@ -951,7 +951,8 @@ Creates a subprocess and
  runs a test in it.
 */
 __attribute__ ((__io__, __nonnull__))
-static void cheat_run_isolated_test(struct cheat_suite* const suite,
+static enum cheat_outcome cheat_run_isolated_test(
+		struct cheat_suite* const suite,
 		struct cheat_unit const* const test) {
 
 #ifdef _WIN32
@@ -1052,6 +1053,8 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 	} else
 		suite->outcome = CHEAT_CRASHED;
 
+	return suite->outcome; /* TODO This. */
+
 #elif _POSIX_C_SOURCE >= 200112L
 
 	pid_t pid;
@@ -1105,7 +1108,11 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 			suite->outcome = (enum cheat_outcome )suite->status;
 		} else
 			suite->outcome = CHEAT_CRASHED;
+
+		return suite->outcome; /* TODO This. */
 	}
+
+	return CHEAT_INDETERMINATE;
 
 #else
 
@@ -1184,17 +1191,23 @@ static void cheat_parse(struct cheat_suite* const suite) {
 	}
 	test = names != 0;
 
-	if (help) { /* TODO This logic. */
+	if (help /* No running options for help. */
+			&& !(dangerous || list || safe || unsafe)) {
 		cheat_print_usage(suite);
-	} else if (list) {
+	} else if (list /* No running options for list either. */
+			&& !(dangerous || help || safe || unsafe)) {
 		cheat_print_tests(suite);
-	} else if (!(colorful && minimal) && !help) {
-		if (plain)
-			suite->style = CHEAT_PLAIN;
+	} else if (!(help || list) /* No conflicting style or harness options. */
+			&& !(colorful && minimal)
+			&& !(colorful && plain)
+			&& !(minimal && plain)
+			&& !(safe && unsafe)) {
 		if (colorful)
 			suite->style = CHEAT_COLORFUL;
 		if (minimal)
 			suite->style = CHEAT_MINIMAL;
+		if (plain)
+			suite->style = CHEAT_PLAIN;
 		if (safe)
 			suite->harness = CHEAT_SAFE;
 		if (unsafe)
@@ -1228,13 +1241,13 @@ static void cheat_parse(struct cheat_suite* const suite) {
 					index < *suite->unit_count;
 					++index) {
 				struct cheat_unit const* unit;
-				enum cheat_outcome outcome; /* TODO Read and use. */
+				enum cheat_outcome outcome; /* TODO Use. */
 
 				unit = &suite->units[index];
 				if (unit->type != CHEAT_TESTER)
 					continue;
 				if (suite->harness == CHEAT_SAFE)
-					cheat_run_isolated_test(suite, unit);
+					outcome = cheat_run_isolated_test(suite, unit);
 				else if (suite->harness == CHEAT_DANGEROUS) {
 					if (setjmp(suite->environment) == 0)
 						outcome = cheat_run_test(suite, unit);
@@ -1251,10 +1264,16 @@ static void cheat_parse(struct cheat_suite* const suite) {
 		cheat_death("invalid combination of options", 0);
 }
 
+#define CHEAT_GET(name) \
+	(cheat_test_##name)
+
+#define CHEAT_CALL(name) \
+	(CHEAT_GET(name)())
+
 #define CHEAT_PASS 1 /* This is informational. */
 
 #define CHEAT_TEST(name, body) \
-	static void cheat_test_##name(void);
+	static void CHEAT_GET(name)(void);
 
 #define CHEAT_IGNORE(name, body) \
 	CHEAT_TEST(name, body)
@@ -1287,7 +1306,7 @@ static void cheat_parse(struct cheat_suite* const suite) {
 	{ \
 		#name, \
 		CHEAT_TESTER, \
-		cheat_test_##name \
+		CHEAT_GET(name) \
 	},
 
 #define CHEAT_IGNORE(name, body) \
@@ -1337,14 +1356,14 @@ static size_t const cheat_unit_count = CHEAT_SIZE(cheat_units) - 1;
 #define CHEAT_PASS 3
 
 #define CHEAT_TEST(name, body) \
-	static void cheat_test_##name(void) { \
+	static void CHEAT_GET(name)(void) { \
 		cheat_suite.test = #name; \
 		cheat_suite.quiet = false; \
 		body \
 	}
 
 #define CHEAT_IGNORE(name, body) \
-	static void cheat_test_##name(void) { \
+	static void CHEAT_GET(name)(void) { \
 		cheat_suite.test = #name; \
 		cheat_suite.quiet = true; \
 		body \
@@ -1352,7 +1371,7 @@ static size_t const cheat_unit_count = CHEAT_SIZE(cheat_units) - 1;
 	}
 
 #define CHEAT_SKIP(name, body) \
-	static void cheat_test_##name(void) { \
+	static void CHEAT_GET(name)(void) { \
 		cheat_suite.test = #name; \
 		cheat_suite.outcome = CHEAT_SKIPPED; \
 		return; \
