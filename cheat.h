@@ -1201,6 +1201,8 @@ static void cheat_parse(struct cheat_suite* const suite) {
 			&& !(colorful && minimal)
 			&& !(colorful && plain)
 			&& !(minimal && plain)
+			&& !(dangerous && safe)
+			&& !(dangerous && unsafe)
 			&& !(safe && unsafe)) {
 		if (colorful)
 			suite->style = CHEAT_COLORFUL;
