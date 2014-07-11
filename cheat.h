@@ -195,8 +195,7 @@ struct cheat_unit {
 };
 
 enum cheat_outcome { /* TODO Shift these back. */
-	CHEAT_INDETERMINATE = 48, /* Nothing happened yet. */
-	CHEAT_SUCCESS, /* A success happened. */
+	CHEAT_SUCCESS = 48, /* A success happened. */
 	CHEAT_FAILURE, /* A failure happened. */
 	CHEAT_CRASHED, /* A critical failure happened. */
 	CHEAT_IGNORED, /* Anything could have happened. */
@@ -219,7 +218,7 @@ enum cheat_style {
 
 struct cheat_suite {
 	/*
-	These options are change for each compilation.
+	These options change for each compilation.
 	*/
 
 	size_t const* unit_count; /* The amount of procedures. */
@@ -231,11 +230,10 @@ struct cheat_suite {
 		handle the recovery from a fatal signal. */
 
 	/*
-	These options are change for each execution.
+	These options change for each execution.
 	*/
 
 	char* program; /* The program name given to main(). */
-
 	size_t argument_count; /* The amount of arguments for the program. */
 	char** arguments; /* The arguments for the program. */
 
@@ -244,7 +242,7 @@ struct cheat_suite {
 	enum cheat_style style; /* The style of printed messages. */
 
 	/*
-	These options are change for each test.
+	These options change for each test.
 	*/
 
 	size_t tests_run; /* The amount of tests run or ignored so far. */
@@ -364,20 +362,6 @@ static void* cheat_allocate_more(size_t const size, size_t const extra_size) {
 		return NULL;
 
 	return malloc(size + extra_size);
-}
-
-/*
-Safely allocates memory for
- an array of size (count * size) and
- returns a pointer to the allocated region or
- returns NULL and sets errno in case of a failure.
-*/
-__attribute__ ((__warn_unused_result__))
-static void* cheat_allocate_array(size_t const count, size_t const size) {
-	if (count > SIZE_MAX / size)
-		return NULL;
-
-	return malloc(count * size);
 }
 
 /*
@@ -509,41 +493,59 @@ static int cheat_print(char const* const format,
 }
 
 /*
-Clears a test suite.
+Initializes an undefined test suite.
+*/
+__attribute__ ((__nonnull__))
+static void cheat_initialize(struct cheat_suite* const suite) {
+	suite->unit_count = NULL;
+	suite->units = NULL;
+
+	suite->assertion_length = 256; /* This is arbitrary. */
+
+	/* Do not touch suite->handler. */
+
+	suite->program = NULL;
+	suite->argument_count = 0;
+	suite->arguments = NULL;
+
+	suite->harness = CHEAT_UNSAFE;
+
+	suite->style = CHEAT_PLAIN;
+
+	suite->tests_run = 0;
+	suite->tests_successful = 0;
+	suite->tests_failed = 0;
+
+	suite->test_name = NULL;
+	suite->outcome = CHEAT_SUCCESS;
+	suite->status = 0;
+
+	suite->message_count = 0;
+	suite->message_capacity = 0;
+	suite->messages = NULL;
+
+	/* Do not touch suite->environment either. */
+
+	suite->captured_stdout = stdout;
+}
+
+/*
+Clears the message queue of a test suite.
 The memory allocated for the message queue and
  the messages themselves is released, but
  everything else is left for the caller.
 */
 __attribute__ ((__nonnull__))
-static void cheat_clear(struct cheat_suite* const suite) {
-	suite->tests_run = 0;
-	suite->tests_successful = 0;
-	suite->tests_failed = 0;
-	suite->outcome = CHEAT_INDETERMINATE;
+static void cheat_clear_messages(struct cheat_suite* const suite) {
 	if (suite->messages != NULL) {
 		while (suite->message_count > 0)
 			free(suite->messages[--suite->message_count]); /* Memory B. */
+
 		suite->message_capacity = 0;
 		free(suite->messages); /* Memory A. */
+
 		suite->messages = NULL;
 	}
-	suite->program = NULL;
-	suite->argument_count = 0;
-	suite->arguments = NULL;
-	suite->harness = CHEAT_UNSAFE;
-	suite->style = CHEAT_PLAIN;
-	suite->captured_stdout = stdout;
-}
-
-/*
-Initializes an undefined test suite.
-*/
-__attribute__ ((__nonnull__))
-static void cheat_initialize(struct cheat_suite* const suite) {
-	suite->message_count = 0;
-	suite->message_capacity = 0;
-	suite->messages = NULL;
-	cheat_clear(suite);
 }
 
 /*
@@ -618,8 +620,6 @@ static void cheat_handle_outcome(struct cheat_suite* const suite) {
 	case CHEAT_CRASHED:
 		++suite->tests_run;
 		++suite->tests_failed;
-		break;
-	case CHEAT_INDETERMINATE: /* TODO Remove. */
 		break;
 	default:
 		cheat_death("invalid outcome", suite->outcome);
@@ -730,8 +730,6 @@ static void cheat_print_outcome(struct cheat_suite* const suite) {
 			break;
 		case CHEAT_CRASHED:
 			(void )fputs(crashed, suite->captured_stdout);
-			break;
-		case CHEAT_INDETERMINATE: /* TODO Remove. */
 			break;
 		default:
 			cheat_death("invalid outcome", suite->outcome);
@@ -953,11 +951,11 @@ static void cheat_run_utilities(struct cheat_suite* const suite,
 }
 
 /*
-Runs the core of a test or
+Runs a test procedure or
  terminates the program in case of an error.
 */
 __attribute__ ((__io__, __nonnull__))
-static void cheat_run_core(struct cheat_unit const* const unit) {
+static void cheat_run_test(struct cheat_unit const* const unit) {
 	if (unit->type == CHEAT_TESTER)
 		(unit->procedure)();
 	else
@@ -968,14 +966,13 @@ static void cheat_run_core(struct cheat_unit const* const unit) {
 Runs a test from
  a test suite.
 */
-__attribute__ ((__io__, __nonnull__, __warn_unused_result__))
-static enum cheat_outcome cheat_run_test(struct cheat_suite* const suite,
+__attribute__ ((__io__, __nonnull__))
+static void cheat_run_coupled_test(
+		struct cheat_suite* const suite,
 		struct cheat_unit const* const unit) {
 	cheat_run_utilities(suite, CHEAT_UP_SETTER);
-	cheat_run_core(unit);
+	cheat_run_test(unit);
 	cheat_run_utilities(suite, CHEAT_DOWN_TEARER);
-
-	return suite->outcome;
 }
 
 /*
@@ -983,7 +980,7 @@ Creates a subprocess and
  runs a test in it.
 */
 __attribute__ ((__io__, __nonnull__))
-static enum cheat_outcome cheat_run_isolated_test(
+static void cheat_run_isolated_test(
 		struct cheat_suite* const suite,
 		struct cheat_unit const* const test) {
 
@@ -1085,14 +1082,13 @@ static enum cheat_outcome cheat_run_isolated_test(
 	} else
 		suite->outcome = CHEAT_CRASHED;
 
-	return suite->outcome; /* TODO This. */
-
 #elif _POSIX_C_SOURCE >= 200112L
 
 	pid_t pid;
 	int fds[2];
 	int reader;
 	int writer;
+	int status;
 
 	if (pipe(fds) == -1)
 		cheat_death("failed to create a pipe", errno);
@@ -1102,49 +1098,42 @@ static enum cheat_outcome cheat_run_isolated_test(
 	pid = fork();
 	if (pid == -1)
 		cheat_death("failed to create a process", errno);
-	else if (pid == 0) {
-		enum cheat_outcome outcome;
-
+	else if (pid == 0) { /* Refactor C. */
 		if (close(reader) == -1)
 			cheat_death("failed to close the read end of a pipe", errno);
-		if (dup2(writer, STDOUT_FILENO) == -1) /* TODO Consider capturing. */
+		if (dup2(writer, STDOUT_FILENO) == -1)
 			cheat_death("failed to redirect standard output", errno);
-		outcome = cheat_run_test(suite, test);
+		cheat_run_coupled_test(suite, test);
 		if (close(writer) == -1)
 			cheat_death("failed to close the write end of a pipe", errno);
-		exit(outcome);
-	} else {
-		int status;
-
-		if (close(writer) == -1)
-			cheat_death("failed to close the write end of a pipe", errno);
-		do {
-			char buffer[BUFSIZ];
-			ssize_t size;
-
-			size = read(reader, buffer, sizeof buffer);
-			if (size == -1)
-				cheat_death("failed to read from a pipe", errno);
-			if (size == 0)
-				break;
-			cheat_append_message(suite, buffer, (size_t )size);
-		} while (true);
-		if (waitpid(pid, &status, 0) == -1)
-			cheat_death("failed to wait for a process", errno);
-		if (close(reader) == -1)
-			cheat_death("failed to close the read end of a pipe", errno);
-		/* TODO The outcome should be sent through the pipe instead. */
-		/* printf(" [%s -> %d]\n", test->name, status); */
-		if (WIFEXITED(status)) {
-			suite->status = WEXITSTATUS(status);
-			suite->outcome = (enum cheat_outcome )suite->status;
-		} else
-			suite->outcome = CHEAT_CRASHED;
-
-		return suite->outcome; /* TODO This. */
+		cheat_clear_messages(suite);
+		exit(suite->outcome);
 	}
 
-	return CHEAT_INDETERMINATE;
+	if (close(writer) == -1)
+		cheat_death("failed to close the write end of a pipe", errno);
+	do {
+		char buffer[BUFSIZ];
+		ssize_t size;
+
+		size = read(reader, buffer, sizeof buffer);
+		if (size == -1)
+			cheat_death("failed to read from a pipe", errno);
+		if (size == 0)
+			break;
+		cheat_append_message(suite, buffer, (size_t )size);
+	} while (true);
+	if (waitpid(pid, &status, 0) == -1)
+		cheat_death("failed to wait for a process", errno);
+	if (close(reader) == -1)
+		cheat_death("failed to close the read end of a pipe", errno);
+	/* TODO The outcome should be sent through the pipe instead. */
+	/* printf(" [%s -> %d]\n", test->name, status); */
+	if (WIFEXITED(status)) {
+		suite->status = WEXITSTATUS(status);
+		suite->outcome = (enum cheat_outcome )suite->status;
+	} else
+		suite->outcome = CHEAT_CRASHED;
 
 #else
 
@@ -1248,16 +1237,15 @@ static void cheat_parse(struct cheat_suite* const suite) {
 			suite->harness = CHEAT_UNSAFE;
 		if (dangerous)
 			suite->harness = CHEAT_DANGEROUS;
-		if (test) {
+		if (test) { /* Refactor C. */
 			struct cheat_unit const* unit;
-			enum cheat_outcome outcome; /* TODO Write and use. */
 
 			unit = cheat_find_test(suite, name);
 			if (unit == NULL)
 				cheat_death("test not found", 0);
-			outcome = cheat_run_test(suite, unit);
-			/* TODO Outcome, not status. */
-			exit(outcome);
+			cheat_run_coupled_test(suite, unit);
+			cheat_clear_messages(suite);
+			exit(suite->outcome);
 		} else {
 			if (suite->harness == CHEAT_DANGEROUS) {
 				if (signal(SIGABRT, suite->handler) == SIG_ERR)
@@ -1275,20 +1263,19 @@ static void cheat_parse(struct cheat_suite* const suite) {
 					index < *suite->unit_count;
 					++index) {
 				struct cheat_unit const* unit;
-				enum cheat_outcome outcome; /* TODO Use. */
 
 				unit = &suite->units[index];
 				if (unit->type != CHEAT_TESTER)
 					continue;
 				if (suite->harness == CHEAT_SAFE)
-					outcome = cheat_run_isolated_test(suite, unit);
+					cheat_run_isolated_test(suite, unit);
 				else if (suite->harness == CHEAT_DANGEROUS) {
 					if (setjmp(suite->environment) == 0)
-						outcome = cheat_run_test(suite, unit);
+						cheat_run_coupled_test(suite, unit);
 					else
 						suite->outcome = CHEAT_CRASHED;
 				} else
-					outcome = cheat_run_test(suite, unit);
+					cheat_run_coupled_test(suite, unit);
 				cheat_handle_outcome(suite);
 				cheat_print_outcome(suite);
 			}
@@ -1466,13 +1453,10 @@ Runs tests from the main test suite and
  EXIT_FAILURE in case of an error.
 */
 int main(int const count, char** const arguments) {
-	size_t result;
-
+	cheat_initialize(&cheat_suite);
 	cheat_suite.unit_count = &cheat_unit_count;
 	cheat_suite.units = cheat_units;
 	cheat_suite.handler = cheat_handle_signal;
-	cheat_suite.assertion_length = UCHAR_MAX; /* This is arbitrary. */
-	cheat_initialize(&cheat_suite); /* TODO Wrangle this around. */
 	cheat_suite.program = arguments[0];
 	cheat_suite.argument_count = (size_t )(count - 1);
 	cheat_suite.arguments = &arguments[1];
@@ -1485,10 +1469,11 @@ int main(int const count, char** const arguments) {
 	if (isatty(STDOUT_FILENO) == 1)
 		cheat_suite.style = CHEAT_COLORFUL;
 #endif
+
 	cheat_parse(&cheat_suite);
-	result = cheat_suite.tests_failed;
-	cheat_clear(&cheat_suite);
-	if (result == 0)
+	cheat_clear_messages(&cheat_suite);
+
+	if (cheat_suite.tests_failed == 0)
 		return EXIT_SUCCESS;
 	return EXIT_FAILURE;
 }
