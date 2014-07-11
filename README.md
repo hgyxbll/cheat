@@ -198,14 +198,15 @@ Identifiers starting with
 
 ### Commas
 
-Using commas directly inside `CHEAT_TEST()` and
- friends causes everything that comes after them to
+Using commas directly inside preprocessor directives like
+ `CHEAT_TEST()` without `__VA_ARGS__` support causes
+ everything that comes after them to
  be interpreted as extra arguments unless
  the commas are wrapped in parentheses,
  replaced with `CHEAT_COMMA` or
- passed through either `CHEAT_COMMAS(...)` or
- the matching `CHEAT_COMMAS_` n `(x1, x2,` ... `, x` n `, x` n + 1 `)` where
- n is the amount of commas used.
+ in the worst case passed through
+ the matching `CHEAT_COMMAS_` n `(x1, x2,` ... `)` where
+ n is the amount of commas.
 
 ### Expressions
 

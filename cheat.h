@@ -1301,10 +1301,13 @@ This adds source information to assertions.
 /*
 These help the preprocessor place commas.
 */
+
 #define CHEAT_COMMA ,
+
 #if __STDC_VERSION__ >= 199901L
-#define CHEAT_COMMAS(...) __VA_ARGS__
-#else
+#define CHEAT_COMMAS(...) __VA_ARGS__ /* This is not very useful. */
+#endif
+
 /*
 These are automatically generated with the command
   tcc -run cheat-meta.c 127
@@ -1436,7 +1439,6 @@ These are automatically generated with the command
 #define CHEAT_COMMAS_124(x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39, x40, x41, x42, x43, x44, x45, x46, x47, x48, x49, x50, x51, x52, x53, x54, x55, x56, x57, x58, x59, x60, x61, x62, x63, x64, x65, x66, x67, x68, x69, x70, x71, x72, x73, x74, x75, x76, x77, x78, x79, x80, x81, x82, x83, x84, x85, x86, x87, x88, x89, x90, x91, x92, x93, x94, x95, x96, x97, x98, x99, x100, x101, x102, x103, x104, x105, x106, x107, x108, x109, x110, x111, x112, x113, x114, x115, x116, x117, x118, x119, x120, x121, x122, x123, x124, x125) x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39, x40, x41, x42, x43, x44, x45, x46, x47, x48, x49, x50, x51, x52, x53, x54, x55, x56, x57, x58, x59, x60, x61, x62, x63, x64, x65, x66, x67, x68, x69, x70, x71, x72, x73, x74, x75, x76, x77, x78, x79, x80, x81, x82, x83, x84, x85, x86, x87, x88, x89, x90, x91, x92, x93, x94, x95, x96, x97, x98, x99, x100, x101, x102, x103, x104, x105, x106, x107, x108, x109, x110, x111, x112, x113, x114, x115, x116, x117, x118, x119, x120, x121, x122, x123, x124, x125
 #define CHEAT_COMMAS_125(x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39, x40, x41, x42, x43, x44, x45, x46, x47, x48, x49, x50, x51, x52, x53, x54, x55, x56, x57, x58, x59, x60, x61, x62, x63, x64, x65, x66, x67, x68, x69, x70, x71, x72, x73, x74, x75, x76, x77, x78, x79, x80, x81, x82, x83, x84, x85, x86, x87, x88, x89, x90, x91, x92, x93, x94, x95, x96, x97, x98, x99, x100, x101, x102, x103, x104, x105, x106, x107, x108, x109, x110, x111, x112, x113, x114, x115, x116, x117, x118, x119, x120, x121, x122, x123, x124, x125, x126) x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39, x40, x41, x42, x43, x44, x45, x46, x47, x48, x49, x50, x51, x52, x53, x54, x55, x56, x57, x58, x59, x60, x61, x62, x63, x64, x65, x66, x67, x68, x69, x70, x71, x72, x73, x74, x75, x76, x77, x78, x79, x80, x81, x82, x83, x84, x85, x86, x87, x88, x89, x90, x91, x92, x93, x94, x95, x96, x97, x98, x99, x100, x101, x102, x103, x104, x105, x106, x107, x108, x109, x110, x111, x112, x113, x114, x115, x116, x117, x118, x119, x120, x121, x122, x123, x124, x125, x126
 #define CHEAT_COMMAS_126(x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39, x40, x41, x42, x43, x44, x45, x46, x47, x48, x49, x50, x51, x52, x53, x54, x55, x56, x57, x58, x59, x60, x61, x62, x63, x64, x65, x66, x67, x68, x69, x70, x71, x72, x73, x74, x75, x76, x77, x78, x79, x80, x81, x82, x83, x84, x85, x86, x87, x88, x89, x90, x91, x92, x93, x94, x95, x96, x97, x98, x99, x100, x101, x102, x103, x104, x105, x106, x107, x108, x109, x110, x111, x112, x113, x114, x115, x116, x117, x118, x119, x120, x121, x122, x123, x124, x125, x126, x127) x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39, x40, x41, x42, x43, x44, x45, x46, x47, x48, x49, x50, x51, x52, x53, x54, x55, x56, x57, x58, x59, x60, x61, x62, x63, x64, x65, x66, x67, x68, x69, x70, x71, x72, x73, x74, x75, x76, x77, x78, x79, x80, x81, x82, x83, x84, x85, x86, x87, x88, x89, x90, x91, x92, x93, x94, x95, x96, x97, x98, x99, x100, x101, x102, x103, x104, x105, x106, x107, x108, x109, x110, x111, x112, x113, x114, x115, x116, x117, x118, x119, x120, x121, x122, x123, x124, x125, x126, x127
-#endif
 
 #define CHEAT_GET(name) \
 	(cheat_test_##name)
@@ -1444,7 +1446,28 @@ These are automatically generated with the command
 #define CHEAT_CALL(name) \
 	(CHEAT_GET(name)())
 
-#define CHEAT_PASS 1 /* This is not for internal use. */
+#define CHEAT_PASS 1 /* This is not used internally. */
+
+#ifdef __STDC_VERSION__ >= 199901L
+
+#define CHEAT_TEST(name, ...) \
+	static void CHEAT_GET(name)(void);
+
+#define CHEAT_IGNORE(name, ...) \
+	CHEAT_TEST(name, __VA_ARGS__)
+
+#define CHEAT_SKIP(name, ...) \
+	CHEAT_TEST(name, __VA_ARGS__)
+
+#define CHEAT_SET_UP(...) \
+	static void cheat_set_up(void);
+
+#define CHEAT_TEAR_DOWN(...) \
+	static void cheat_tear_down(void);
+
+#define CHEAT_DECLARE(...)
+
+#else
 
 #define CHEAT_TEST(name, body) \
 	static void CHEAT_GET(name)(void);
@@ -1463,6 +1486,8 @@ These are automatically generated with the command
 
 #define CHEAT_DECLARE(body)
 
+#endif
+
 #include __BASE_FILE__
 
 #undef CHEAT_TEST
@@ -1475,6 +1500,39 @@ These are automatically generated with the command
 #undef CHEAT_PASS
 
 #define CHEAT_PASS 2
+
+#ifdef __STDC_VERSION__ >= 199901L
+
+#define CHEAT_TEST(name, ...) \
+	{ \
+		#name, \
+		CHEAT_TESTER, \
+		CHEAT_GET(name) \
+	},
+
+#define CHEAT_IGNORE(name, ...) \
+	CHEAT_TEST(name, __VA_ARGS__)
+
+#define CHEAT_SKIP(name, ...) \
+	CHEAT_TEST(name, __VA_ARGS__)
+
+#define CHEAT_SET_UP(...) \
+	{ \
+		NULL, \
+		CHEAT_UP_SETTER, \
+		cheat_set_up \
+	},
+
+#define CHEAT_TEAR_DOWN(...) \
+	{ \
+		NULL, \
+		CHEAT_DOWN_TEARER, \
+		cheat_tear_down \
+	},
+
+#define CHEAT_DECLARE(...)
+
+#else
 
 #define CHEAT_TEST(name, body) \
 	{ \
@@ -1505,6 +1563,8 @@ These are automatically generated with the command
 
 #define CHEAT_DECLARE(body)
 
+#endif
+
 static struct cheat_unit const cheat_units[] = {
 #include __BASE_FILE__
 	{
@@ -1528,6 +1588,51 @@ static size_t const cheat_unit_count = CHEAT_SIZE(cheat_units) - 1;
 #undef CHEAT_PASS
 
 #define CHEAT_PASS 3
+
+#ifdef __STDC_VERSION__ >= 199901L
+
+#define CHEAT_TEST(name, ...) \
+	static void CHEAT_GET(name)(void) { \
+		cheat_suite.test_name = #name; \
+		cheat_suite.outcome = CHEAT_SUCCESS; \
+		{ \
+			__VA_ARGS__ \
+		} \
+	}
+
+#define CHEAT_IGNORE(name, ...) \
+	static void CHEAT_GET(name)(void) { \
+		cheat_suite.test_name = #name; \
+		{ \
+			__VA_ARGS__ \
+		} \
+		cheat_suite.outcome = CHEAT_IGNORED; \
+	}
+
+#define CHEAT_SKIP(name, ...) \
+	static void CHEAT_GET(name)(void) { \
+		cheat_suite.test_name = #name; \
+		cheat_suite.outcome = CHEAT_SKIPPED; \
+		return; \
+		{ \
+			__VA_ARGS__ \
+		} /* This ensures the test is compiled and checked. */ \
+	}
+
+#define CHEAT_SET_UP(...) \
+	static void cheat_set_up(void) { \
+		__VA_ARGS__ \
+	}
+
+#define CHEAT_TEAR_DOWN(...) \
+	static void cheat_tear_down(void) { \
+		__VA_ARGS__ \
+	}
+
+#define CHEAT_DECLARE(...) \
+	__VA_ARGS__
+
+#else
 
 #define CHEAT_TEST(name, body) \
 	static void CHEAT_GET(name)(void) { \
@@ -1569,6 +1674,8 @@ static size_t const cheat_unit_count = CHEAT_SIZE(cheat_units) - 1;
 
 #define CHEAT_DECLARE(body) \
 	body
+
+#endif
 
 /*
 The third pass continues past the end of this file, but
