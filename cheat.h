@@ -195,7 +195,7 @@ struct cheat_unit {
 };
 
 enum cheat_outcome { /* TODO Shift these back. */
-	CHEAT_INDETERMINATE = 48, /* Nothing happened so far. */
+	CHEAT_INDETERMINATE = 48, /* Nothing happened yet. */
 	CHEAT_SUCCESS, /* A success happened. */
 	CHEAT_FAILURE, /* A failure happened. */
 	CHEAT_CRASHED, /* A critical failure happened. */
@@ -218,31 +218,21 @@ enum cheat_style {
 };
 
 struct cheat_suite {
+	/*
+	These options are change for each compilation.
+	*/
+
 	size_t const* unit_count; /* The amount of procedures. */
 	struct cheat_unit const* units; /* The procedures. */
 
-	jmp_buf environment; /* The recovery point in case of a fatal signal. */
-	cheat_handler handler; /* The procedure to handle the recovery. */
+	size_t assertion_length; /* The maximum reported length of an assertion. */
 
-	size_t tests_successful; /* The amount of successful tests so far. */
-	size_t tests_failed; /* The amount of failed tests so far. */
-	size_t tests_run; /* The amount of tests run or ignored so far. */
+	cheat_handler handler; /* The procedure to
+		handle the recovery from a fatal signal. */
 
-	char const* test; /* The name of the test to run next. */
-	enum cheat_outcome outcome; /* The outcome of
-			the most recently completed test. */
-	int status; /* The return value of
-			the most recently completed test in case it returned or
-			an undefined value in case it was aborted. */
-
-	/* TODO Something out of place. */
-	size_t length;
-	bool quiet;
-
-	size_t message_count; /* The amount of messages so far. */
-	size_t message_capacity; /* The amount of messages until
-			more memory has to be allocated. */
-	char** messages; /* The messages so far. */
+	/*
+	These options are change for each execution.
+	*/
 
 	char* program; /* The program name given to main(). */
 
@@ -252,6 +242,30 @@ struct cheat_suite {
 	enum cheat_harness harness; /* The security measures to use. */
 
 	enum cheat_style style; /* The style of printed messages. */
+
+	/*
+	These options are change for each test.
+	*/
+
+	size_t tests_run; /* The amount of tests run or ignored so far. */
+	size_t tests_successful; /* The amount of successful tests so far. */
+	size_t tests_failed; /* The amount of failed tests so far. */
+
+	char const* test_name; /* The name of the most recently run test. */
+	enum cheat_outcome outcome; /* The outcome of
+			the most recently run test. */
+	int status; /* The return value of
+			the most recently run test in case it returned or
+			an undefined value in case it was aborted. */
+
+	/* TODO Add more captured streams with sequence numbers. */
+
+	size_t message_count; /* The amount of messages so far. */
+	size_t message_capacity; /* The amount of messages until
+			more memory has to be allocated. */
+	char** messages; /* The messages so far. */
+
+	jmp_buf environment; /* The recovery point in case of a fatal signal. */
 
 	FILE* captured_stdout; /* The stream subprocesses use as
 			their standard output stream. */
@@ -485,9 +499,9 @@ The memory allocated for the message queue and
 */
 __attribute__ ((__nonnull__))
 static void cheat_clear(struct cheat_suite* const suite) {
+	suite->tests_run = 0;
 	suite->tests_successful = 0;
 	suite->tests_failed = 0;
-	suite->tests_run = 0;
 	suite->outcome = CHEAT_INDETERMINATE;
 	if (suite->messages != NULL) {
 		while (suite->message_count > 0)
@@ -542,7 +556,7 @@ static void cheat_append_message(struct cheat_suite* const suite,
 		cheat_death("failed to allocate memory for a new message", errno);
 	memcpy(message, data, size);
 	message[size] = '\0';
-	/* message[0] = '|'; */ /* This showcases the wrong! */
+	/* message[0] = '|'; */ /* This shows message boundaries. */
 
 	if (suite->message_count == suite->message_capacity) {
 		message_capacity = cheat_expand(suite->message_capacity);
@@ -855,12 +869,13 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 	if (print_assertion) {
 		char* assertion;
 
-		assertion = cheat_allocate_cut(expression, suite->length, "...");
+		assertion = cheat_allocate_cut(expression,
+				suite->assertion_length, "...");
 		if (assertion == NULL)
 			cheat_death("failed to allocate memory", errno);
 		if (suite->harness == CHEAT_SAFE)
 			(void )cheat_print(assertion_format, suite->captured_stdout,
-					4, file, line, suite->test, assertion);
+					4, file, line, suite->test_name, assertion);
 		else {
 			size_t size;
 			char* buffer;
@@ -876,7 +891,7 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 			}
 			(void )cheat_print_string(assertion_format, buffer,
 					4, size, file, CHEAT_CAST_SIZE(line),
-					suite->test, assertion);
+					suite->test_name, assertion);
 
 			cheat_append_message(suite, (unsigned char* )buffer, size);
 
@@ -897,9 +912,7 @@ static void cheat_check(struct cheat_suite* const suite,
 		char const* const file, size_t const line) {
 	if (!result) {
 		suite->outcome = CHEAT_FAILURE;
-		/* TODO Check this. */
-		if (!suite->quiet)
-			cheat_print_failure(suite, expression, file, line);
+		cheat_print_failure(suite, expression, file, line);
 	}
 }
 
@@ -937,8 +950,6 @@ Runs a test from
 __attribute__ ((__io__, __nonnull__, __warn_unused_result__))
 static enum cheat_outcome cheat_run_test(struct cheat_suite* const suite,
 		struct cheat_unit const* const unit) {
-	suite->outcome = CHEAT_SUCCESS;
-
 	cheat_run_utilities(suite, CHEAT_UP_SETTER);
 	cheat_run_core(unit);
 	cheat_run_utilities(suite, CHEAT_DOWN_TEARER);
@@ -1266,6 +1277,19 @@ static void cheat_parse(struct cheat_suite* const suite) {
 		cheat_death("invalid combination of options", 0);
 }
 
+/*
+This global test suite contains a pointer to the test units instead of
+ encompassing the units themselves, because
+ their size is not known when the type of the suite defined.
+*/
+static struct cheat_suite cheat_suite;
+
+/*
+This adds source information to assertions.
+*/
+#define cheat_assert(expression) \
+	cheat_check(&cheat_suite, expression, #expression, __FILE__, __LINE__)
+
 #define CHEAT_GET(name) \
 	(cheat_test_##name)
 
@@ -1359,22 +1383,21 @@ static size_t const cheat_unit_count = CHEAT_SIZE(cheat_units) - 1;
 
 #define CHEAT_TEST(name, body) \
 	static void CHEAT_GET(name)(void) { \
-		cheat_suite.test = #name; \
-		cheat_suite.quiet = false; \
+		cheat_suite.test_name = #name; \
+		cheat_suite.outcome = CHEAT_SUCCESS; \
 		body \
 	}
 
 #define CHEAT_IGNORE(name, body) \
 	static void CHEAT_GET(name)(void) { \
-		cheat_suite.test = #name; \
-		cheat_suite.quiet = true; \
+		cheat_suite.test_name = #name; \
 		body \
 		cheat_suite.outcome = CHEAT_IGNORED; \
 	}
 
 #define CHEAT_SKIP(name, body) \
 	static void CHEAT_GET(name)(void) { \
-		cheat_suite.test = #name; \
+		cheat_suite.test_name = #name; \
 		cheat_suite.outcome = CHEAT_SKIPPED; \
 		return; \
 		body /* This ensures the test is compiled and checked. */ \
@@ -1399,13 +1422,6 @@ The third pass continues past the end of this file, but
 */
 
 /*
-This global test suite contains a pointer to the test units instead of
- encompassing the units themselves, because
- their size is not known when the type of the suite defined.
-*/
-static struct cheat_suite cheat_suite;
-
-/*
 Suppresses a signal and
  returns to a point before it was raised.
 */
@@ -1425,7 +1441,7 @@ int main(int const count, char** const arguments) {
 	cheat_suite.unit_count = &cheat_unit_count;
 	cheat_suite.units = cheat_units;
 	cheat_suite.handler = cheat_handle_signal;
-	cheat_suite.length = UCHAR_MAX; /* This is arbitrary. */
+	cheat_suite.assertion_length = UCHAR_MAX; /* This is arbitrary. */
 	cheat_initialize(&cheat_suite); /* TODO Wrangle this around. */
 	cheat_suite.program = arguments[0];
 	cheat_suite.argument_count = (size_t )(count - 1);
@@ -1448,10 +1464,139 @@ int main(int const count, char** const arguments) {
 }
 
 /*
-This adds source information to assertions.
+These are for disabling streams that interfere with messages.
 */
-#define cheat_assert(expression) \
-	cheat_check(&cheat_suite, expression, #expression, __FILE__, __LINE__)
+
+static int cheat_wrapped_vfprintf(FILE* const stream, char const* const format,
+		va_list list) {
+	if (stream == stdout || stream == stderr)
+		return vsnprintf(NULL, 0, format, list); /* TODO Older versions. */
+
+	return vfprintf(stream, format, list);
+}
+
+static int cheat_wrapped_vprintf(char const* const format, va_list list) {
+	return cheat_wrapped_vfprintf(stdout, format, list);
+}
+
+static int cheat_wrapped_fprintf(FILE* const stream, char const* const format,
+		...) {
+	va_list list;
+	int result;
+
+	va_start(list, format);
+	result = cheat_wrapped_vfprintf(stream, format, list);
+	va_end(list);
+	return result;
+}
+
+static int cheat_wrapped_printf(char const* const format, ...) {
+	va_list list;
+	int result;
+
+	va_start(list, format);
+	result = cheat_wrapped_vprintf(format, list);
+	va_end(list);
+	return result;
+}
+
+static int cheat_wrapped_fputs(char const* const message, FILE* const stream) {
+	if (stream == stdout || stream == stderr)
+		return 0;
+
+	return fputs(message, stream);
+}
+
+static int cheat_wrapped_fputc(int const character, FILE* const stream) {
+	if (stream == stdout || stream == stderr)
+		return (int )(unsigned char )character;
+
+	return fputc(character, stream);
+}
+
+static int cheat_wrapped_putc(int const character, FILE* const stream) {
+	return cheat_wrapped_fputc(character, stream);
+}
+
+static int cheat_wrapped_putchar(int const character) {
+	return cheat_wrapped_putc(character, stdout);
+}
+
+static int cheat_wrapped_puts(char const* const message) {
+	return cheat_wrapped_fputs(message, stdout);
+}
+
+static size_t cheat_wrapped_fwrite(void const* const pointer, size_t const size,
+		size_t const count, FILE* const stream) {
+	if (stream == stdout || stream == stderr)
+		return count;
+
+	return fwrite(pointer, size, count, stream);
+}
+
+static int cheat_wrapped_fflush(FILE* const stream) {
+	if (stream == stdout || stream == stderr)
+		return 0;
+
+	return fflush(stream);
+}
+
+static void cheat_wrapped_perror(char const* const message) {}
+
+#define vfprintf cheat_wrapped_vfprintf
+#define vprintf cheat_wrapped_vprintf
+#define vfprintf cheat_wrapped_vfprintf
+#define fprintf cheat_wrapped_fprintf
+#define vfprintf cheat_wrapped_vfprintf
+#define printf cheat_wrapped_printf
+#define vprintf cheat_wrapped_vprintf
+#define fputs cheat_wrapped_fputs
+#define fputc cheat_wrapped_fputc
+#define putc cheat_wrapped_putc
+#define fputc cheat_wrapped_fputc
+#define putchar cheat_wrapped_putchar
+#define putc cheat_wrapped_putc
+#define puts cheat_wrapped_puts
+#define fputs cheat_wrapped_fputs
+#define fwrite cheat_wrapped_fwrite
+#define fflush cheat_wrapped_fflush
+#define perror cheat_wrapped_perror
+
+#if _POSIX_C_SOURCE >= 200112L
+
+static int cheat_wrapped_vdprintf(int const fd, char const* const format,
+		va_list const list) {
+	if (fd == STDOUT_FILENO || fd == STDERR_FILENO)
+		return cheat_wrapped_vprintf(format, list);
+
+	vdprintf(fd, format, list);
+}
+
+static int cheat_wrapped_dprintf(int const fd, char const* const format, ...) {
+	va_list list;
+	int result;
+
+	va_start(list, format);
+	result = cheat_wrapped_vdprintf(fd, format, list);
+	va_end(list);
+	return result;
+}
+
+static ssize_t cheat_wrapped_write(int const fd, void const* const buffer,
+		size_t const size) {
+	if (fd == STDOUT_FILENO || fd == STDERR_FILENO)
+		return (ssize_t )size;
+
+	return write(fd, buffer, size);
+}
+
+#define vdprintf cheat_wrapped_vdprintf
+#define vprintf cheat_wrapped_vprintf
+#define dprintf cheat_wrapped_dprintf
+#define vdprintf cheat_wrapped_vdprintf
+#define write cheat_wrapped_write
+
+#endif
 
 #ifdef __cplusplus
 }
