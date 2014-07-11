@@ -536,7 +536,8 @@ Adds a message in
 */
 __attribute__ ((__nonnull__))
 /* TODO One should continue to append to messages that
-	do not have a terminator in them. */
+	do not have a terminator in them and
+	discard messages that only have null bytes in them. */
 static void cheat_append_message(struct cheat_suite* const suite,
 		unsigned char const* const data, size_t const size) {
 	size_t message_capacity;
@@ -1464,13 +1465,58 @@ int main(int const count, char** const arguments) {
 }
 
 /*
-These are for disabling streams that interfere with messages.
+These are a best effort attempt to
+ hide streams that might interfere with messages when
+ stream capturing is disabled.
+Libraries and system calls can still print things, but
+ that is a problem for the user to solve.
 */
+
+__attribute__ ((__warn_unused_result__))
+static bool cheat_hide(FILE const* const stream) {
+	return cheat_suite.harness != CHEAT_SAFE /* TODO Logic for this. */
+		&& (stream == stdout || stream == stderr);
+}
 
 static int cheat_wrapped_vfprintf(FILE* const stream, char const* const format,
 		va_list list) {
-	if (stream == stdout || stream == stderr)
-		return vsnprintf(NULL, 0, format, list); /* TODO Older versions. */
+	if (cheat_hide(stream)) {
+
+#ifdef _WIN32
+
+		FILE* file;
+		int result;
+
+		file = fopen("NUL", "w");
+		if (file == NULL)
+			return 1;
+		result = vfprintf(file, format, list);
+		(void )fclose(file);
+		return result;
+
+#elif __STDC_VERSION__ >= 199901L
+
+		return vsnprintf(NULL, 0, format, list);
+
+#elif _POSIX_C_SOURCE >= 200112L
+
+		FILE* file;
+		int result;
+
+		file = fopen("/dev/null", "w");
+		if (file == NULL)
+			return 1;
+		result = vfprintf(file, format, list);
+		(void )fclose(file);
+		return result;
+
+#else
+
+		return 1; /* Pretend to write one byte in case of a failure. */
+
+#endif
+
+	}
 
 	return vfprintf(stream, format, list);
 }
@@ -1501,14 +1547,14 @@ static int cheat_wrapped_printf(char const* const format, ...) {
 }
 
 static int cheat_wrapped_fputs(char const* const message, FILE* const stream) {
-	if (stream == stdout || stream == stderr)
+	if (cheat_hide(stream))
 		return 0;
 
 	return fputs(message, stream);
 }
 
 static int cheat_wrapped_fputc(int const character, FILE* const stream) {
-	if (stream == stdout || stream == stderr)
+	if (cheat_hide(stream))
 		return (int )(unsigned char )character;
 
 	return fputc(character, stream);
@@ -1523,77 +1569,67 @@ static int cheat_wrapped_putchar(int const character) {
 }
 
 static int cheat_wrapped_puts(char const* const message) {
-	return cheat_wrapped_fputs(message, stdout);
+	if (cheat_wrapped_fputs(message, stdout) == EOF
+			|| cheat_wrapped_putchar('\n') == EOF)
+		return EOF;
+	return 0;
 }
 
 static size_t cheat_wrapped_fwrite(void const* const pointer, size_t const size,
 		size_t const count, FILE* const stream) {
-	if (stream == stdout || stream == stderr)
+	if (cheat_hide(stream))
 		return count;
 
 	return fwrite(pointer, size, count, stream);
 }
 
 static int cheat_wrapped_fflush(FILE* const stream) {
-	if (stream == stdout || stream == stderr)
+	if (cheat_hide(stream))
 		return 0;
 
 	return fflush(stream);
 }
 
-static void cheat_wrapped_perror(char const* const message) {}
+static void cheat_wrapped_perror(char const* const message) {
+	if (cheat_hide(stderr))
+		return;
+
+	perror(message);
+}
+
+/*
+This is needed if putc() is defined as a preprocessor directive.
+*/
+#ifdef putc
+#undef putc
+#endif
 
 #define vfprintf cheat_wrapped_vfprintf
 #define vprintf cheat_wrapped_vprintf
-#define vfprintf cheat_wrapped_vfprintf
 #define fprintf cheat_wrapped_fprintf
-#define vfprintf cheat_wrapped_vfprintf
 #define printf cheat_wrapped_printf
-#define vprintf cheat_wrapped_vprintf
 #define fputs cheat_wrapped_fputs
 #define fputc cheat_wrapped_fputc
 #define putc cheat_wrapped_putc
-#define fputc cheat_wrapped_fputc
 #define putchar cheat_wrapped_putchar
-#define putc cheat_wrapped_putc
 #define puts cheat_wrapped_puts
-#define fputs cheat_wrapped_fputs
 #define fwrite cheat_wrapped_fwrite
 #define fflush cheat_wrapped_fflush
 #define perror cheat_wrapped_perror
 
 #if _POSIX_C_SOURCE >= 200112L
 
-static int cheat_wrapped_vdprintf(int const fd, char const* const format,
-		va_list const list) {
-	if (fd == STDOUT_FILENO || fd == STDERR_FILENO)
-		return cheat_wrapped_vprintf(format, list);
-
-	vdprintf(fd, format, list);
-}
-
-static int cheat_wrapped_dprintf(int const fd, char const* const format, ...) {
-	va_list list;
-	int result;
-
-	va_start(list, format);
-	result = cheat_wrapped_vdprintf(fd, format, list);
-	va_end(list);
-	return result;
-}
-
 static ssize_t cheat_wrapped_write(int const fd, void const* const buffer,
 		size_t const size) {
-	if (fd == STDOUT_FILENO || fd == STDERR_FILENO)
+	FILE* stream;
+
+	stream = fdopen(fd, "w");
+	if (stream != NULL && cheat_hide(stream))
 		return (ssize_t )size;
 
 	return write(fd, buffer, size);
 }
 
-#define vdprintf cheat_wrapped_vdprintf
-#define vprintf cheat_wrapped_vprintf
-#define dprintf cheat_wrapped_dprintf
-#define vdprintf cheat_wrapped_vdprintf
 #define write cheat_wrapped_write
 
 #endif
