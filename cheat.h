@@ -1299,13 +1299,17 @@ This adds source information to assertions.
 	cheat_check(&cheat_suite, expression, #expression, __FILE__, __LINE__)
 
 /*
-These help the preprocessor with placing commas.
+These help the preprocessor place commas.
 */
 #define CHEAT_COMMA ,
 #if __STDC_VERSION__ >= 199901L
 #define CHEAT_COMMAS(...) __VA_ARGS__
 #else
-#define CHEAT_COMMAS_0(x1) x1
+/*
+These are automatically generated with the command
+  tcc -run cheat-meta.c 127
+ or equivalent.
+*/
 #define CHEAT_COMMAS_1(x1, x2) x1, x2
 #define CHEAT_COMMAS_2(x1, x2, x3) x1, x2, x3
 #define CHEAT_COMMAS_3(x1, x2, x3, x4) x1, x2, x3, x4
