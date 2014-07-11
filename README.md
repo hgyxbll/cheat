@@ -204,7 +204,7 @@ Using commas directly inside `CHEAT_TEST()` and
  the commas are wrapped in parentheses,
  replaced with `CHEAT_COMMA` or
  passed through either `CHEAT_COMMAS(...)` or
- the matching `CHEAT_COMMAS_`n`(x1, x2,` ...`, x`n + 1`)` where
+ the matching `CHEAT_COMMAS_` n `(x1, x2,` ... `, x` n `, x` n + 1 `)` where
  n is the amount of commas used.
 
 ### Expressions
