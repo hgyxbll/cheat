@@ -8,10 +8,10 @@ Only a header file and a statement block is needed.
 
 	#include <cheat.h>
 
-	CHEAT_TEST(mathematics_still_work, {
+	CHEAT_TEST(mathematics_still_work,
 		cheat_assert(2 + 2 == 4);
 		cheat_assert(2 + 2 != 5);
-	})
+	)
 
 ## Explanation
 
@@ -96,11 +96,12 @@ Tests compile into an executable
  that takes care of running the tests and reporting their outcomes.
 
 	[user@computer project]$ ./tests
-	.:..!.??
+	..:..??.!.
 	---
-	tests.c:42: assertion in 'physics_still_work' failed: '2 + 2 == 5'
+	tests.c:88: assertion in 'philosophy_never_worked' failed: 'heap == stack'
+	tests.c:103: assertion in 'important' failed: 'THIS == IMPORTANT_TEST'
 	---
-	4 successful and 2 failed of 8 run
+	6 successful and 2 failed of 10 run
 	FAILURE
 
 The executable runs tests in
@@ -125,7 +126,7 @@ As an added bonus the `-c` for `--colorful` option makes everything colorful,
  the `-x` for `--xml` option does nothing for good measure.
 
 	[user@computer project]$ ./tests -m
-	4 2 8
+	6 2 10
 
 The default options depend on the target platform.
 
@@ -141,7 +142,7 @@ The names of the tests follow the ones given in the source file, but
 	[user@computer project]$ ./tests -l
 	Tests: mathematics_still_work
 	       physics_still_work
-	       philosophy_never_actually_worked
+	       philosophy_never_worked
 
 They can be given as arguments to specify a single test to run.
 
@@ -194,6 +195,17 @@ Identifiers starting with
  `CHEAT_` and `cheat_` are
  reserved for internal use as
  C does not have namespaces.
+
+### Commas
+
+Using commas directly inside `CHEAT_TEST()` and
+ friends causes everything that comes after them to
+ be interpreted as extra arguments unless
+ the commas are wrapped in parentheses,
+ replaced with `CHEAT_COMMA` or
+ passed through either `CHEAT_COMMAS(...)` or
+ the matching `CHEAT_COMMAS_`n`(x1, x2,` ...`, x`n + 1`)` where
+ n is the amount of commas used.
 
 ### Expressions
 

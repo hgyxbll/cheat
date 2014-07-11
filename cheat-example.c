@@ -3,58 +3,126 @@
 #endif
 
 #include <cheat.h>
-#include <cheat-helpers.h>
+/* #include <cheat-helpers.h> */
+#include <stddef.h>
 #include <stdio.h>
 #include <string.h>
 
-/*
-TODO Make this follow the README.
-*/
-
 CHEAT_DECLARE(
-	char* tmp_string;
-	static int nothing;
-	static void engineer(void) {}
+	extern size_t size;
 )
 
-CHEAT_SET_UP({
-	tmp_string = (char* )calloc(1, 50); /* This is stupid. */
-})
+CHEAT_TEST(mathematics_still_work,
+	cheat_assert(2 + 2 == 4);
+	cheat_assert(2 + 2 != 5);
+)
 
-CHEAT_TEAR_DOWN({
-	free(tmp_string);
-})
+CHEAT_DECLARE(
+	static double f(double const x, double const y) {
+		return x * y;
+	}
 
+	static bool g(double const x, double const y, double const e) {
+		double d;
 
-CHEAT_TEST(maths_still_work, {
-	cheat_assert(4 == 2+2);
-})
+		if (x < y)
+			d = y - x;
+		else
+			d = x - y;
+		return d <= e;
+	}
+)
 
-CHEAT_TEST(strcat_makes_sense, {
-	strcpy(tmp_string, "Hello, ");
-	strcat(tmp_string, "World!");
+CHEAT_TEST(physics_still_work,
+	double x0;
+	double y0;
+	size_t n;
+	double xn;
+	double dx;
+	double y;
+	size_t i;
+	double s;
+	double x;
 
-	cheat_assert(0 == strcmp(tmp_string, "Hello, World!"));
-})
+	x0 = 1;
+	y0 = 2;
+	n = 100;
+	xn = 3;
+	dx = xn - x0;
+	y = y0;
+	for (i = 0;
+			i < n;
+			++i) {
+		s = dx / (double )n;
+		x = x0 + s * (double )i;
+		y += s * f(x, y);
+	}
 
-CHEAT_TEST(failure, {
-	cheat_assert(0);
-})
+	cheat_assert(g(y, 100, 10));
+)
 
-CHEAT_IGNORE(ignored, {
-	cheat_assert(strcmp("ignore",
-			"this is run, but the result is thrown away") == 0);
-})
+CHEAT_DECLARE(
+	size_t size;
+	static char* heap;
+)
 
-CHEAT_SKIP(skipped, {
-	cheat_assert(strcmp("skip",
-			"this is not even run") == 0);
-})
+CHEAT_SET_UP(
+	char const* stack;
 
-CHEAT_TEST(second_failure, {
-	cheat_assert(1 == 0);
-})
+	stack = "string";
+	size = strlen(stack) + 1;
+	heap = CHEAT_CAST(char*) malloc(size);
+	memcpy(heap, stack, size);
+)
 
+CHEAT_TEAR_DOWN(
+	free(heap);
+)
+
+CHEAT_TEST(philosophy_never_worked,
+	char const* stack;
+
+	stack = "string";
+	cheat_assert(heap == stack);
+	cheat_assert(strcmp(heap, stack) == 0);
+)
+
+CHEAT_TEST(nothing_is_right, {})
+
+CHEAT_TEST(nothing_is_wrong, {})
+
+CHEAT_DECLARE(
+	enum things {
+		THIS CHEAT_COMMA
+		IMPORTANT_TEST
+	};
+)
+
+CHEAT_IGNORE(important,
+	cheat_assert(THIS == IMPORTANT_TEST);
+)
+
+CHEAT_IGNORE(unimportant,
+	cheat_assert(THIS != IMPORTANT_TEST);
+)
+
+CHEAT_SKIP(pointless,
+	cheat_assert((0 | ~0) == 0);
+)
+
+#define MOLECULE (0 == 0)
+
+CHEAT_TEST(chemistry_is_strange,
+	cheat_assert(MOLECULE);
+)
+
+CHEAT_TEST(crash,
+	((void (*)(void))NULL)();
+)
+
+CHEAT_TEST(a_comma_makes_a_difference,)
+
+/*
 CHEAT_TEST_WITH_CAPTURED_STDOUT(output_capture, {
 	printf("Something stupid");
 	cheat_assert(cheat_stream_contains(stdout, "Something"));
@@ -76,3 +144,4 @@ CHEAT_TEST(segfault, {
 	printf("%d", *foo);
 	cheat_assert(0);
 })
+*/
