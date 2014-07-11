@@ -143,9 +143,9 @@ The names of the tests follow the ones given in the source file, but
 	       physics_still_work
 	       philosophy_never_actually_worked
 
-They can be given as arguments to specify the tests to run.
+They can be given as arguments to specify a single test to run.
 
-	[user@computer project]$ ./tests mathematics_still_work physics_still_work
+	[user@computer project]$ ./tests mathematics_still_work
 	[user@computer project]$ echo returned $?
 	returned 0
 

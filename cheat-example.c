@@ -7,8 +7,14 @@
 #include <stdio.h>
 #include <string.h>
 
+/*
+TODO Make this follow the README.
+*/
+
 CHEAT_DECLARE(
 	char* tmp_string;
+	static int nothing;
+	static void engineer(void) {}
 )
 
 CHEAT_SET_UP({

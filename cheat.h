@@ -312,6 +312,23 @@ static size_t cheat_expand(size_t const size) {
 }
 
 /*
+Iterates through a character array and
+ returns its length up to the first terminator or
+ the very end in case there are none.
+*/
+__attribute__ ((__nonnull__, __pure__, __warn_unused_result__))
+static size_t cheat_string_length(char const* const data, size_t const size) {
+	size_t index;
+
+	for (index = 0;
+			index < size;
+			++index)
+		if (data[index] == '\0')
+			return index;
+	return size;
+}
+
+/*
 Finds the amount of conversion specifiers in
  a format string.
 Valid specifiers start with '%' and
@@ -539,24 +556,27 @@ __attribute__ ((__nonnull__))
 	do not have a terminator in them and
 	discard messages that only have null bytes in them. */
 static void cheat_append_message(struct cheat_suite* const suite,
-		unsigned char const* const data, size_t const size) {
+		char const* const data, size_t const size) {
+	size_t length;
 	size_t message_capacity;
 	size_t message_count;
 	char** messages;
 	char* message;
 
-	if (size == 0)
+	/* This feels off even if it is correct. */
+	length = cheat_string_length(data, size);
+	if (length == 0)
 		return;
 
 	if (suite->message_count == SIZE_MAX)
 		cheat_death("too many messages", suite->message_count);
 	message_count = suite->message_count + 1;
 
-	message = CHEAT_CAST(char*) cheat_allocate_more(size, 1); /* Memory B. */
+	message = CHEAT_CAST(char*) cheat_allocate_more(length, 1); /* Memory B. */
 	if (message == NULL)
 		cheat_death("failed to allocate memory for a new message", errno);
-	memcpy(message, data, size);
-	message[size] = '\0';
+	memcpy(message, data, length);
+	message[length] = '\0';
 	/* message[0] = '|'; */ /* This shows message boundaries. */
 
 	if (suite->message_count == suite->message_capacity) {
@@ -894,7 +914,7 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 					4, size, file, CHEAT_CAST_SIZE(line),
 					suite->test_name, assertion);
 
-			cheat_append_message(suite, (unsigned char* )buffer, size);
+			cheat_append_message(suite, buffer, size);
 
 			free(buffer);
 		}
@@ -1029,7 +1049,7 @@ static enum cheat_outcome cheat_run_isolated_test(
 		cheat_death("failed to close the write end of a pipe", GetLastError());
 
 	do {
-		UCHAR buffer[BUFSIZ];
+		CHAR buffer[BUFSIZ];
 		DWORD size;
 
 		if (!ReadFile(reader, buffer, sizeof buffer, &size, NULL)) {
@@ -1099,7 +1119,7 @@ static enum cheat_outcome cheat_run_isolated_test(
 		if (close(writer) == -1)
 			cheat_death("failed to close the write end of a pipe", errno);
 		do {
-			unsigned char buffer[BUFSIZ];
+			char buffer[BUFSIZ];
 			ssize_t size;
 
 			size = read(reader, buffer, sizeof buffer);
@@ -1297,7 +1317,7 @@ This adds source information to assertions.
 #define CHEAT_CALL(name) \
 	(CHEAT_GET(name)())
 
-#define CHEAT_PASS 1 /* This is informational. */
+#define CHEAT_PASS 1 /* This is not for internal use. */
 
 #define CHEAT_TEST(name, body) \
 	static void CHEAT_GET(name)(void);
@@ -1424,11 +1444,20 @@ The third pass continues past the end of this file, but
 
 /*
 Suppresses a signal and
- returns to a point before it was raised.
+ returns to a recovery point.
 */
 __attribute__ ((__noreturn__))
 static void cheat_handle_signal(int const number) {
 	longjmp(cheat_suite.environment, number);
+}
+
+/*
+Checks whether a stream should be hidden.
+*/
+__attribute__ ((__pure__, __warn_unused_result__))
+static bool cheat_hide(FILE const* const stream) {
+	return cheat_suite.harness != CHEAT_SAFE /* TODO Logic for this. */
+		&& (stream == stdout || stream == stderr);
 }
 
 /*
@@ -1465,18 +1494,12 @@ int main(int const count, char** const arguments) {
 }
 
 /*
-These are a best effort attempt to
+These are a "best effort" attempt to
  hide streams that might interfere with messages when
  stream capturing is disabled.
 Libraries and system calls can still print things, but
  that is a problem for the user to solve.
 */
-
-__attribute__ ((__warn_unused_result__))
-static bool cheat_hide(FILE const* const stream) {
-	return cheat_suite.harness != CHEAT_SAFE /* TODO Logic for this. */
-		&& (stream == stdout || stream == stderr);
-}
 
 static int cheat_wrapped_vfprintf(FILE* const stream, char const* const format,
 		va_list list) {
@@ -1520,6 +1543,10 @@ static int cheat_wrapped_vfprintf(FILE* const stream, char const* const format,
 
 	return vfprintf(stream, format, list);
 }
+
+/*
+Nothing interesting happens after this line.
+*/
 
 static int cheat_wrapped_vprintf(char const* const format, va_list list) {
 	return cheat_wrapped_vfprintf(stdout, format, list);
