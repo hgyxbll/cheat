@@ -9,7 +9,7 @@ The full license can be found in the LICENSE file.
 #ifndef CHEAT_H
 #define CHEAT_H
 
-#ifndef __BASE_FILE__
+#ifndef __BASE_FILE__ /* This error directive is indented for a reason. */
 	#error "the __BASE_FILE__ preprocessor directive is not defined"
 #endif
 
@@ -162,10 +162,30 @@ The error number is context sensitive and
 	CHEAT_END /* Using cheat_print() is intentionally avoided here. */
 
 enum cheat_type {
-	CHEAT_TESTER, /* Something to test. */
-	CHEAT_UP_SETTER, /* Something to do before tests. */
-	CHEAT_DOWN_TEARER, /* Something to do after tests. */
-	CHEAT_TERMINATOR /* Nothing to do. */
+	CHEAT_TESTER,
+	CHEAT_UP_SETTER,
+	CHEAT_DOWN_TEARER,
+	CHEAT_TERMINATOR
+};
+
+enum cheat_harness {
+	CHEAT_UNSAFE,
+	CHEAT_SAFE,
+	CHEAT_DANGEROUS
+};
+
+enum cheat_style {
+	CHEAT_PLAIN,
+	CHEAT_COLORFUL,
+	CHEAT_MINIMAL
+};
+
+enum cheat_outcome { /* TODO Shift these back. */
+	CHEAT_SUCCESS = 48,
+	CHEAT_FAILURE,
+	CHEAT_CRASHED,
+	CHEAT_IGNORED,
+	CHEAT_SKIPPED
 };
 
 /*
@@ -183,43 +203,21 @@ It would not hurt to have
 */
 
 struct cheat_unit {
-	char const* name; /* The name to use for
-			generating identifiers and
-			reporting test results. */
+	char const* name; /* Tests have names that are used to
+			generate identifiers and report test results. */
 
-	enum cheat_type const type; /* The type of the procedure. */
+	enum cheat_type const type; /* Whether the procedure is a test,
+		a set up or a tear down. */
 
-	cheat_procedure const procedure; /* The procedure to call. */
-};
-
-enum cheat_outcome { /* TODO Shift these back. */
-	CHEAT_SUCCESS = 48, /* A success happened. */
-	CHEAT_FAILURE, /* A failure happened. */
-	CHEAT_CRASHED, /* A critical failure happened. */
-	CHEAT_IGNORED, /* Anything could have happened. */
-	CHEAT_SKIPPED /* Nothing happened. */
-};
-
-enum cheat_harness {
-	CHEAT_UNSAFE, /* Tests are called without any security measures. */
-	CHEAT_SAFE, /* Tests are called in their own subprocesses that
-			are monitored. */
-	CHEAT_DANGEROUS /* Tests are called and
-			suppressing the signals they may raise is attempted. */
-};
-
-enum cheat_style {
-	CHEAT_PLAIN, /* Messages are printed without decorations. */
-	CHEAT_COLORFUL, /* Messages are printed with colors. */
-	CHEAT_MINIMAL /* Only numbered summaries are printed. */
+	cheat_procedure const procedure; /* A pointer to the procedure. */
 };
 
 /*
-This naming convention implies that
+This naming convention follows the notion that
  lists have items,
  arrays have elements,
- arrays of pointers have counts and
- arrays of primitive types have sizes.
+ arrays of structures have counts and
+ arrays of value types have sizes.
 */
 
 struct cheat_character_array {
@@ -251,8 +249,8 @@ struct cheat_statistics {
 };
 
 struct cheat_suite {
-	struct cheat_unit const* units; /* All of the tests, set ups and
-			tear downs (changes for each compilation). */
+	struct cheat_unit const* units; /* All of the tests and
+			utility procedures (changes for each compilation). */
 
 	size_t assertion_length; /* The maximum length of an assertion to
 			use in a message (changes for each compilation). */
@@ -569,8 +567,8 @@ static void cheat_initialize(struct cheat_suite* const suite) {
 }
 
 /*
-Clears the message queue of a test suite.
-The memory allocated for the message queue and
+Clears the message list of a test suite.
+The memory allocated for the message list and
  the messages themselves is released, but
  everything else is left for the caller.
 */
@@ -595,8 +593,8 @@ TODO One should continue to append to messages that
 
 /*
 Adds a message in
- the form of a byte buffer to
- the message queue of a test suite.
+ the form of a character array to
+ the message list of a test suite.
 */
 __attribute__ ((__nonnull__))
 static void cheat_append_message_part(struct cheat_suite* const suite,
@@ -1527,6 +1525,10 @@ These are automatically generated with the command
 
 #if __STDC_VERSION__ >= 199901L
 
+/*
+These variations eliminate the comma problem.
+*/
+
 #define CHEAT_TEST(name, ...) \
 	static void CHEAT_GET(name)(void);
 
@@ -1733,7 +1735,7 @@ static struct cheat_unit const cheat_units[] = {
 		cheat_suite.outcome = CHEAT_SKIPPED; \
 		return; \
 		{ \
-			body /* This ensures the test is compiled and checked. */ \
+			body \
 		} \
 	}
 
