@@ -58,11 +58,7 @@ int cheat_stream_contains(FILE* stream, char const* contents) {
 	return result;
 }
 
-#if _POSIX_C_SOURCE >= 200112L
-
-#include <unistd.h>
-
-#elif defined not_WIN32
+#ifdef _WIN32
 
 #include <fcntl.h>
 #include <windows.h> /* spaghetti */
@@ -77,13 +73,15 @@ int mkstemp(char* pattern) {
 	Even better: get rid of this and try to open in a do-while loop to match mkstemp.
 	*/
 	char tempFileName[MAX_PATH];
+	HANDLE tempFile;
+
 	GetTempFileName(
 		".",
 		pattern,
 		0,
 		tempFileName);
 
-	HANDLE tempFile = CreateFile(
+	tempFile = CreateFile(
 		tempFileName,
 		GENERIC_READ | GENERIC_WRITE,
 		0,
@@ -94,6 +92,10 @@ int mkstemp(char* pattern) {
 
 	return _open_osfhandle((intptr_t )tempFile, _O_APPEND);
 }
+
+#elif _POSIX_C_SOURCE >= 200112L
+
+#include <unistd.h>
 
 #else
 
