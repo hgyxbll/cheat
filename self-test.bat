@@ -1,7 +1,8 @@
 @echo off
 
 for %%i in (tests\*) do (
-	set a=%*
+	set c=%2
+	set e=%1
 	set n=%%~ni
 	set s=%%~ni.obj
 	set o=tests\%%~ni.exe
@@ -11,9 +12,9 @@ for %%i in (tests\*) do (
 goto :done
 :do
 echo --- %n% ---
-cl /D__BASE_FILE__="""%i%""" /Fe"%o%" /I. /nologo /w "%i%"
+cl /D__BASE_FILE__="""%i%""" /Fe"%o%" /I. /nologo /w %c% "%i%"
 if not exist "%o%" goto :break
-"%o%" %a%
+"%o%" %e%
 del /Q "%s%"
 :continue
 if not exist "%o%" goto :break

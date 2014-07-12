@@ -18,14 +18,11 @@ Identifiers starting with
  CHEAT_ and cheat_ are
  reserved for internal use and
  identifiers starting with
- cheat_test_ for external use.
+ cheat_test_ and cheat_wrapped_ for external use.
 */
 
-/*
-This sets the default version.
-*/
 #ifndef __STDC_VERSION__
-#define __STDC_VERSION__ 199409L
+#define __STDC_VERSION__ 198912L /* This refers to ANS X3.159-1989. */
 #endif
 
 /*
@@ -108,7 +105,7 @@ typedef int bool;
 
 #ifdef _WIN32
 #include <windows.h> /* spaghetti */
-#elif _POSIX_C_SOURCE >= 200112L
+#elif _POSIX_C_SOURCE >= 198809L
 #include <sys/types.h> /* pid_t, ssize_t */
 #include <sys/wait.h>
 #include <unistd.h> /* STDOUT_FILENO */
@@ -1089,7 +1086,7 @@ static void cheat_run_isolated_test(
 	} else
 		suite->outcome = CHEAT_CRASHED;
 
-#elif _POSIX_C_SOURCE >= 200112L
+#elif _POSIX_C_SOURCE >= 198809L
 
 	pid_t pid;
 	int fds[2];
@@ -1309,7 +1306,7 @@ static void cheat_prepare(void) {
 	mode = SetErrorMode(SEM_NOGPFAULTERRORBOX);
 	SetErrorMode(mode | SEM_NOGPFAULTERRORBOX);
 
-#elif _POSIX_C_SOURCE >= 200112L
+#elif _POSIX_C_SOURCE >= 198809L
 
 	/*
 	Interruptions are unnecessary since
@@ -1756,7 +1753,7 @@ int main(int const count, char** const arguments) {
 	cheat_suite.style = CHEAT_PLAIN;
 #ifdef _WIN32
 	cheat_suite.harness = CHEAT_SAFE;
-#elif _POSIX_C_SOURCE >= 200112L
+#elif _POSIX_C_SOURCE >= 198809L
 	cheat_suite.harness = CHEAT_SAFE;
 	if (isatty(STDOUT_FILENO) == 1)
 		cheat_suite.style = CHEAT_COLORFUL;
@@ -1798,7 +1795,7 @@ static int cheat_wrapped_vfprintf(FILE* const stream, char const* const format,
 
 		return vsnprintf(NULL, 0, format, list);
 
-#elif _POSIX_C_SOURCE >= 200112L
+#elif _POSIX_C_SOURCE >= 198809L
 
 		FILE* file;
 		int result;
@@ -1921,7 +1918,7 @@ This is needed if putc() is defined as a preprocessor directive.
 #define fflush cheat_wrapped_fflush
 #define perror cheat_wrapped_perror
 
-#if _POSIX_C_SOURCE >= 200112L
+#if _POSIX_C_SOURCE >= 198809L
 
 static ssize_t cheat_wrapped_write(int const fd, void const* const buffer,
 		size_t const size) {

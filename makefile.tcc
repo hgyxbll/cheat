@@ -3,8 +3,8 @@ warnings=-Wall -Wunusupported -Wwrite-strings
 debug=$(warnings) -g
 deploy=-w
 CFLAGS=$(debug) \
-	-D_POSIX_C_SOURCE=200112L -D_XOPEN_SOURCE=600 \
-	-I . # actually -D__STDC_VERSION__=198912L
+	-D__STDC_VERSION__=199409L -D_POSIX_C_SOURCE=198809L \
+	-I . # These refer to ISO/IEC 9899:1990/Amd 1:1995 and IEEE Std 1003.1-1988.
 
 build: cheat-example
 

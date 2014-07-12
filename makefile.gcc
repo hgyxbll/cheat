@@ -5,10 +5,9 @@ warnings=`cat gcc-4_7_0-release` -Wno-error -Wno-system-headers \
 	-Wno-format-nonliteral -Wno-missing-format-attribute
 debug=$(warnings) -O0 -g
 deploy=-w -O3 -s
-CFLAGS=$(debug) -D__STDC_VERSION__=199409L \
-	-D_POSIX_C_SOURCE=200112L -D_XOPEN_SOURCE=600 \
-	-I . \
-	-std=c89 # actually -D__STDC_VERSION__=198912L
+CFLAGS=$(debug) \
+	-D__STDC_VERSION__=199409L -D_POSIX_C_SOURCE=198809L \
+	-I . # These refer to ISO/IEC 9899:1990/Amd 1:1995 and IEEE Std 1003.1-1988.
 
 build: cheat-example
 

@@ -4,8 +4,8 @@ for i in tests/*
 do
 	o=`printf "%s" "$i" | sed "s/\.[^.]\+\$//"`
 	printf "%s %s %s\n" --- "`basename "$o"`" ---
-	cc -I . -o "$o" -w "$i" && {
-		"$o" "$@"
+	cc -I . -o "$o" -w "$i" $2 && {
+		"$o" $1
 		rm "$o"
 	}
 done
