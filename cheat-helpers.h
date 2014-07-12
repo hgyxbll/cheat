@@ -1,3 +1,6 @@
+/*
+This is deprecated and will be integrated into the core.
+*/
 #ifndef CHEAT_HELPERS_H
 #define CHEAT_HELPERS_H
 

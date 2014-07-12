@@ -238,4 +238,5 @@ If `__BASE_FILE__` is defined in a file
 
 If the compiler works like Microsoft C/C++ (commonly known as `cl.exe`) and
  defines either `__BASE_FILE__` or `__FILE__` wrong, then
- the test suite will be empty.
+ the test suite will be empty as
+ long as it is not manually fed to the compiler.
