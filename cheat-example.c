@@ -93,17 +93,17 @@ CHEAT_TEST(nothing_is_wrong, {})
 
 CHEAT_DECLARE(
 	enum things {
-		THIS CHEAT_COMMA
+		THIS_TEST CHEAT_COMMA
 		IMPORTANT_TEST
 	};
 )
 
 CHEAT_IGNORE(important,
-	cheat_assert(THIS == IMPORTANT_TEST);
+	cheat_assert(THIS_TEST == IMPORTANT_TEST);
 )
 
 CHEAT_IGNORE(unimportant,
-	cheat_assert(THIS != IMPORTANT_TEST);
+	cheat_assert(THIS_TEST != IMPORTANT_TEST);
 )
 
 CHEAT_SKIP(pointless,
@@ -120,7 +120,7 @@ CHEAT_TEST(crash,
 	((void (*)(void))NULL)();
 )
 
-CHEAT_TEST(a_comma_makes_a_difference,)
+CHEAT_TEST(punctuation_makes_a_difference, ;)
 
 /*
 CHEAT_TEST_WITH_CAPTURED_STDOUT(output_capture, {

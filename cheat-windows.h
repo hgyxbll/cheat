@@ -1,6 +1,13 @@
 #include <wtypes.h>
 
 WINBASEAPI
+UINT
+WINAPI
+SetErrorMode(
+		__in  UINT  uMode
+	);
+
+WINBASEAPI
 VOID
 WINAPI
 ZeroMemory(

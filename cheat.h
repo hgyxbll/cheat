@@ -1286,6 +1286,35 @@ static void cheat_parse(struct cheat_suite* const suite) {
 }
 
 /*
+Prepares the environment for running tests.
+*/
+static void cheat_prepare(void) {
+
+#ifdef _WIN32
+
+	DWORD mode;
+
+	/*
+	This ridiculous shuffling prevents
+	 the program "has encountered a problem and needs to close" dialog from
+	 popping up and making the test suite wait indefinitely.
+	*/
+	mode = SetErrorMode(SEM_NOGPFAULTERRORBOX);
+	SetErrorMode(mode | SEM_NOGPFAULTERRORBOX);
+
+#elif _POSIX_C_SOURCE >= 200112L
+
+	/*
+	This disables an unnecessary feature since
+	 the return values read() and write() are always checked.
+	*/
+	signal(SIGPIPE, SIG_IGN);
+
+#endif
+
+}
+
+/*
 This global test suite contains a pointer to the test units instead of
  encompassing the units themselves, because
  their size is not known when the type of the suite defined.
@@ -1448,7 +1477,7 @@ These are automatically generated with the command
 
 #define CHEAT_PASS 1 /* This is not used internally. */
 
-#ifdef __STDC_VERSION__ >= 199901L
+#if __STDC_VERSION__ >= 199901L
 
 #define CHEAT_TEST(name, ...) \
 	static void CHEAT_GET(name)(void);
@@ -1501,7 +1530,7 @@ These are automatically generated with the command
 
 #define CHEAT_PASS 2
 
-#ifdef __STDC_VERSION__ >= 199901L
+#if __STDC_VERSION__ >= 199901L
 
 #define CHEAT_TEST(name, ...) \
 	{ \
@@ -1589,7 +1618,7 @@ static size_t const cheat_unit_count = CHEAT_SIZE(cheat_units) - 1;
 
 #define CHEAT_PASS 3
 
-#ifdef __STDC_VERSION__ >= 199901L
+#if __STDC_VERSION__ >= 199901L
 
 #define CHEAT_TEST(name, ...) \
 	static void CHEAT_GET(name)(void) { \
@@ -1706,6 +1735,8 @@ Runs tests from the main test suite and
  EXIT_FAILURE in case of an error.
 */
 int main(int const count, char** const arguments) {
+	cheat_prepare();
+
 	cheat_initialize(&cheat_suite);
 	cheat_suite.unit_count = &cheat_unit_count;
 	cheat_suite.units = cheat_units;
@@ -1748,7 +1779,7 @@ static int cheat_wrapped_vfprintf(FILE* const stream, char const* const format,
 		FILE* file;
 		int result;
 
-		file = fopen("NUL", "w");
+		fopen_s(&file, "NUL", "w");
 		if (file == NULL)
 			return 1;
 		result = vfprintf(file, format, list);
