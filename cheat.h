@@ -9,6 +9,10 @@ The full license can be found in the LICENSE file.
 #ifndef CHEAT_H
 #define CHEAT_H
 
+#ifndef __BASE_FILE__
+	#error "the __BASE_FILE__ preprocessor directive is not defined"
+#endif
+
 /*
 Identifiers starting with
  CHEAT_ and cheat_ are
@@ -17,8 +21,11 @@ Identifiers starting with
  cheat_test_ for external use.
 */
 
-#ifndef __BASE_FILE__
-#error "the __BASE_FILE__ preprocessor directive is not defined"
+/*
+This sets the default version.
+*/
+#ifndef __STDC_VERSION__
+#define __STDC_VERSION__ 199409L
 #endif
 
 /*
@@ -77,7 +84,7 @@ These are needed to print size types.
 /*
 This is used to truncate too long string literals.
 */
-#define CHEAT_LIMIT 4095
+#define CHEAT_LIMIT ((size_t )4095)
 
 #else
 
@@ -95,7 +102,7 @@ typedef int bool;
 #define CHEAT_CAST_SIZE(size) \
 	((unsigned long int )(size))
 
-#define CHEAT_LIMIT 509
+#define CHEAT_LIMIT ((size_t )509)
 
 #endif
 
@@ -1305,7 +1312,8 @@ static void cheat_prepare(void) {
 #elif _POSIX_C_SOURCE >= 200112L
 
 	/*
-	This disables an unnecessary feature since
+	Interruptions are unnecessary since
+	 processes wait for each other and
 	 the return values read() and write() are always checked.
 	*/
 	signal(SIGPIPE, SIG_IGN);
@@ -1644,8 +1652,8 @@ static size_t const cheat_unit_count = CHEAT_SIZE(cheat_units) - 1;
 		cheat_suite.outcome = CHEAT_SKIPPED; \
 		return; \
 		{ \
-			__VA_ARGS__ \
-		} /* This ensures the test is compiled and checked. */ \
+			__VA_ARGS__ /* This ensures the test is compiled and checked. */ \
+		} \
 	}
 
 #define CHEAT_SET_UP(...) \
@@ -1687,8 +1695,8 @@ static size_t const cheat_unit_count = CHEAT_SIZE(cheat_units) - 1;
 		cheat_suite.outcome = CHEAT_SKIPPED; \
 		return; \
 		{ \
-			body \
-		} /* This ensures the test is compiled and checked. */ \
+			body /* This ensures the test is compiled and checked. */ \
+		} \
 	}
 
 #define CHEAT_SET_UP(body) \

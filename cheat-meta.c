@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-int cheat_print_parameters(size_t const parameters) {
+static int cheat_print_parameters(size_t const parameters) {
 	size_t index;
 
 	for (index = 0;
@@ -15,7 +15,7 @@ int cheat_print_parameters(size_t const parameters) {
 	return 0;
 }
 
-int cheat_print_definitions(size_t const parameters) {
+static int cheat_print_definitions(size_t const parameters) {
 	size_t index;
 
 	for (index = 1;
