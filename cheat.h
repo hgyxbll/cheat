@@ -207,7 +207,7 @@ struct cheat_unit {
 			generate identifiers and report test results. */
 
 	enum cheat_type const type; /* Whether the procedure is a test,
-		a set up utility procedure or a tear down utility procedure. */
+			a set up utility procedure or a tear down utility procedure. */
 
 	cheat_procedure const procedure; /* A pointer to the procedure. */
 };
@@ -640,6 +640,23 @@ static void cheat_handle_outcome(struct cheat_suite* const suite) {
 	default:
 		cheat_death("invalid outcome", suite->outcome);
 	}
+}
+
+/*
+Enables the signal handler of a test suite.
+*/
+__attribute__ ((__nonnull__))
+static void cheat_register_handler(struct cheat_suite* const suite) {
+	if (signal(SIGABRT, suite->handler) == SIG_ERR)
+		cheat_death("failed to add a handler for SIGABRT", errno);
+	if (signal(SIGFPE, suite->handler) == SIG_ERR)
+		cheat_death("failed to add a handler for SIGFPE", errno);
+	if (signal(SIGILL, suite->handler) == SIG_ERR)
+		cheat_death("failed to add a handler for SIGILL", errno);
+	if (signal(SIGSEGV, suite->handler) == SIG_ERR)
+		cheat_death("failed to add a handler for SIGSEGV", errno);
+	if (signal(SIGTERM, suite->handler) == SIG_ERR)
+		cheat_death("failed to add a handler for SIGTERM", errno);
 }
 
 /*
@@ -1263,18 +1280,8 @@ static void cheat_parse(struct cheat_suite* const suite) {
 			cheat_clear_messages(suite);
 			exit(suite->outcome);
 		} else {
-			if (suite->harness == CHEAT_DANGEROUS) {
-				if (signal(SIGABRT, suite->handler) == SIG_ERR)
-					cheat_death("failed to add a handler for SIGABRT", errno);
-				if (signal(SIGFPE, suite->handler) == SIG_ERR)
-					cheat_death("failed to add a handler for SIGFPE", errno);
-				if (signal(SIGILL, suite->handler) == SIG_ERR)
-					cheat_death("failed to add a handler for SIGILL", errno);
-				if (signal(SIGSEGV, suite->handler) == SIG_ERR)
-					cheat_death("failed to add a handler for SIGSEGV", errno);
-				if (signal(SIGTERM, suite->handler) == SIG_ERR)
-					cheat_death("failed to add a handler for SIGTERM", errno);
-			}
+			if (suite->harness == CHEAT_DANGEROUS)
+				cheat_register_handler(suite);
 			for (index = 0;
 					suite->units[index].type != CHEAT_TERMINATOR;
 					++index) {
@@ -1283,15 +1290,22 @@ static void cheat_parse(struct cheat_suite* const suite) {
 				unit = &suite->units[index];
 				if (unit->type != CHEAT_TESTER)
 					continue;
-				if (suite->harness == CHEAT_SAFE)
+				switch (suite->harness) {
+				case CHEAT_SAFE:
 					cheat_run_isolated_test(suite, unit);
-				else if (suite->harness == CHEAT_DANGEROUS) {
+					break;
+				case CHEAT_DANGEROUS:
 					if (setjmp(suite->environment) == 0)
 						cheat_run_coupled_test(suite, unit);
 					else
 						suite->outcome = CHEAT_CRASHED;
-				} else
+					break;
+				case CHEAT_UNSAFE:
 					cheat_run_coupled_test(suite, unit);
+					break;
+				default:
+					cheat_death("invalid safety harness", suite->harness);
+				}
 				cheat_handle_outcome(suite);
 				cheat_print_outcome(suite);
 			}
