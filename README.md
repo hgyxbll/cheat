@@ -99,7 +99,7 @@ Tests compile into an executable
 	..:..??.!.
 	---
 	tests.c:88: assertion in 'philosophy_never_worked' failed: 'heap == stack'
-	tests.c:103: assertion in 'important' failed: 'THIS == IMPORTANT_TEST'
+	tests.c:103: assertion in 'important' failed: 'THIS_TEST == IMPORTANT_TEST'
 	---
 	6 successful and 2 failed of 10 run
 	FAILURE

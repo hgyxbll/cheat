@@ -207,7 +207,7 @@ struct cheat_unit {
 			generate identifiers and report test results. */
 
 	enum cheat_type const type; /* Whether the procedure is a test,
-		a set up or a tear down. */
+		a set up utility procedure or a tear down utility procedure. */
 
 	cheat_procedure const procedure; /* A pointer to the procedure. */
 };
@@ -220,6 +220,11 @@ This naming convention follows the notion that
  arrays of value types have sizes.
 */
 
+struct cheat_string_array {
+	size_t count;
+	char** elements;
+};
+
 struct cheat_character_array {
 	size_t size;
 	char* elements;
@@ -231,21 +236,11 @@ struct cheat_character_array_list {
 	struct cheat_character_array* items;
 };
 
-struct cheat_string_array {
-	size_t count;
-	char** elements;
-};
-
-struct cheat_string_list {
-	size_t count;
-	size_t capacity;
-	char** items;
-};
-
 struct cheat_statistics {
-	size_t run;
-	size_t successful;
-	size_t failed;
+	size_t run; /* This includes tests that are ignored, but
+			not tests that are skipped. */
+	size_t successful; /* This includes tests that did nothing. */
+	size_t failed; /* This includes tests that crashed. */
 };
 
 struct cheat_suite {
@@ -279,9 +274,8 @@ struct cheat_suite {
 	int status; /* The return value of
 			the most recently run test (changes for each test). */
 
-	struct cheat_string_list messages; /* The messages as
-			a list of strings (changes for each test). */
-
+	struct cheat_character_array_list messages; /* The messages as
+			a list of character arrays (changes for each test). */
 	struct cheat_character_array_list outputs; /* The captured output of
 			stdout as a list of character arrays (changes for each test). */
 	struct cheat_character_array_list errors; /* The captured output of
@@ -332,23 +326,6 @@ static size_t cheat_expand(size_t const size) {
 		return cheat_mean(size, SIZE_MAX);
 
 	return size + size / 2;
-}
-
-/*
-Iterates through a character array and
- returns its length up to the first terminator or
- the very end in case there are none.
-*/
-__attribute__ ((__nonnull__, __pure__, __warn_unused_result__))
-static size_t cheat_string_length(char const* const data, size_t const size) {
-	size_t index;
-
-	for (index = 0;
-			index < size;
-			++index)
-		if (data[index] == '\0')
-			return index;
-	return size;
 }
 
 /*
@@ -576,7 +553,7 @@ __attribute__ ((__nonnull__))
 static void cheat_clear_messages(struct cheat_suite* const suite) {
 	if (suite->messages.items != NULL) {
 		while (suite->messages.count > 0)
-			free(suite->messages.items[--suite->messages.count]);
+			free(suite->messages.items[--suite->messages.count].elements);
 
 		suite->messages.capacity = 0;
 		free(suite->messages.items);
@@ -586,62 +563,54 @@ static void cheat_clear_messages(struct cheat_suite* const suite) {
 }
 
 /*
-TODO One should continue to append to messages that
- do not have a terminator in them and
- discard messages that only have null bytes in them.
-*/
-
-/*
-Adds a message in
+Copies a message in
  the form of a character array to
  the message list of a test suite.
 */
 __attribute__ ((__nonnull__))
-static void cheat_append_message_part(struct cheat_suite* const suite,
-		char const* const data, size_t const size) {
-	size_t length;
-	size_t message_capacity;
-	size_t message_count;
-	char** messages;
-	char* message;
-
-	/* This feels off even if it is correct. */
-	length = cheat_string_length(data, size);
-	if (length == 0)
-		return;
+static void cheat_append_message_array(struct cheat_suite* const suite,
+		char const* const buffer, size_t const size) {
+	size_t count;
+	char* elements;
 
 	if (suite->messages.count == SIZE_MAX)
 		cheat_death("too many messages", suite->messages.count);
-	message_count = suite->messages.count + 1;
-
-	message = CHEAT_CAST(char*) cheat_allocate(1, length, 0);
-	if (message == NULL)
-		cheat_death("failed to allocate memory for a new message", errno);
-	memcpy(message, data, length);
-	message[length] = '\0';
-	/* message[0] = '|'; */ /* This shows message boundaries. */
+	count = suite->messages.count + 1;
 
 	if (suite->messages.count == suite->messages.capacity) {
-		message_capacity = cheat_expand(suite->messages.capacity);
-		if (message_capacity == suite->messages.capacity)
-			cheat_death("message capacity exceeded", suite->messages.capacity);
-		messages = CHEAT_CAST(char**) cheat_reallocate_array(
-				suite->messages.items, message_capacity,
-				sizeof *suite->messages.items);
-		if (messages == NULL)
-			cheat_death("failed to allocate more memory for messages", errno);
-		suite->messages.capacity = message_capacity;
-		suite->messages.items = messages;
-	}
-	suite->messages.items[suite->messages.count] = message;
+		size_t capacity;
+		struct cheat_character_array* items;
 
-	suite->messages.count = message_count;
+		capacity = cheat_expand(suite->messages.capacity);
+		if (capacity == suite->messages.capacity)
+			cheat_death("message capacity exceeded", suite->messages.capacity);
+		items = CHEAT_CAST(struct cheat_character_array*)
+			cheat_reallocate_array(suite->messages.items,
+				capacity, sizeof *suite->messages.items);
+		if (items == NULL)
+			cheat_death("failed to allocate more memory for messages", errno);
+		suite->messages.capacity = capacity;
+		suite->messages.items = items;
+	}
+
+	elements = CHEAT_CAST(char*) malloc(size);
+	if (elements == NULL)
+		cheat_death("failed to allocate memory for a new elements", errno);
+	memcpy(elements, buffer, size);
+	suite->messages.items[suite->messages.count].size = size;
+	suite->messages.items[suite->messages.count].elements = elements;
+	suite->messages.count = count;
 }
 
+/*
+Copies a message in
+ the form of a string to
+ the message list of a test suite.
+*/
 __attribute__ ((__nonnull__))
-static void cheat_append_message(struct cheat_suite* const suite,
-		char const* const data) {
-	cheat_append_message_part(suite, data, strlen(data));
+static void cheat_append_message_string(struct cheat_suite* const suite,
+		char const* const message) {
+	cheat_append_message_array(suite, message, strlen(message));
 }
 
 /*
@@ -873,7 +842,8 @@ static void cheat_print_summary(struct cheat_suite* const suite) {
 			for (index = 0;
 					index < suite->messages.count;
 					++index)
-				(void )fputs(suite->messages.items[index],
+				(void )fwrite(suite->messages.items[index].elements,
+						1, suite->messages.items[index].size,
 						suite->captured_stdout);
 		}
 		(void )fputs(separator_string, suite->captured_stdout);
@@ -947,15 +917,14 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 			char* buffer;
 
 			buffer = CHEAT_CAST(char*) cheat_allocate(strlen(assertion_format),
-				strlen(file), CHEAT_LENGTH(line), strlen(expression));
-			if (buffer == NULL) {
-				free(assertion);
+				strlen(file), CHEAT_LENGTH(line), strlen(expression)); /* This
+					size is an upper bound. */
+			if (buffer == NULL)
 				cheat_death("failed to allocate memory", errno);
-			}
 			(void )cheat_print_string(assertion_format, buffer,
 					4, file, CHEAT_CAST_SIZE(line),
 					suite->test_name, assertion);
-			cheat_append_message(suite, buffer);
+			cheat_append_message_string(suite, buffer);
 			free(buffer);
 		}
 		free(assertion);
@@ -1099,7 +1068,9 @@ static void cheat_run_isolated_test(
 				cheat_death("failed to read from a pipe", error);
 			break;
 		}
-		cheat_append_message_part(suite, buffer, (size_t )size);
+		if (size == 0)
+			break;
+		cheat_append_message_array(suite, buffer, (size_t )size);
 	} while (TRUE);
 
 	if (!CloseHandle(reader))
@@ -1140,7 +1111,7 @@ static void cheat_run_isolated_test(
 	pid = fork();
 	if (pid == -1)
 		cheat_death("failed to create a process", errno);
-	else if (pid == 0) { /* Refactor C. */
+	else if (pid == 0) { /* Refactor point A. */
 		if (close(reader) == -1)
 			cheat_death("failed to close the read end of a pipe", errno);
 		if (dup2(writer, STDOUT_FILENO) == -1)
@@ -1163,7 +1134,7 @@ static void cheat_run_isolated_test(
 			cheat_death("failed to read from a pipe", errno);
 		if (size == 0)
 			break;
-		cheat_append_message_part(suite, buffer, (size_t )size);
+		cheat_append_message_array(suite, buffer, (size_t )size);
 	} while (true);
 	if (waitpid(pid, &status, 0) == -1)
 		cheat_death("failed to wait for a process", errno);
@@ -1282,7 +1253,7 @@ static void cheat_parse(struct cheat_suite* const suite) {
 			suite->harness = CHEAT_UNSAFE;
 		if (dangerous)
 			suite->harness = CHEAT_DANGEROUS;
-		if (test) { /* Refactor C. */
+		if (test) { /* Refactor point A. */
 			struct cheat_unit const* unit;
 
 			unit = cheat_find_test(suite, name);
@@ -1341,8 +1312,8 @@ static void cheat_prepare(void) {
 
 	/*
 	This ridiculous shuffling prevents
-	 the program "has encountered a problem and needs to close" dialog from
-	 popping up and making the test suite wait indefinitely.
+	 the executable "has encountered a problem and needs to close" dialog from
+	 popping up and making the test suite wait for user interaction.
 	*/
 	mode = SetErrorMode(SEM_NOGPFAULTERRORBOX);
 	SetErrorMode(mode | SEM_NOGPFAULTERRORBOX);
@@ -1650,9 +1621,12 @@ static struct cheat_unit const cheat_units[] = {
 		NULL,
 		CHEAT_TERMINATOR,
 		NULL
-	} /* This terminator only exists to avoid
+	} /* This terminator exists to avoid
 		the problems some compilers have with
-		trailing commas or arrays with zero size. */
+		trailing commas or arrays with zero size, but
+		also helps avoid having to
+		extend the test suite with the unit count, which
+		has to be qualified const. */
 };
 
 #undef CHEAT_TEST
@@ -1817,6 +1791,7 @@ Libraries and system calls can still print things, but
  that is a problem for the user to solve.
 */
 
+__attribute__ ((__unused__))
 static int cheat_wrapped_vfprintf(FILE* const stream, char const* const format,
 		va_list list) {
 	if (cheat_hide(stream)) {
@@ -1864,10 +1839,12 @@ static int cheat_wrapped_vfprintf(FILE* const stream, char const* const format,
 Nothing interesting happens after this line.
 */
 
+__attribute__ ((__unused__))
 static int cheat_wrapped_vprintf(char const* const format, va_list list) {
 	return cheat_wrapped_vfprintf(stdout, format, list);
 }
 
+__attribute__ ((__unused__))
 static int cheat_wrapped_fprintf(FILE* const stream, char const* const format,
 		...) {
 	va_list list;
@@ -1879,6 +1856,7 @@ static int cheat_wrapped_fprintf(FILE* const stream, char const* const format,
 	return result;
 }
 
+__attribute__ ((__unused__))
 static int cheat_wrapped_printf(char const* const format, ...) {
 	va_list list;
 	int result;
@@ -1889,6 +1867,7 @@ static int cheat_wrapped_printf(char const* const format, ...) {
 	return result;
 }
 
+__attribute__ ((__unused__))
 static int cheat_wrapped_fputs(char const* const message, FILE* const stream) {
 	if (cheat_hide(stream))
 		return 0;
@@ -1896,6 +1875,7 @@ static int cheat_wrapped_fputs(char const* const message, FILE* const stream) {
 	return fputs(message, stream);
 }
 
+__attribute__ ((__unused__))
 static int cheat_wrapped_fputc(int const character, FILE* const stream) {
 	if (cheat_hide(stream))
 		return (int )(unsigned char )character;
@@ -1903,14 +1883,17 @@ static int cheat_wrapped_fputc(int const character, FILE* const stream) {
 	return fputc(character, stream);
 }
 
+__attribute__ ((__unused__))
 static int cheat_wrapped_putc(int const character, FILE* const stream) {
 	return cheat_wrapped_fputc(character, stream);
 }
 
+__attribute__ ((__unused__))
 static int cheat_wrapped_putchar(int const character) {
 	return cheat_wrapped_putc(character, stdout);
 }
 
+__attribute__ ((__unused__))
 static int cheat_wrapped_puts(char const* const message) {
 	if (cheat_wrapped_fputs(message, stdout) == EOF
 			|| cheat_wrapped_putchar('\n') == EOF)
@@ -1918,6 +1901,7 @@ static int cheat_wrapped_puts(char const* const message) {
 	return 0;
 }
 
+__attribute__ ((__unused__))
 static size_t cheat_wrapped_fwrite(void const* const pointer, size_t const size,
 		size_t const count, FILE* const stream) {
 	if (cheat_hide(stream))
@@ -1926,6 +1910,7 @@ static size_t cheat_wrapped_fwrite(void const* const pointer, size_t const size,
 	return fwrite(pointer, size, count, stream);
 }
 
+__attribute__ ((__unused__))
 static int cheat_wrapped_fflush(FILE* const stream) {
 	if (cheat_hide(stream))
 		return 0;
@@ -1933,6 +1918,7 @@ static int cheat_wrapped_fflush(FILE* const stream) {
 	return fflush(stream);
 }
 
+__attribute__ ((__unused__))
 static void cheat_wrapped_perror(char const* const message) {
 	if (cheat_hide(stderr))
 		return;
@@ -1962,6 +1948,7 @@ This is needed if putc() is defined as a preprocessor directive.
 
 #if _POSIX_C_SOURCE >= 198809L
 
+__attribute__ ((__unused__))
 static ssize_t cheat_wrapped_write(int const fd, void const* const buffer,
 		size_t const size) {
 	FILE* stream;

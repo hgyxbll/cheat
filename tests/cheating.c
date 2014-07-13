@@ -6,6 +6,6 @@
 
 CHEAT_TEST(failure, {
 	cheat_assert(0);
-	cheat_suite.tests_failed = (size_t )-2;
+	cheat_suite.tests.failed = (size_t )-2;
 	cheat_suite.outcome = CHEAT_SUCCESS;
 })
