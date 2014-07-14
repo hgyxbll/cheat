@@ -141,7 +141,7 @@ These are ISO/IEC 6429 escape sequences for
 #define CHEAT_BACKGROUND_GRAY "\x1b[47;1m"
 
 /*
-Computes the maximum string length of an unsigned integer type and returns it.
+Computes an upper bound for string length of an unsigned integer type.
 */
 #define CHEAT_LENGTH(type) \
 	(CHAR_BIT * sizeof type / 3 + 1) /* This is an upper bound for
@@ -194,8 +194,17 @@ enum cheat_outcome {
 Test outcomes are reported through exit codes, but
  some of them are reserved for the operating system, so
  this is needed to move them out of the way.
+For example POSIX allows
+  0 ... 255
+ and in that range Windows allows
+  35, 37, 40 ... 49, 73 ... 79, 81, 90 ... 99, 115 ... 116, 163, 165 ... 166,
+  168 ... 169, 171 ... 172, 175 ... 179, 181, 184 ... 185, 204, 211, 213,
+  217 ... 229, 235 ... 239 and 241 ... 253
+ of which long enough are
+  40 ... 49 (9), 73 ... 79 (6), 90 ... 99 (9), 217 ... 229 (12) and
+  241 ... 253 (12).
 */
-#define CHEAT_OFFSET 40 /* Windows does not have anything between 40 and 49. */
+#define CHEAT_OFFSET 40
 
 /*
 These could be defined as function types instead of function pointer types, but
@@ -281,8 +290,6 @@ struct cheat_suite {
 			the most recently run test (changes for each test). */
 	enum cheat_outcome outcome; /* The outcome of
 			the most recently run test (changes for each test). */
-	int status; /* The return value of
-			the most recently run test (changes for each test). */
 
 	struct cheat_character_array_list messages; /* The messages related to
 			the test suite (changes for each test). */
@@ -298,10 +305,6 @@ struct cheat_suite {
 			their standard output stream. */
 	FILE* captured_stderr;
 };
-
-/* TODO Write '\0' into the message list and
-	put a sizeof (int) value in some byte order after it to
-	pass through the actual test outcome. */
 
 /*
 Finds the minimum of two sizes and
@@ -464,13 +467,14 @@ static struct cheat_unit const* cheat_find(
 		struct cheat_suite const* const suite,
 		char const* const name) {
 	size_t index;
-	struct cheat_unit const* unit;
 
 	for (index = 0;
 			suite->units[index].type != CHEAT_TERMINATOR;
 			++index) {
+		struct cheat_unit const* unit;
+
 		unit = &suite->units[index];
-		if (strcmp(unit->name, name) == 0)
+		if (unit->name != NULL && strcmp(unit->name, name) == 0)
 			return unit;
 	}
 
@@ -619,7 +623,6 @@ static void cheat_initialize(struct cheat_suite* const suite) {
 
 	suite->test_name = NULL;
 	suite->outcome = CHEAT_SUCCESS;
-	suite->status = 0;
 
 	cheat_initialize_character_array_list(&suite->messages);
 	cheat_initialize_character_array_list(&suite->outputs);
@@ -997,6 +1000,7 @@ static void cheat_print_summary(struct cheat_suite* const suite) {
 		if (suite->messages.count != 0) {
 			(void )fputs(separator_string, suite->captured_stdout);
 			(void )fputc('\n', suite->captured_stdout);
+
 			cheat_print_messages(suite);
 		}
 
@@ -1070,7 +1074,7 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 		case CHEAT_UNSAFE:
 		case CHEAT_DANGEROUS:
 			buffer = CHEAT_CAST(char*) cheat_allocate(strlen(assertion_format),
-				strlen(file), CHEAT_LENGTH(line), strlen(expression));
+				strlen(file), CHEAT_LENGTH(line), strlen(expression), 0);
 			if (buffer == NULL)
 				cheat_death("failed to allocate memory", errno);
 
@@ -1253,7 +1257,6 @@ static void cheat_run_isolated_test(
 	if (!CloseHandle(process.hThread))
 		cheat_death("failed to close a thread handle", GetLastError());
 
-	suite->status = status;
 	suite->outcome = cheat_decode_status(status);
 
 #elif _POSIX_C_SOURCE >= 198809L
@@ -1309,10 +1312,9 @@ static void cheat_run_isolated_test(
 	if (close(reader) == -1)
 		cheat_death("failed to close the read end of a pipe", errno);
 
-	if (WIFEXITED(status)) {
-		suite->status = status;
+	if (WIFEXITED(status))
 		suite->outcome = cheat_decode_status(WEXITSTATUS(status));
-	} else
+	else
 		suite->outcome = CHEAT_CRASHED;
 
 #else
@@ -1394,7 +1396,17 @@ static void cheat_parse(struct cheat_suite* const suite) {
 			name = argument;
 		}
 	}
-	test = names != 0;
+
+	switch (names) {
+	case 0:
+		test = false;
+		break;
+	case 1:
+		test = true;
+		break;
+	default:
+		cheat_death("too many test options", names);
+	}
 
 	if (help /* No running options for help. */
 			&& !(dangerous || list || safe || unsafe)) {
@@ -1461,6 +1473,7 @@ static void cheat_parse(struct cheat_suite* const suite) {
 				}
 
 				cheat_handle_outcome(suite);
+
 				cheat_print_outcome(suite);
 			}
 			cheat_print_summary(suite);
@@ -1952,8 +1965,7 @@ Some libraries and system calls can still exit, but
 */
 
 __attribute__ ((__unused__))
-static void cheat_wrapped_exit(
-		__attribute__ ((__unused__)) int const status) {
+static void cheat_wrapped_exit(int const status) {
 	cheat_exit(&cheat_suite, exit, CHEAT_EXITED);
 }
 
@@ -1962,8 +1974,7 @@ static void cheat_wrapped_exit(
 #if __STDC_VERSION__ >= 199901L
 
 __attribute__ ((__unused__))
-static void cheat_wrapped_underscore_Exit(
-		__attribute__ ((__unused__)) int const status) {
+static void cheat_wrapped_underscore_Exit(int const status) {
 	cheat_exit(&cheat_suite, _Exit, CHEAT_EXITED);
 }
 
@@ -1974,8 +1985,7 @@ static void cheat_wrapped_underscore_Exit(
 #if _POSIX_C_SOURCE >= 198809L
 
 __attribute__ ((__unused__))
-static void cheat_wrapped_underscore_exit(
-		__attribute__ ((__unused__)) int const status) {
+static void cheat_wrapped_underscore_exit(int const status) {
 	cheat_exit(&cheat_suite, _exit, CHEAT_EXITED);
 }
 

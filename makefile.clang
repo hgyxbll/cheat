@@ -1,7 +1,7 @@
 CC=clang
 warnings=-Weverything -Wno-error \
 	-Wno-covered-switch-default -Wno-disabled-macro-expansion \
-	-Wno-conditional-uninitialized -Wno-format-nonliteral
+	-Wno-conditional-uninitialized -Wno-format-nonliteral -Wno-unused-parameter
 debug=$(warnings) -O0 -g
 deploy=-w -O3 -s
 CFLAGS=$(debug) \
