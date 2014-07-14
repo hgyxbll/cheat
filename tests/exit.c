@@ -5,6 +5,6 @@
 #include <cheat.h>
 #include <stdlib.h>
 
-CHEAT_TEST(exit, {
+CHEAT_TEST(termination, {
 	exit(42);
 })

@@ -110,10 +110,10 @@ CHEAT_SKIP(pointless,
 	cheat_assert((0 | ~0) == 0);
 )
 
-#define MOLECULE (0 == 0)
+#define OXYGEN_MOLECULE (0 == 0)
 
 CHEAT_TEST(chemistry_is_strange,
-	cheat_assert(MOLECULE);
+	cheat_assert(OXYGEN_MOLECULE);
 )
 
 CHEAT_TEST(crash,
