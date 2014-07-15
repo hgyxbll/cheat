@@ -204,7 +204,7 @@ For example POSIX allows
   40 ... 49 (9), 73 ... 79 (6), 90 ... 99 (9), 217 ... 229 (12) and
   241 ... 253 (12).
 */
-#ifndef CHEAT_OFFSET
+#ifndef CHEAT_OFFSET /* This can be set externally. */
 #define CHEAT_OFFSET 40
 #endif
 
@@ -660,7 +660,8 @@ Copies a message in
  the message list of a test suite.
 */
 __attribute__ ((__nonnull__))
-static void cheat_append_message_array(struct cheat_suite* const suite,
+static void cheat_append_character_array(
+		struct cheat_character_array_list* const array,
 		char const* const buffer, size_t const size) {
 	size_t count;
 	char* elements;
@@ -668,26 +669,26 @@ static void cheat_append_message_array(struct cheat_suite* const suite,
 	if (size == 0)
 		return;
 
-	if (suite->messages.count == SIZE_MAX)
-		cheat_death("too many messages", suite->messages.count);
-	count = suite->messages.count + 1;
+	if (array->count == SIZE_MAX)
+		cheat_death("too many items", array->count);
+	count = array->count + 1;
 
-	if (suite->messages.count == suite->messages.capacity) {
+	if (array->count == array->capacity) {
 		size_t capacity;
 		struct cheat_character_array* items;
 
-		capacity = cheat_expand(suite->messages.capacity);
-		if (capacity == suite->messages.capacity)
-			cheat_death("message capacity exceeded", suite->messages.capacity);
+		capacity = cheat_expand(array->capacity);
+		if (capacity == array->capacity)
+			cheat_death("item capacity exceeded", array->capacity);
 
 		items = CHEAT_CAST(struct cheat_character_array*)
-			cheat_reallocate_array(suite->messages.items,
-				capacity, sizeof *suite->messages.items);
+			cheat_reallocate_array(array->items,
+				capacity, sizeof *array->items);
 		if (items == NULL)
 			cheat_death("failed to allocate more memory", errno);
 
-		suite->messages.capacity = capacity;
-		suite->messages.items = items;
+		array->capacity = capacity;
+		array->items = items;
 	}
 
 	elements = CHEAT_CAST(char*) malloc(size);
@@ -695,20 +696,9 @@ static void cheat_append_message_array(struct cheat_suite* const suite,
 		cheat_death("failed to allocate memory", errno);
 	memcpy(elements, buffer, size);
 
-	suite->messages.items[suite->messages.count].size = size;
-	suite->messages.items[suite->messages.count].elements = elements;
-	suite->messages.count = count;
-}
-
-/*
-Copies a message in
- the form of a string to
- the message list of a test suite.
-*/
-__attribute__ ((__nonnull__))
-static void cheat_append_message(struct cheat_suite* const suite,
-		char const* const message) {
-	cheat_append_message_array(suite, message, strlen(message));
+	array->items[array->count].size = size;
+	array->items[array->count].elements = elements;
+	array->count = count;
 }
 
 /*
@@ -1101,7 +1091,8 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 			(void )cheat_print_string(assertion_format, buffer,
 					4, file, CHEAT_CAST_SIZE(line),
 					suite->test_name, assertion);
-			cheat_append_message(suite, buffer);
+			cheat_append_character_array(&suite->messages, buffer,
+					strlen(buffer));
 
 			free(buffer);
 			break;
@@ -1182,6 +1173,9 @@ static void cheat_run_isolated_test(
 		struct cheat_suite* const suite,
 		struct cheat_unit const* const test) {
 
+	/* TODO Pass more pipes through fork() or use CreateNamedPipe(), so
+		that the generic append procedure can be used to capture streams. */
+
 #ifdef _WIN32
 
 	HANDLE reader;
@@ -1260,7 +1254,7 @@ static void cheat_run_isolated_test(
 		if (size == 0)
 			break;
 
-		cheat_append_message_array(suite, buffer, (size_t )size);
+		cheat_append_character_array(&suite->messages, buffer, (size_t )size);
 	} while (TRUE);
 
 	if (!CloseHandle(reader))
@@ -1335,7 +1329,7 @@ static void cheat_run_isolated_test(
 		if (size == 0)
 			break;
 
-		cheat_append_message_array(suite, buffer, (size_t )size);
+		cheat_append_character_array(&suite->messages, buffer, (size_t )size);
 	} while (true);
 
 	if (waitpid(pid, &status, 0) == -1)
