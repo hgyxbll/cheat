@@ -182,8 +182,8 @@ enum cheat_style {
 };
 
 enum cheat_outcome {
-	CHEAT_SUCCESS,
-	CHEAT_FAILURE,
+	CHEAT_SUCCESSFUL,
+	CHEAT_FAILED,
 	CHEAT_EXITED,
 	CHEAT_CRASHED,
 	CHEAT_IGNORED,
@@ -204,7 +204,9 @@ For example POSIX allows
   40 ... 49 (9), 73 ... 79 (6), 90 ... 99 (9), 217 ... 229 (12) and
   241 ... 253 (12).
 */
+#ifndef CHEAT_OFFSET
 #define CHEAT_OFFSET 40
+#endif
 
 /*
 These could be defined as function types instead of function pointer types, but
@@ -529,9 +531,9 @@ Converts an outcome into an exit status.
 __attribute__ ((__const__))
 static int cheat_encode_outcome(enum cheat_outcome const outcome) {
 	switch (outcome) {
-	case CHEAT_SUCCESS:
+	case CHEAT_SUCCESSFUL:
 		return 0;
-	case CHEAT_FAILURE:
+	case CHEAT_FAILED:
 		return CHEAT_OFFSET;
 	case CHEAT_EXITED:
 		return CHEAT_OFFSET + 1;
@@ -553,9 +555,9 @@ __attribute__ ((__const__))
 static enum cheat_outcome cheat_decode_status(int const status) {
 	switch (status) {
 	case 0:
-		return CHEAT_SUCCESS;
+		return CHEAT_SUCCESSFUL;
 	case CHEAT_OFFSET:
-		return CHEAT_FAILURE;
+		return CHEAT_FAILED;
 	case CHEAT_OFFSET + 1:
 		return CHEAT_EXITED;
 	case CHEAT_OFFSET + 2:
@@ -622,7 +624,7 @@ static void cheat_initialize(struct cheat_suite* const suite) {
 	cheat_initialize_statistics(&suite->tests);
 
 	suite->test_name = NULL;
-	suite->outcome = CHEAT_SUCCESS;
+	suite->outcome = CHEAT_SUCCESSFUL;
 
 	cheat_initialize_character_array_list(&suite->messages);
 	cheat_initialize_character_array_list(&suite->outputs);
@@ -662,6 +664,9 @@ static void cheat_append_message_array(struct cheat_suite* const suite,
 		char const* const buffer, size_t const size) {
 	size_t count;
 	char* elements;
+
+	if (size == 0)
+		return;
 
 	if (suite->messages.count == SIZE_MAX)
 		cheat_death("too many messages", suite->messages.count);
@@ -713,11 +718,11 @@ Adds the outcome of a single test to a test suite or
 __attribute__ ((__nonnull__))
 static void cheat_handle_outcome(struct cheat_suite* const suite) {
 	switch (suite->outcome) {
-	case CHEAT_SUCCESS:
+	case CHEAT_SUCCESSFUL:
 		++suite->tests.run;
 		++suite->tests.successful;
 		break;
-	case CHEAT_FAILURE:
+	case CHEAT_FAILED:
 		++suite->tests.run;
 		++suite->tests.failed;
 		break;
@@ -758,13 +763,13 @@ Terminates a subprocess.
 */
 __attribute__ ((__nonnull__))
 static void cheat_exit(struct cheat_suite const* const suite,
-		cheat_terminator terminator, enum cheat_outcome const outcome) {
+		cheat_terminator terminator) {
 	switch (suite->harness) {
 	case CHEAT_UNSAFE:
 	case CHEAT_DANGEROUS:
 		break;
 	case CHEAT_SAFE:
-		terminator(cheat_encode_outcome(outcome));
+		terminator(CHEAT_EXITED);
 	default:
 		cheat_death("invalid harness", suite->harness);
 	}
@@ -776,8 +781,15 @@ Checks whether a stream should be hidden.
 __attribute__ ((__pure__, __warn_unused_result__))
 static bool cheat_hide(struct cheat_suite const* const suite,
 		FILE const* const stream) {
-	return suite->harness != CHEAT_SAFE /* TODO Logic for this. */
-		&& (stream == stdout || stream == stderr);
+	switch (suite->harness) {
+	case CHEAT_UNSAFE:
+	case CHEAT_DANGEROUS:
+		return true;
+	case CHEAT_SAFE:
+		return stream == stdout || stream == stderr;
+	default:
+		cheat_death("invalid harness", suite->harness);
+	}
 }
 
 /*
@@ -879,10 +891,10 @@ static void cheat_print_outcome(struct cheat_suite const* const suite) {
 
 	if (print_bar) {
 		switch (suite->outcome) {
-		case CHEAT_SUCCESS:
+		case CHEAT_SUCCESSFUL:
 			(void )fputs(success, suite->captured_stdout);
 			break;
-		case CHEAT_FAILURE:
+		case CHEAT_FAILED:
 			(void )fputs(failure, suite->captured_stdout);
 			break;
 		case CHEAT_EXITED:
@@ -994,6 +1006,14 @@ static void cheat_print_summary(struct cheat_suite* const suite) {
 		cheat_death("invalid style", suite->style);
 	}
 
+#ifdef _DEBUG
+	fprintf(suite->captured_stdout,
+			"[\ncount = %zu\nm[0]s = %zu\nm[1]s = %zu\nm[2]s = %zu\n]",
+			suite->messages.count,
+			suite->messages.count > 0 ? suite->messages.items[0].size : 6,
+			suite->messages.count > 1 ? suite->messages.items[1].size : 6,
+			suite->messages.count > 2 ? suite->messages.items[2].size : 6);
+#endif
 	if (print_messages && any_run) {
 		(void )fputc('\n', suite->captured_stdout);
 
@@ -1107,7 +1127,7 @@ static void cheat_check(struct cheat_suite* const suite,
 		char const* const expression,
 		char const* const file, size_t const line) {
 	if (!result) {
-		suite->outcome = CHEAT_FAILURE;
+		suite->outcome = CHEAT_FAILED;
 
 		cheat_print_failure(suite, expression, file, line);
 	}
@@ -1276,6 +1296,12 @@ static void cheat_run_isolated_test(
 	if (pid == -1)
 		cheat_death("failed to create a process", errno);
 	else if (pid == 0) {
+#ifdef _DEBUG
+		fprintf(suite->captured_stdout,
+				"[\nc_stdout = %p\nc_capout = %p\nc_stderr = %p\nc_caperr = %p\np_pipout = %d\n]",
+				stdout, suite->captured_stdout, stderr, suite->captured_stderr, writer);
+#endif
+
 		if (close(reader) == -1)
 			cheat_death("failed to close the read end of a pipe", errno);
 
@@ -1287,8 +1313,14 @@ static void cheat_run_isolated_test(
 		if (close(writer) == -1)
 			cheat_death("failed to close the write end of a pipe", errno);
 
-		cheat_exit(suite, _exit, suite->outcome);
+		_exit(cheat_encode_outcome(suite->outcome));
 	}
+
+#ifdef _DEBUG
+	fprintf(suite->captured_stdout,
+			"[\np_stdout = %p\np_capout = %p\np_stderr = %p\np_caperr = %p\np_pipein = %d\n]",
+			stdout, suite->captured_stdout, stderr, suite->captured_stderr, reader);
+#endif
 
 	if (close(writer) == -1)
 		cheat_death("failed to close the write end of a pipe", errno);
@@ -1442,7 +1474,7 @@ static void cheat_parse(struct cheat_suite* const suite) {
 
 			cheat_run_coupled_test(suite, unit);
 
-			cheat_exit(suite, exit, suite->outcome);
+			exit(cheat_encode_outcome(suite->outcome));
 		} else {
 			if (suite->harness == CHEAT_DANGEROUS)
 				cheat_register_handler(suite);
@@ -1826,7 +1858,7 @@ static struct cheat_unit const cheat_units[] = {
 #define CHEAT_TEST(name, ...) \
 	static void CHEAT_GET(name)(void) { \
 		cheat_suite.test_name = #name; \
-		cheat_suite.outcome = CHEAT_SUCCESS; \
+		cheat_suite.outcome = CHEAT_SUCCESSFUL; \
 		{ \
 			__VA_ARGS__ \
 		} \
@@ -1871,7 +1903,7 @@ static struct cheat_unit const cheat_units[] = {
 #define CHEAT_TEST(name, body) \
 	static void CHEAT_GET(name)(void) { \
 		cheat_suite.test_name = #name; \
-		cheat_suite.outcome = CHEAT_SUCCESS; \
+		cheat_suite.outcome = CHEAT_SUCCESSFUL; \
 		{ \
 			body \
 		} \
@@ -1966,7 +1998,7 @@ Some libraries and system calls can still exit, but
 
 __attribute__ ((__unused__))
 static void cheat_wrapped_exit(int const status) {
-	cheat_exit(&cheat_suite, exit, CHEAT_EXITED);
+	cheat_exit(&cheat_suite, exit);
 }
 
 #define exit cheat_wrapped_exit
@@ -1974,22 +2006,22 @@ static void cheat_wrapped_exit(int const status) {
 #if __STDC_VERSION__ >= 199901L
 
 __attribute__ ((__unused__))
-static void cheat_wrapped_underscore_Exit(int const status) {
-	cheat_exit(&cheat_suite, _Exit, CHEAT_EXITED);
+static void cheat_wrapped__Exit(int const status) {
+	cheat_exit(&cheat_suite, _Exit);
 }
 
-#define _exit cheat_wrapped_underscore_Exit
+#define _exit cheat_wrapped__Exit
 
 #endif
 
 #if _POSIX_C_SOURCE >= 198809L
 
 __attribute__ ((__unused__))
-static void cheat_wrapped_underscore_exit(int const status) {
-	cheat_exit(&cheat_suite, _exit, CHEAT_EXITED);
+static void cheat_wrapped__exit(int const status) {
+	cheat_exit(&cheat_suite, _exit);
 }
 
-#define _Exit cheat_wrapped_underscore_exit
+#define _Exit cheat_wrapped__exit
 
 #endif
 

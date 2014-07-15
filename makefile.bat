@@ -26,9 +26,9 @@ goto :eof
 
 :clean
 del cheat-example.exe
-del cheat_captured_*
 goto :eof
 
 :test
-cheat-example.exe
+cheat-example.exe -s
+cheat-example.exe -d
 goto :eof
