@@ -27,6 +27,10 @@ CHEAT_DECLARE(
 	static volatile int number; /* This prevents optimizations. */
 )
 
+CHEAT_SET_UP(
+	number = 0;
+)
+
 CHEAT_TEST(arithmetic_crash,
-	number = 1 / 0;
+	number = 1 / number;
 )

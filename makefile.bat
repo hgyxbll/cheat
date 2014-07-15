@@ -29,6 +29,5 @@ del cheat-example.exe
 goto :eof
 
 :test
-cheat-example.exe -s
-cheat-example.exe -d
+cheat-example.exe
 goto :eof

@@ -1010,9 +1010,9 @@ static void cheat_print_summary(struct cheat_suite* const suite) {
 	fprintf(suite->captured_stdout,
 			"[\ncount = %zu\nm[0]s = %zu\nm[1]s = %zu\nm[2]s = %zu\n]",
 			suite->messages.count,
-			suite->messages.count > 0 ? suite->messages.items[0].size : 6,
-			suite->messages.count > 1 ? suite->messages.items[1].size : 6,
-			suite->messages.count > 2 ? suite->messages.items[2].size : 6);
+			suite->messages.count > 0 ? suite->messages.items[0].size : 0,
+			suite->messages.count > 1 ? suite->messages.items[1].size : 0,
+			suite->messages.count > 2 ? suite->messages.items[2].size : 0);
 #endif
 	if (print_messages && any_run) {
 		(void )fputc('\n', suite->captured_stdout);
