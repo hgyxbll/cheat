@@ -1,6 +1,6 @@
 #! /bin/sh
 
-for i in tests/*
+for i in tests/*.c
 do
 	o=`printf "%s" "$i" | sed "s/\.[^.]\+\$//"`
 	printf "%s %s %s\n" --- "`basename "$o"`" ---

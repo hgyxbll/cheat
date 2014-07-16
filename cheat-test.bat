@@ -1,6 +1,6 @@
 @echo off
 
-for %%i in (tests\*) do (
+for %%i in (tests\*.c) do (
 	set c=%2
 	set e=%1
 	set n=%%~ni

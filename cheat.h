@@ -1393,17 +1393,10 @@ static void cheat_run_isolated_test(
 		if (dup2(error_writer, STDERR_FILENO) == -1)
 			cheat_death("failed to redirect the standard error stream", errno);
 
-		fputs("Out...\n", stdout);
-		fputs("Error...\n", stderr);
-		fputs("Fan out...\n", fdopen(output_writer, "w"));
-
 		cheat_run_coupled_test(suite, test);
 
-		fflush(message_stream);
 		if (close(message_writer) == -1)
 			cheat_death("failed to close the write end of a pipe", errno);
-
-		fflush(fdopen(output_writer, "w")); fsync(output_writer); /* ??? */
 
 		if (close(output_writer) == -1)
 			cheat_death("failed to close the write end of a pipe", errno);
@@ -1423,55 +1416,69 @@ static void cheat_run_isolated_test(
 	if (close(error_writer) == -1)
 		cheat_death("failed to close the write end of a pipe", errno);
 
-	do {
-		fd_set set;
-		int result;
+	{
+		bool eofs[3];
 
-		FD_ZERO(&set);
-		FD_SET(message_reader, &set);
-		FD_SET(output_reader, &set);
-		FD_SET(error_reader, &set);
+		eofs[0] = false;
+		eofs[1] = false;
+		eofs[2] = false;
+		do {
+			fd_set set;
+			int result;
 
-		result = select(cheat_maximum(message_reader,
-					cheat_maximum(output_reader, error_reader)) + 1,
-				&set, NULL, NULL, NULL);
+			FD_ZERO(&set);
+			FD_SET(message_reader, &set);
+			FD_SET(output_reader, &set);
+			FD_SET(error_reader, &set);
 
-		if (result == -1)
-			cheat_death("FUCK", errno);
-		else if (result == 0)
-			cheat_death("???", errno);
-		else {
-			int reader;
-			struct cheat_character_array_list* list;
-			char buffer[BUFSIZ];
-			ssize_t size;
+			result = select(cheat_maximum(message_reader,
+						cheat_maximum(output_reader, error_reader)) + 1,
+					&set, NULL, NULL, NULL);
 
-			if (FD_ISSET(message_reader, &set)) {
-				reader = message_reader;
-				list = &suite->messages;
-			} else if (FD_ISSET(output_reader, &set)) {
-				reader = output_reader;
-				list = &suite->outputs;
-			} else if (FD_ISSET(error_reader, &set)) {
-				reader = error_reader;
-				list = &suite->errors;
-			} else
-				continue; /* ? */
+			if (result == -1)
+				cheat_death("FUCK", errno);
+			else if (result == 0)
+				cheat_death("???", errno);
+			else {
+				int reader;
+				struct cheat_character_array_list* list;
+				char buffer[BUFSIZ];
+				ssize_t size;
+				size_t index;
 
-			size = read(reader, buffer, sizeof buffer);
+				memset(buffer, 0, sizeof buffer);
 
-#ifdef _DEBUG_FOR_REAL
-			printf(" selected %d and read %zd from %d\n", result, size, reader);
+				if (!eofs[0] && FD_ISSET(message_reader, &set)) {
+					index = 0;
+					reader = message_reader;
+					list = &suite->messages;
+				} else if (!eofs[1] && FD_ISSET(output_reader, &set)) {
+					index = 1;
+					reader = output_reader;
+					list = &suite->outputs;
+				} else if (!eofs[2] && FD_ISSET(error_reader, &set)) {
+					index = 2;
+					reader = error_reader;
+					list = &suite->errors;
+				} else
+					break;
+
+				size = read(reader, buffer, sizeof buffer);
+
+#ifdef _DEBUG_HARD
+				printf(" selected %d and from %d read %zd (%s)\n",
+						result, reader, size, buffer);
 #endif
 
-			if (size == -1)
-				cheat_death("failed to read from a pipe", errno);
-			if (size == 0)
-				break;
+				if (size == -1)
+					cheat_death("failed to read from a pipe", errno);
+				if (size == 0)
+					eofs[index] = true;
 
-			cheat_append_character_array(list, buffer, (size_t )size);
-		}
-	} while (true);
+				cheat_append_character_array(list, buffer, (size_t )size);
+			}
+		} while (true);
+	}
 
 	if (waitpid(pid, &status, 0) == -1)
 		cheat_death("failed to wait for a process", errno);

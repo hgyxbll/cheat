@@ -69,6 +69,8 @@ CHEAT_DECLARE(
 CHEAT_SET_UP(
 	char const* stack;
 
+	fputs("Setting up ", stderr);
+
 	stack = "string";
 	size = strlen(stack) + 1;
 	heap = CHEAT_CAST(char*) malloc(size);
@@ -76,27 +78,10 @@ CHEAT_SET_UP(
 )
 
 CHEAT_TEAR_DOWN(
+	fputs("and tearing down.\n", stderr);
+
 	free(heap);
 )
-
-
-CHEAT_TEST(success,
-	fputs("Test began.\n", stderr);
-
-	fputs("Test!\n", stdout);
-
-	fputs("Test ended.\n", stderr);
-)
-
-CHEAT_TEST(failure,
-	fputs("Test began.\n", stderr);
-
-	fputs("Test!\n", stdout);
-	cheat_assert(false);
-
-	fputs("Test ended.\n", stderr);
-)
-
 
 CHEAT_TEST(philosophy_never_worked,
 	char const* stack;
@@ -129,6 +114,12 @@ CHEAT_SKIP(pointless,
 	cheat_assert((0 | ~0) == 0);
 )
 
+CHEAT_TEST(story,
+	puts("Here's a touching story.");
+	puts("Once upon a time I ran a test.");
+	puts("The end.");
+)
+
 #ifndef OXYGEN_MOLECULE
 #define OXYGEN_MOLECULE (0 == 0)
 #endif
@@ -138,6 +129,8 @@ CHEAT_TEST(chemistry_is_strange,
 )
 
 CHEAT_TEST(crash,
+	fputs("and crashing.\n", stderr);
+
 	((void (*)(void))NULL)();
 )
 
