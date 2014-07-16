@@ -96,12 +96,12 @@ Tests compile into an executable
  that takes care of running the tests and reporting their outcomes.
 
 	[user@computer project]$ ./tests
-	..:..??.!.
+	..:..??..!..
 	---
-	tests.c:88: assertion in 'philosophy_never_worked' failed: 'heap == stack'
-	tests.c:103: assertion in 'important' failed: 'THIS_TEST == IMPORTANT_TEST'
+	tests.c:91: assertion in 'philosophy_never_worked' failed: 'heap == stack'
+	tests.c:114: assertion in 'important' failed: 'THIS_TEST == IMPORTANT_TEST'
 	---
-	6 successful and 2 failed of 10 run
+	8 successful and 2 failed of 12 run
 	FAILURE
 
 The executable runs tests in

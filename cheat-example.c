@@ -68,7 +68,7 @@ CHEAT_DECLARE(
 CHEAT_SET_UP(
 	char const* stack;
 
-	fputs("Setting up ", stderr);
+	fputs("Setting up", stderr);
 
 	stack = "string";
 	size = strlen(stack) + 1;
@@ -77,7 +77,7 @@ CHEAT_SET_UP(
 )
 
 CHEAT_TEAR_DOWN(
-	fputs("and tearing down.\n", stderr);
+	fputs(" and tearing down.\n", stderr);
 
 	free(heap);
 )
@@ -90,9 +90,17 @@ CHEAT_TEST(philosophy_never_worked,
 	cheat_assert(strcmp(heap, stack) == 0);
 )
 
-CHEAT_TEST(nothing_is_right, {})
+CHEAT_TEST(test,
+	fputs(", running a test", stderr);
+)
 
-CHEAT_TEST(nothing_is_wrong, {})
+#ifndef OXYGEN_MOLECULE
+#define OXYGEN_MOLECULE (0 == 0)
+#endif
+
+CHEAT_TEST(chemistry_is_strange,
+	cheat_assert(OXYGEN_MOLECULE);
+)
 
 CHEAT_DECLARE(
 	enum things {
@@ -116,45 +124,18 @@ CHEAT_SKIP(pointless,
 CHEAT_TEST(story,
 	puts("Here's a touching story.");
 	puts("Once upon a time I ran a test.");
-	puts("The end.");
 )
 
-#ifndef OXYGEN_MOLECULE
-#define OXYGEN_MOLECULE (0 == 0)
-#endif
-
-CHEAT_TEST(chemistry_is_strange,
-	cheat_assert(OXYGEN_MOLECULE);
-)
+CHEAT_TEST(nothing_is_right, {})
 
 CHEAT_TEST(crash,
-	fputs("and crashing.\n", stderr);
+	fputs(" and crashing.\n", stderr);
 
 	((void (*)(void))NULL)();
 )
 
-CHEAT_TEST(punctuation_makes_a_difference, ;)
+CHEAT_TEST(the_end,
+	puts("The end.");
+)
 
-/*
-CHEAT_TEST_WITH_CAPTURED_STDOUT(output_capture, {
-	printf("Something stupid");
-	cheat_assert(cheat_stream_contains(stdout, "Something"));
-})
-
-CHEAT_TEST_WITH_CAPTURED_STDOUT(large_output_capture, {
-	printf("%1000s", "Potato");
-
-	cheat_assert(cheat_stream_contains(stdout, "Potato"));
-})
-
-CHEAT_TEST_WITH_CAPTURED_STDERR(stderr_capture, {
-	fprintf(stderr, "You can also capture errors!");
-	cheat_assert(cheat_stream_contains(stderr, "errors"));
-})
-
-CHEAT_TEST(segfault, {
-	int* foo = NULL;
-	printf("%d", *foo);
-	cheat_assert(0);
-})
-*/
+CHEAT_TEST(bye, ;)
