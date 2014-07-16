@@ -79,6 +79,25 @@ CHEAT_TEAR_DOWN(
 	free(heap);
 )
 
+
+CHEAT_TEST(success,
+	fputs("Test began.\n", stderr);
+
+	fputs("Test!\n", stdout);
+
+	fputs("Test ended.\n", stderr);
+)
+
+CHEAT_TEST(failure,
+	fputs("Test began.\n", stderr);
+
+	fputs("Test!\n", stdout);
+	cheat_assert(false);
+
+	fputs("Test ended.\n", stderr);
+)
+
+
 CHEAT_TEST(philosophy_never_worked,
 	char const* stack;
 

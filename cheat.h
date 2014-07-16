@@ -108,7 +108,12 @@ typedef int bool;
 #elif _POSIX_C_SOURCE >= 198809L
 #include <sys/types.h> /* pid_t, ssize_t */
 #include <sys/wait.h>
-#include <unistd.h> /* STDOUT_FILENO */
+#include <unistd.h> /* STDERR_FILENO, STDOUT_FILENO */
+#if _POSIX_C_SOURCE >= 200112L
+#include <sys/select.h> /* fd_set */
+#else
+#include <sys/time.h> /* fd_set */
+#endif
 #endif
 
 /*
@@ -303,9 +308,8 @@ struct cheat_suite {
 	jmp_buf environment; /* The recovery point in case of
 			a fatal signal (changes for each test). */
 
-	FILE* captured_stdout; /* The stream subprocesses use as
-			their standard output stream. */
-	FILE* captured_stderr;
+	FILE* progress_stream;
+	FILE* message_stream;
 };
 
 /*
@@ -318,6 +322,14 @@ static size_t cheat_minimum(size_t const size, size_t const another_size) {
 		return another_size;
 
 	return size;
+}
+
+__attribute__ ((__const__, __warn_unused_result__))
+static int cheat_maximum(int const number, int const another_number) {
+	if (another_number > number)
+		return another_number;
+
+	return number;
 }
 
 /*
@@ -632,8 +644,8 @@ static void cheat_initialize(struct cheat_suite* const suite) {
 
 	/* Do not touch suite->environment either. */
 
-	suite->captured_stdout = stdout;
-	suite->captured_stderr = stderr;
+	suite->progress_stream = stdout;
+	suite->message_stream = stdout;
 }
 
 /*
@@ -661,7 +673,7 @@ Copies a message in
 */
 __attribute__ ((__nonnull__))
 static void cheat_append_character_array(
-		struct cheat_character_array_list* const array,
+		struct cheat_character_array_list* const list,
 		char const* const buffer, size_t const size) {
 	size_t count;
 	char* elements;
@@ -669,26 +681,26 @@ static void cheat_append_character_array(
 	if (size == 0)
 		return;
 
-	if (array->count == SIZE_MAX)
-		cheat_death("too many items", array->count);
-	count = array->count + 1;
+	if (list->count == SIZE_MAX)
+		cheat_death("too many items", list->count);
+	count = list->count + 1;
 
-	if (array->count == array->capacity) {
+	if (list->count == list->capacity) {
 		size_t capacity;
 		struct cheat_character_array* items;
 
-		capacity = cheat_expand(array->capacity);
-		if (capacity == array->capacity)
-			cheat_death("item capacity exceeded", array->capacity);
+		capacity = cheat_expand(list->capacity);
+		if (capacity == list->capacity)
+			cheat_death("item capacity exceeded", list->capacity);
 
 		items = CHEAT_CAST(struct cheat_character_array*)
-			cheat_reallocate_array(array->items,
-				capacity, sizeof *array->items);
+			cheat_reallocate_array(list->items,
+				capacity, sizeof *list->items);
 		if (items == NULL)
 			cheat_death("failed to allocate more memory", errno);
 
-		array->capacity = capacity;
-		array->items = items;
+		list->capacity = capacity;
+		list->items = items;
 	}
 
 	elements = CHEAT_CAST(char*) malloc(size);
@@ -696,9 +708,9 @@ static void cheat_append_character_array(
 		cheat_death("failed to allocate memory", errno);
 	memcpy(elements, buffer, size);
 
-	array->items[array->count].size = size;
-	array->items[array->count].elements = elements;
-	array->count = count;
+	list->items[list->count].size = size;
+	list->items[list->count].elements = elements;
+	list->count = count;
 }
 
 /*
@@ -789,25 +801,25 @@ __attribute__ ((__io__, __nonnull__))
 static void cheat_print_usage(struct cheat_suite const* const suite) {
 	(void )fputs("\
 Usage: \
-", suite->captured_stdout);
-	(void )fputs(suite->program, suite->captured_stdout);
+", stdout);
+	(void )fputs(suite->program, stdout);
 	(void )fputs("\
 [option] [another option] [...]\n\
-", suite->captured_stdout);
+", stdout);
 	(void )fputs("\
 Options: -c  --colorful   Use ISO/IEC 6429 escape codes to color reports\n\
          -d  --dangerous  Pretend that crashing tests do\n\
                           not raise signals and cause undefined behavior\n\
          -h  --help       Show this help\n\
          -l  --list       List test cases\n\
-", suite->captured_stdout); /* String literals must not exceed CHEAT_LIMIT. */
+", stdout); /* String literals must not exceed CHEAT_LIMIT. */
 	(void )fputs("\
          -m  --minimal    Only report the amounts of successes, failures\n\
                           and tests run in a machine readable format\n\
          -p  --plain      Present reports in plain text\n\
          -s  --safe       Run tests in isolated subprocesses\n\
          -u  --unsafe     Let crashing tests bring down the whole suite\n\
-", suite->captured_stdout);
+", stdout);
 }
 
 /*
@@ -829,14 +841,14 @@ static void cheat_print_tests(struct cheat_suite const* const suite) {
 			if (first) {
 				(void )fputs("\
 Tests: \
-", suite->captured_stdout);
+", stdout);
 				first = false;
 			} else
 				(void )fputs("\
        \
-", suite->captured_stdout);
-			(void )fputs(unit->name, suite->captured_stdout);
-			(void )fputc('\n', suite->captured_stdout);
+", stdout);
+			(void )fputs(unit->name, stdout);
+			(void )fputc('\n', stdout);
 		}
 	}
 }
@@ -882,24 +894,24 @@ static void cheat_print_outcome(struct cheat_suite const* const suite) {
 	if (print_bar) {
 		switch (suite->outcome) {
 		case CHEAT_SUCCESSFUL:
-			(void )fputs(success, suite->captured_stdout);
+			(void )fputs(success, suite->progress_stream);
 			break;
 		case CHEAT_FAILED:
-			(void )fputs(failure, suite->captured_stdout);
+			(void )fputs(failure, suite->progress_stream);
 			break;
 		case CHEAT_EXITED:
 		case CHEAT_CRASHED:
-			(void )fputs(crashed, suite->captured_stdout);
+			(void )fputs(crashed, suite->progress_stream);
 			break;
 		case CHEAT_IGNORED:
-			(void )fputs(ignored, suite->captured_stdout);
+			(void )fputs(ignored, suite->progress_stream);
 		case CHEAT_SKIPPED:
 			break;
 		default:
 			cheat_death("invalid outcome", suite->outcome);
 		}
 
-		(void )fflush(suite->captured_stdout);
+		(void )fflush(suite->progress_stream);
 	}
 }
 
@@ -907,15 +919,16 @@ static void cheat_print_outcome(struct cheat_suite const* const suite) {
 Prints the messages in the messages list of a test suite.
 */
 __attribute__ ((__io__, __nonnull__))
-static void cheat_print_messages(struct cheat_suite const* const suite) {
+static void cheat_print_list(
+		struct cheat_character_array_list const* const list) {
 	size_t index;
 
 	for (index = 0;
-			index < suite->messages.count;
+			index < list->count;
 			++index)
-		(void )fwrite(suite->messages.items[index].elements,
-				1, suite->messages.items[index].size,
-				suite->captured_stdout);
+		(void )fwrite(list->items[index].elements,
+				1, list->items[index].size,
+				stdout);
 }
 
 /*
@@ -996,45 +1009,65 @@ static void cheat_print_summary(struct cheat_suite* const suite) {
 		cheat_death("invalid style", suite->style);
 	}
 
-#ifdef _DEBUG
-	fprintf(suite->captured_stdout,
-			"[\ncount = %zu\nm[0]s = %zu\nm[1]s = %zu\nm[2]s = %zu\n]",
-			suite->messages.count,
-			suite->messages.count > 0 ? suite->messages.items[0].size : 0,
-			suite->messages.count > 1 ? suite->messages.items[1].size : 0,
-			suite->messages.count > 2 ? suite->messages.items[2].size : 0);
-#endif
-	if (print_messages && any_run) {
-		(void )fputc('\n', suite->captured_stdout);
+#ifdef _DEBUG /* Sweet copy and paste. */
+	if (/* print_output */ true && any_run) {
+		(void )fputc('\n', stdout);
 
-		if (suite->messages.count != 0) {
-			(void )fputs(separator_string, suite->captured_stdout);
-			(void )fputc('\n', suite->captured_stdout);
+		if (suite->outputs.count != 0) {
+			(void )fputs(separator_string, stdout);
+			(void )fputc('\n', stdout);
 
-			cheat_print_messages(suite);
+			cheat_print_list(&suite->outputs);
 		}
 
-		(void )fputs(separator_string, suite->captured_stdout);
-		(void )fputc('\n', suite->captured_stdout);
+		(void )fputs(CHEAT_FOREGROUND_MAGENTA
+				"That was ess tee dee out!" CHEAT_RESET, stdout);
+	}
+	if (/* print_error */ true && any_run) {
+		(void )fputc('\n', stdout);
+
+		if (suite->errors.count != 0) {
+			(void )fputs(separator_string, stdout);
+			(void )fputc('\n', stdout);
+
+			cheat_print_list(&suite->errors);
+		}
+
+		(void )fputs(CHEAT_FOREGROUND_MAGENTA
+				"That was ess tee dee ergh!" CHEAT_RESET, stdout);
+	}
+#endif
+	if (print_messages && any_run) {
+		(void )fputc('\n', stdout);
+
+		if (suite->messages.count != 0) {
+			(void )fputs(separator_string, stdout);
+			(void )fputc('\n', stdout);
+
+			cheat_print_list(&suite->messages);
+		}
+
+		(void )fputs(separator_string, stdout);
+		(void )fputc('\n', stdout);
 	}
 	if (print_summary) {
 		if (print_zero || any_successes)
-			(void )cheat_print(successful_format, suite->captured_stdout,
+			(void )cheat_print(successful_format, stdout,
 					1, CHEAT_CAST_SIZE(suite->tests.successful));
 		if (print_zero || (any_successes && any_failures))
-			(void )fputs(and_string, suite->captured_stdout);
+			(void )fputs(and_string, stdout);
 		if (print_zero || any_failures)
-			(void )cheat_print(failed_format, suite->captured_stdout,
+			(void )cheat_print(failed_format, stdout,
 					1, CHEAT_CAST_SIZE(suite->tests.failed));
 		if (print_zero || (any_successes || any_failures))
-			(void )fputs(of_string, suite->captured_stdout);
-		(void )cheat_print(run_format, suite->captured_stdout,
+			(void )fputs(of_string, stdout);
+		(void )cheat_print(run_format, stdout,
 				1, CHEAT_CAST_SIZE(suite->tests.run));
-		(void )fputc('\n', suite->captured_stdout);
+		(void )fputc('\n', stdout);
 	}
 	if (print_conclusion) {
-		(void )fputs(conclusion_string, suite->captured_stdout);
-		(void )fputc('\n', suite->captured_stdout);
+		(void )fputs(conclusion_string, stdout);
+		(void )fputc('\n', stdout);
 	}
 }
 
@@ -1097,7 +1130,7 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 			free(buffer);
 			break;
 		case CHEAT_SAFE:
-			(void )cheat_print(assertion_format, suite->captured_stdout,
+			(void )cheat_print(assertion_format, suite->message_stream,
 					4, file, line, suite->test_name, assertion);
 			break;
 		default:
@@ -1180,7 +1213,12 @@ static void cheat_run_isolated_test(
 
 	HANDLE reader;
 	HANDLE writer;
+	HCRYPTPROV provider;
+	DWORD number;
+	LPTCSTR prefix;
+	LPTSTR name;
 	SECURITY_ATTRIBUTES security;
+	HANDLE handle;
 	STARTUPINFO startup;
 	PROCESS_INFORMATION process;
 	SIZE_T command_length;
@@ -1199,6 +1237,35 @@ static void cheat_run_isolated_test(
 	security.nLength = sizeof security;
 	security.lpSecurityDescriptor = NULL;
 	security.bInheritHandle = TRUE;
+
+	if (!CryptAcquireContext(&provider, NULL, NULL,
+				PROV_RSA_FULL, CRYPT_VERIFYCONTEXT | CRYPT_SILENT))
+		cheat_death("failed to acquire a source of entropy", GetLastError());
+
+	if (!CryptGenRandom(provider, sizeof number, &number)) {
+		CryptReleaseContext(provider, 0);
+
+		cheat_death("failed to get a random number", GetLastError());
+	}
+
+	if (!CryptReleaseContext(provider, 0))
+		cheat_death("failed to release a source of entropy", GetLastError());
+
+	prefix = "\\\\.\\pipe\\cheat-";
+
+	name = CHEAT_CAST(LPTSTR) malloc(strlen(prefix) + CHEAT_LENGTH(number));
+		cheat_death("failed to allocate memory", GetLastError());
+
+	sprintf(name, "%s%d", prefix, number);
+
+	handle = CreateNamedPipe(name,
+			PIPE_ACCESS_INBOUND | FILE_FLAG_FIRST_PIPE_INSTANCE,
+			PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
+			1, BUFSIZ, BUFSIZ, 0, security);
+	if (handle == INVALID_HANDLE_VALUE)
+		cheat_death("failed to create a named pipe", GetLastError());
+
+	free(name);
 
 	if (!CreatePipe(&reader, &writer, &security, 0))
 		cheat_death("failed to create a pipe", GetLastError());
@@ -1277,65 +1344,145 @@ static void cheat_run_isolated_test(
 
 	pid_t pid;
 	int fds[2];
-	int reader;
-	int writer;
+	int message_reader;
+	int message_writer;
+	int output_reader;
+	int output_writer;
+	int error_reader;
+	int error_writer;
 	int status;
 
 	if (pipe(fds) == -1)
 		cheat_death("failed to create a pipe", errno);
-	reader = fds[0];
-	writer = fds[1];
+	message_reader = fds[0];
+	message_writer = fds[1];
+
+	if (pipe(fds) == -1)
+		cheat_death("failed to create a pipe", errno);
+	output_reader = fds[0];
+	output_writer = fds[1];
+
+	if (pipe(fds) == -1)
+		cheat_death("failed to create a pipe", errno);
+	error_reader = fds[0];
+	error_writer = fds[1];
 
 	pid = fork();
 	if (pid == -1)
 		cheat_death("failed to create a process", errno);
 	else if (pid == 0) {
-#ifdef _DEBUG
-		fprintf(suite->captured_stdout,
-				"[\nc_stdout = %p\nc_capout = %p\nc_stderr = %p\nc_caperr = %p\np_pipout = %d\n]",
-				stdout, suite->captured_stdout, stderr, suite->captured_stderr, writer);
-#endif
+		FILE* message_stream;
 
-		if (close(reader) == -1)
+		if (close(message_reader) == -1)
 			cheat_death("failed to close the read end of a pipe", errno);
 
-		if (dup2(writer, STDOUT_FILENO) == -1)
-			cheat_death("failed to redirect standard output", errno);
+		if (close(output_reader) == -1)
+			cheat_death("failed to close the read end of a pipe", errno);
+
+		if (close(error_reader) == -1)
+			cheat_death("failed to close the read end of a pipe", errno);
+
+		message_stream = fdopen(message_writer, "w");
+		if (message_stream == NULL)
+			cheat_death("failed to open the message stream for writing", errno);
+		suite->message_stream = message_stream; /* TODO Uh oh! */
+
+		if (dup2(output_writer, STDOUT_FILENO) == -1)
+			cheat_death("failed to redirect the standard output stream", errno);
+
+		if (dup2(error_writer, STDERR_FILENO) == -1)
+			cheat_death("failed to redirect the standard error stream", errno);
+
+		fputs("Out...\n", stdout);
+		fputs("Error...\n", stderr);
+		fputs("Fan out...\n", fdopen(output_writer, "w"));
 
 		cheat_run_coupled_test(suite, test);
 
-		if (close(writer) == -1)
+		fflush(message_stream);
+		if (close(message_writer) == -1)
 			cheat_death("failed to close the write end of a pipe", errno);
 
-		_exit(cheat_encode_outcome(suite->outcome));
+		fflush(fdopen(output_writer, "w")); fsync(output_writer); /* ??? */
+
+		if (close(output_writer) == -1)
+			cheat_death("failed to close the write end of a pipe", errno);
+
+		if (close(error_writer) == -1)
+			cheat_death("failed to close the write end of a pipe", errno);
+
+		exit(cheat_encode_outcome(suite->outcome));
 	}
 
-#ifdef _DEBUG
-	fprintf(suite->captured_stdout,
-			"[\np_stdout = %p\np_capout = %p\np_stderr = %p\np_caperr = %p\np_pipein = %d\n]",
-			stdout, suite->captured_stdout, stderr, suite->captured_stderr, reader);
-#endif
+	if (close(message_writer) == -1)
+		cheat_death("failed to close the write end of a pipe", errno);
 
-	if (close(writer) == -1)
+	if (close(output_writer) == -1)
+		cheat_death("failed to close the write end of a pipe", errno);
+
+	if (close(error_writer) == -1)
 		cheat_death("failed to close the write end of a pipe", errno);
 
 	do {
-		char buffer[BUFSIZ];
-		ssize_t size;
+		fd_set set;
+		int result;
 
-		size = read(reader, buffer, sizeof buffer);
-		if (size == -1)
-			cheat_death("failed to read from a pipe", errno);
-		if (size == 0)
-			break;
+		FD_ZERO(&set);
+		FD_SET(message_reader, &set);
+		FD_SET(output_reader, &set);
+		FD_SET(error_reader, &set);
 
-		cheat_append_character_array(&suite->messages, buffer, (size_t )size);
+		result = select(cheat_maximum(message_reader,
+					cheat_maximum(output_reader, error_reader)) + 1,
+				&set, NULL, NULL, NULL);
+
+		if (result == -1)
+			cheat_death("FUCK", errno);
+		else if (result == 0)
+			cheat_death("???", errno);
+		else {
+			int reader;
+			struct cheat_character_array_list* list;
+			char buffer[BUFSIZ];
+			ssize_t size;
+
+			if (FD_ISSET(message_reader, &set)) {
+				reader = message_reader;
+				list = &suite->messages;
+			} else if (FD_ISSET(output_reader, &set)) {
+				reader = output_reader;
+				list = &suite->outputs;
+			} else if (FD_ISSET(error_reader, &set)) {
+				reader = error_reader;
+				list = &suite->errors;
+			} else
+				continue; /* ? */
+
+			size = read(reader, buffer, sizeof buffer);
+
+#ifdef _DEBUG_FOR_REAL
+			printf(" selected %d and read %zd from %d\n", result, size, reader);
+#endif
+
+			if (size == -1)
+				cheat_death("failed to read from a pipe", errno);
+			if (size == 0)
+				break;
+
+			cheat_append_character_array(list, buffer, (size_t )size);
+		}
 	} while (true);
 
 	if (waitpid(pid, &status, 0) == -1)
 		cheat_death("failed to wait for a process", errno);
 
-	if (close(reader) == -1)
+	if (close(message_reader) == -1)
+		cheat_death("failed to close the read end of a pipe", errno);
+
+	if (close(output_reader) == -1)
+		cheat_death("failed to close the read end of a pipe", errno);
+
+	if (close(error_reader) == -1)
 		cheat_death("failed to close the read end of a pipe", errno);
 
 	if (WIFEXITED(status))
@@ -2025,6 +2172,8 @@ These are similarly used to
  stream capturing is disabled.
 */
 
+#ifdef FUCK
+
 __attribute__ ((__unused__))
 static int cheat_wrapped_vfprintf(FILE* const stream,
 		char const* const format, va_list list) {
@@ -2198,6 +2347,8 @@ static ssize_t cheat_wrapped_write(int const fd,
 #define write cheat_wrapped_write
 
 #endif
+
+#endif /* FUCK */
 
 #ifdef __cplusplus
 }
