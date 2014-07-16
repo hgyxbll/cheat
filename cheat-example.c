@@ -3,7 +3,6 @@
 #endif
 
 #include <cheat.h>
-/* #include <cheat-helpers.h> */
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>

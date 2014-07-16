@@ -133,7 +133,7 @@ The default options depend on the target platform.
 Option parsing can be disabled with `--` if
  some of the arguments begin with a dash when they should not.
 
-### Individual Tests
+### Complicated Tests
 
 More exotic use cases may require running individual tests.
 The names of the tests follow the ones given in the source file, but
@@ -149,18 +149,6 @@ They can be given as arguments to specify a single test to run.
 	[user@computer project]$ ./tests mathematics_still_work
 	[user@computer project]$ echo returned $?
 	returned 0
-
-### Complicated Tests
-
-More complicated tests are easy to define with
- the assistance of CHEAT helpers that
- exist in `cheat-helpers.h`.
-
-	#include <cheat-helpers.h>
-
-Helpers cover things like
- stream redirection and
- signal handlers.
 
 ## Compatibility
 

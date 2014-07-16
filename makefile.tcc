@@ -15,7 +15,7 @@ test: build
 	./cheat-example -s
 	./cheat-example -d
 
-cheat-example: cheat.h cheat-helpers.h cheat-example.c
+cheat-example: cheat.h cheat-example.c
 	$(CC) $(CFLAGS) \
 		-D "__BASE_FILE__=\"cheat-example.c\"" -o cheat-example cheat-example.c
 
