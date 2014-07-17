@@ -566,7 +566,7 @@ static int cheat_encode_outcome(enum cheat_outcome const outcome) {
 /*
 Converts an exit status into an outcome.
 */
-__attribute__ ((__const__))
+__attribute__ ((__const__, __unused__))
 static enum cheat_outcome cheat_decode_status(int const status) {
 	switch (status) {
 	case 0:
@@ -647,11 +647,9 @@ static void cheat_initialize(struct cheat_suite* const suite) {
 
 	/* Do not touch suite->environment either. */
 
-	suite->progress_stream = stdout;
-	suite->message_stream = stdout;
+	suite->progress_stream = NULL;
+	suite->message_stream = NULL;
 }
-
-/* TODO Clear other lists too! */
 
 /*
 Clears the message list of a test suite.
@@ -660,15 +658,22 @@ The memory allocated for the message list and
  everything else is left for the caller.
 */
 __attribute__ ((__nonnull__))
-static void cheat_clear_messages(struct cheat_suite* const suite) {
-	if (suite->messages.count != 0) {
-		while (suite->messages.count > 0)
-			free(suite->messages.items[--suite->messages.count].elements);
+static void cheat_clear_list(struct cheat_character_array_list* const list) {
+	if (list->count != 0) {
+		while (list->count > 0)
+			free(list->items[--list->count].elements);
 
-		suite->messages.capacity = 0;
-		free(suite->messages.items);
-		suite->messages.items = NULL;
+		list->capacity = 0;
+		free(list->items);
+		list->items = NULL;
 	}
+}
+
+__attribute__ ((__nonnull__))
+static void cheat_clear_lists(struct cheat_suite* const suite) {
+	cheat_clear_list(&suite->messages);
+	cheat_clear_list(&suite->outputs);
+	cheat_clear_list(&suite->errors);
 }
 
 /*
@@ -899,24 +904,24 @@ static void cheat_print_outcome(struct cheat_suite const* const suite) {
 	if (print_bar) {
 		switch (suite->outcome) {
 		case CHEAT_SUCCESSFUL:
-			(void )fputs(success, suite->progress_stream);
+			(void )fputs(success, stdout);
 			break;
 		case CHEAT_FAILED:
-			(void )fputs(failure, suite->progress_stream);
+			(void )fputs(failure, stdout);
 			break;
 		case CHEAT_EXITED:
 		case CHEAT_CRASHED:
-			(void )fputs(crashed, suite->progress_stream);
+			(void )fputs(crashed, stdout);
 			break;
 		case CHEAT_IGNORED:
-			(void )fputs(ignored, suite->progress_stream);
+			(void )fputs(ignored, stdout);
 		case CHEAT_SKIPPED:
 			break;
 		default:
 			cheat_death("invalid outcome", suite->outcome);
 		}
 
-		(void )fflush(suite->progress_stream);
+		(void )fflush(stdout);
 	}
 }
 
@@ -1388,16 +1393,18 @@ static void cheat_run_isolated_test(
 			if (close(channels[index].reader) == -1)
 				cheat_death("failed to close the read end of a pipe", errno);
 
-		if (dup2(channels[1].writer, STDOUT_FILENO) == -1)
-			cheat_death("failed to redirect the standard output stream", errno);
-
-		if (dup2(channels[2].writer, STDERR_FILENO) == -1)
-			cheat_death("failed to redirect the standard error stream", errno);
+		suite->progress_stream = stdout;
 
 		message_stream = fdopen(channels[0].writer, "w");
 		if (message_stream == NULL)
 			cheat_death("failed to open the message stream for writing", errno);
 		suite->message_stream = message_stream;
+
+		if (dup2(channels[1].writer, STDOUT_FILENO) == -1)
+			cheat_death("failed to redirect the standard output stream", errno);
+
+		if (dup2(channels[2].writer, STDERR_FILENO) == -1)
+			cheat_death("failed to redirect the standard error stream", errno);
 
 		cheat_run_coupled_test(suite, test);
 
@@ -2116,7 +2123,7 @@ int main(int const count, char** const arguments) {
 #endif
 
 	cheat_parse(&cheat_suite);
-	cheat_clear_messages(&cheat_suite);
+	cheat_clear_lists(&cheat_suite);
 
 	if (cheat_suite.tests.failed == 0)
 		return EXIT_SUCCESS;
@@ -2164,6 +2171,8 @@ These are similarly used to
  hide streams that might interfere with messages when
  stream capturing is disabled.
 */
+
+#ifdef FUCK
 
 __attribute__ ((__unused__))
 static int cheat_wrapped_vfprintf(FILE* const stream,
@@ -2336,6 +2345,8 @@ static ssize_t cheat_wrapped_write(int const fd,
 }
 
 #define write cheat_wrapped_write
+
+#endif
 
 #endif
 

@@ -18,10 +18,10 @@ CHEAT_TEST(mathematics_still_work,
 
 CHEAT_DECLARE(
 	static double f(double const x, double const y) {
-		return x * y;
+		return 2 / (x * x) - y * y / 2;
 	}
 
-	static bool g(double const x, double const y, double const e) {
+	static bool p(double const x, double const y, double const e) {
 		double d;
 
 		if (x < y)
@@ -39,25 +39,25 @@ CHEAT_TEST(physics_still_work,
 	double xn;
 	double dx;
 	double y;
-	size_t i;
 	double s;
+	size_t i;
 	double x;
 
 	x0 = 1;
 	y0 = 2;
-	n = 100;
+	n = 128;
 	xn = 3;
 	dx = xn - x0;
 	y = y0;
+	s = dx / (double )n;
 	for (i = 0;
-			i < n;
+			i <= n;
 			++i) {
-		s = dx / (double )n;
 		x = x0 + s * (double )i;
 		y += s * f(x, y);
 	}
 
-	cheat_assert(g(y, 100, 10));
+	cheat_assert(p(y, 1, 0.1));
 )
 
 CHEAT_DECLARE(
