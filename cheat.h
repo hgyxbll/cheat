@@ -505,7 +505,7 @@ Prints a formatted string into a string or
  fails safely in case the amount of conversion specifiers in
  the format string does not match the expected count.
 */
-__attribute__ ((__format__ (__printf__, 1, 4), __pure__, __nonnull__ (1)))
+__attribute__ ((__format__ (__printf__, 1, 4), __nonnull__ (1), __pure__))
 static int cheat_print_string(char const* const format,
 		char* const destination,
 		size_t const count, ...) {
@@ -1214,6 +1214,12 @@ static void cheat_run_coupled_test(
 	cheat_run_utilities(suite, CHEAT_DOWN_TEARER);
 }
 
+#ifdef _WIN32
+
+#define CHEAT_PREFIX "\\\\.\\pipe\\cheat"
+
+#endif
+
 /*
 Creates a subprocess and
  runs a test in it.
@@ -1223,19 +1229,16 @@ static void cheat_run_isolated_test(
 		struct cheat_suite* const suite,
 		struct cheat_unit const* const test) {
 
-	/* TODO Pass more pipes through fork() or use CreateNamedPipe(), so
-		that the generic append procedure can be used to capture streams. */
-
 #ifdef _WIN32
 
-	HANDLE reader;
-	HANDLE writer;
-	HCRYPTPROV provider;
-	DWORD number;
-	LPTCSTR prefix;
+	DWORD id;
 	LPTSTR name;
+	HANDLE message_pipe;
+	HANDLE output_reader;
+	HANDLE output_writer;
+	HANDLE error_reader;
+	HANDLE error_writer;
 	SECURITY_ATTRIBUTES security;
-	HANDLE handle;
 	STARTUPINFO startup;
 	PROCESS_INFORMATION process;
 	SIZE_T command_length;
@@ -1244,8 +1247,10 @@ static void cheat_run_isolated_test(
 	DWORD status;
 
 	/*
-	The memory behind the structures is zeroed to
-	 avoid compatibility issues if their fields change.
+	The memory of
+	 these structures is zeroed to
+	 avoid compatibility issues if
+	 their fields change.
 	*/
 	ZeroMemory(&security, sizeof security);
 	ZeroMemory(&startup, sizeof startup);
@@ -1255,36 +1260,29 @@ static void cheat_run_isolated_test(
 	security.lpSecurityDescriptor = NULL;
 	security.bInheritHandle = TRUE;
 
-	if (!CryptAcquireContext(&provider, NULL, NULL,
-				PROV_RSA_FULL, CRYPT_VERIFYCONTEXT | CRYPT_SILENT))
-		cheat_death("failed to acquire a source of entropy", GetLastError());
+	id = GetCurrentProcessId();
 
-	if (!CryptGenRandom(provider, sizeof number, &number)) {
-		CryptReleaseContext(provider, 0);
+	name = CHEAT_CAST(LPTSTR) cheat_allocate(strlen(CHEAT_PREFIX),
+			CHEAT_LENGTH(id), 1, 0);
+	if (name == NULL)
+		cheat_death("failed to allocate memory", errno);
+	(void )cheat_print_string("%s%d", name, 2, CHEAT_PREFIX, 0 /* id */);
 
-		cheat_death("failed to get a random number", GetLastError());
-	}
-
-	if (!CryptReleaseContext(provider, 0))
-		cheat_death("failed to release a source of entropy", GetLastError());
-
-	prefix = "\\\\.\\pipe\\cheat-";
-
-	name = CHEAT_CAST(LPTSTR) malloc(strlen(prefix) + CHEAT_LENGTH(number));
-		cheat_death("failed to allocate memory", GetLastError());
-
-	sprintf(name, "%s%d", prefix, number);
-
-	handle = CreateNamedPipe(name,
+	/*
+	message_pipe = CreateNamedPipe(name,
 			PIPE_ACCESS_INBOUND | FILE_FLAG_FIRST_PIPE_INSTANCE,
 			PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
-			1, BUFSIZ, BUFSIZ, 0, security);
-	if (handle == INVALID_HANDLE_VALUE)
+			1, BUFSIZ, BUFSIZ, 0, &security);
+	if (message_pipe == INVALID_HANDLE_VALUE)
 		cheat_death("failed to create a named pipe", GetLastError());
+	*/
 
 	free(name);
 
-	if (!CreatePipe(&reader, &writer, &security, 0))
+	if (!CreatePipe(&output_reader, &output_writer, &security, 0))
+		cheat_death("failed to create a pipe", GetLastError());
+
+	if (!CreatePipe(&error_reader, &error_writer, &security, 0))
 		cheat_death("failed to create a pipe", GetLastError());
 
 	startup.cb = sizeof startup;
@@ -1295,8 +1293,8 @@ static void cheat_run_isolated_test(
 	startup.cbReserved2 = 0;
 	startup.lpReserved2 = NULL;
 	startup.hStdInput = NULL;
-	startup.hStdOutput = writer;
-	startup.hStdError = NULL; /* TODO Consider capturing. */
+	startup.hStdOutput = output_writer;
+	startup.hStdError = error_writer;
 
 	command_length = strlen(GetCommandLine());
 	name_length = strlen(test->name);
@@ -1310,24 +1308,35 @@ static void cheat_run_isolated_test(
 	if (!CreateProcess(NULL, command, NULL, NULL,
 				TRUE, NORMAL_PRIORITY_CLASS, NULL, NULL,
 				&startup, &process)) /* There is CommandLineToArgvW(), but
-		nothing like ArgvToCommandLineW() exists, so
-		GetCommandLine() is used even though
-		it is not guaranteed to return the correct result for file paths that
-		lack a file extension,
-		contain spaces or
-		are not entirely built from printable ASCII characters. */
+			nothing like ArgvToCommandLineW() exists, so
+			GetCommandLine() is used even though it is not guaranteed to
+			return the correct result for file paths that
+			lack a file extension, contain spaces or
+			are not entirely built from printable ASCII characters. */
 		cheat_death("failed to create a process", GetLastError());
 
 	free(command);
 
-	if (!CloseHandle(writer))
+	if (!CloseHandle(output_writer))
 		cheat_death("failed to close the write end of a pipe", GetLastError());
+
+	if (!CloseHandle(error_writer))
+		cheat_death("failed to close the write end of a pipe", GetLastError());
+
+	/*
+hell:
+	if (!ConnectNamedPipe(message_pipe, NULL)) {
+		if (GetLastError() == ERROR_NO_DATA)
+			goto hell;
+		cheat_death("failed to connect a named pipe", GetLastError());
+	}
+	*/
 
 	do {
 		CHAR buffer[BUFSIZ];
 		DWORD size;
 
-		if (!ReadFile(reader, buffer, sizeof buffer, &size, NULL)) {
+		if (!ReadFile(output_reader, buffer, sizeof buffer, &size, NULL)) {
 			DWORD error;
 
 			error = GetLastError();
@@ -1338,10 +1347,21 @@ static void cheat_run_isolated_test(
 		if (size == 0)
 			break;
 
-		cheat_append_character_array(&suite->messages, buffer, (size_t )size);
+		cheat_append_character_array(&suite->outputs, buffer, (size_t )size);
 	} while (TRUE);
 
-	if (!CloseHandle(reader))
+	/*
+	if (!DisconnectNamedPipe(message_pipe))
+		cheat_death("failed to disconnect a named pipe", GetLastError());
+
+	if (!CloseHandle(message_pipe))
+		cheat_death("failed to close a named pipe", GetLastError());
+	*/
+
+	if (!CloseHandle(output_reader))
+		cheat_death("failed to close the read end of a pipe", GetLastError());
+
+	if (!CloseHandle(error_reader))
 		cheat_death("failed to close the read end of a pipe", GetLastError());
 
 	if (WaitForSingleObject(process.hProcess, INFINITE) == WAIT_FAILED)
@@ -1387,20 +1407,15 @@ static void cheat_run_isolated_test(
 	if (pid == -1)
 		cheat_death("failed to create a process", errno);
 	else if (pid == 0) {
-		FILE* message_stream;
-
 		for (index = 0;
 				index < channel_count;
 				++index)
 			if (close(channels[index].reader) == -1)
 				cheat_death("failed to close the read end of a pipe", errno);
 
-		suite->progress_stream = stdout;
-
-		message_stream = fdopen(channels[0].writer, "w");
-		if (message_stream == NULL)
+		suite->message_stream = fdopen(channels[0].writer, "w");
+		if (suite->message_stream == NULL)
 			cheat_death("failed to open the message stream for writing", errno);
-		suite->message_stream = message_stream;
 
 		if (dup2(channels[1].writer, STDOUT_FILENO) == -1)
 			cheat_death("failed to redirect the standard output stream", errno);
@@ -2121,6 +2136,12 @@ int main(int const count, char** const arguments) {
 	cheat_suite.style = CHEAT_PLAIN;
 #ifdef _WIN32
 	cheat_suite.harness = CHEAT_SAFE;
+
+	cheat_suite.message_stream = CreateFile(CHEAT_PREFIX "0",
+			GENERIC_WRITE, 0, NULL,
+			OPEN_EXISTING, 0, NULL);
+	if (cheat_suite.message_stream == INVALID_HANDLE_VALUE)
+		cheat_suite.message_stream = stdout;
 #else
 #if _POSIX_C_SOURCE >= 198809L
 	cheat_suite.harness = CHEAT_SAFE;
@@ -2131,6 +2152,10 @@ int main(int const count, char** const arguments) {
 
 	cheat_parse(&cheat_suite);
 	cheat_clear_lists(&cheat_suite);
+
+#ifdef _WIN32
+	system("pause"); /* TODO Uninstall Visual Studio. */
+#endif
 
 	if (cheat_suite.tests.failed == 0)
 		return EXIT_SUCCESS;
