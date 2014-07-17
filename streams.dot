@@ -1,140 +1,164 @@
 digraph streams {
-	subgraph cluster_a {
-		label = "option A"
+	node [shape = box]
+
+	a_parent_assert [label = "assert"]
+	a_parent_fputs [label = "fputs"]
+	a_parent_sequence [label = "sequence"]
+
+	node [shape = house]
+
+	a_parent_messages [label = "messages"]
+	a_parent_outputs [label = "outputs"]
+	a_parent_errors [label = "errors"]
+
+	node [shape = oval]
+
+	a_parent_stdout [label = "stdout"]
+
+	a_parent_assert -> a_parent_sequence [style = dotted]
+	a_parent_fputs -> a_parent_sequence [style = bold]
+	a_parent_fputs -> a_parent_sequence [style = solid]
+	a_parent_sequence -> a_parent_messages [style = dotted]
+	a_parent_sequence -> a_parent_outputs [style = bold]
+	a_parent_sequence -> a_parent_errors [style = solid]
+	a_parent_messages -> a_parent_stdout [style = dotted]
+	a_parent_outputs -> a_parent_stdout [style = bold]
+	a_parent_errors -> a_parent_stdout [style = solid]
+
+	subgraph cluster_b_child {
+		labelloc = t
+		label = "child"
 
 		node [shape = box]
 
-		a_parent_cheat_assert [label = "parent\ncheat_assert"]
-		a_parent_fprintf [label = "parent\nfprintf"]
+		b_child_assert [label = "assert"]
+		b_child_fputs [label = "fputs"]
+		b_child_multiplex [label = "multiplex"]
 
 		node [shape = house]
 
-		a_parent_messages [label = "parent\nmessages"]
-
-		node [shape = oval]
-
-		a_parent_stdout [label = "parent\nstdout"]
-		a_parent_stdout_file [label = "parent\nfile"]
-		a_parent_stderr_file [label = "parent\nfile"]
-
-		node [shape = none]
-
-		a_parent_cheat_assert -> a_parent_messages [label = "message"]
-		a_parent_fprintf -> a_parent_stdout_file [label = "garbage"]
-		a_parent_fprintf -> a_parent_stderr_file [label = "garbage"]
-		a_parent_messages -> a_parent_stdout [label = "message"]
-	}
-
-	subgraph cluster_b {
-		label = "option B"
-
-		node [shape = box]
-
-		b_child_cheat_assert [label = "child\ncheat_assert"]
-		b_child_fprintf [label = "child\nfprintf"]
-		b_child_cheat_multiplex [label = "child\ncheat_multiplex"]
-		b_parent_cheat_demultiplex [label = "parent\ncheat_demultiplex"]
-		b_parent_cheat_sequence [label = "parent\ncheat_sequence"]
-
-		node [shape = house]
-
-		b_parent_messages [label = "parent\nmessages"]
-		b_parent_outputs [label = "parent\noutputs"]
-		b_parent_errors [label = "parent\nerrors"]
 
 		node [shape = diamond]
 
-		b_child_writer [label = "child\nwriter"]
-		b_parent_reader [label = "parent\nreader"]
-		b_child_error_writer [label = "child\nerror_writer"]
-		b_parent_error_reader [label = "parent\nerror_reader"]
+		b_child_mixed_writer [label = "mixed_writer"]
+		b_child_output_writer [label = "output_writer"]
 
 		node [shape = oval]
 
-		b_child_stdout [label = "child\nstdout"]
-		b_child_stderr [label = "child\nstderr"]
-		b_parent_stdout [label = "parent\nstdout"]
-		b_parent_stderr [label = "parent\nstderr"]
-		b_parent_stdout_file [label = "parent\nfile"]
-		b_parent_stderr_file [label = "parent\nfile"]
-
-		node [shape = none]
-
-		b_child_cheat_assert -> b_child_cheat_multiplex [label = "message"]
-		b_child_cheat_multiplex -> b_child_stdout [label = "message"]
-		b_child_fprintf -> b_child_stdout [label = "garbage"]
-		b_child_fprintf -> b_child_stderr [label = "garbage"]
-		b_child_stdout -> b_child_writer [label = "something"]
-		b_child_stderr -> b_child_error_writer [label = "garbage"]
-		b_child_writer -> b_parent_reader [label = "something"]
-		b_child_error_writer -> b_parent_error_reader [label = "garbage"]
-		b_parent_reader -> b_parent_cheat_demultiplex [label = "something"]
-		b_parent_error_reader -> b_parent_cheat_sequence [label = "garbage"]
-		b_parent_cheat_demultiplex -> b_parent_messages [label = "message"]
-		b_parent_cheat_demultiplex -> b_parent_cheat_sequence [label = "garbage"]
-		b_parent_cheat_sequence -> b_parent_outputs [label = "garbage"]
-		b_parent_cheat_sequence -> b_parent_errors [label = "garbage"]
-		b_parent_messages -> b_parent_stdout [label = "message"]
-		b_parent_outputs -> b_parent_stderr [label = "garbage"]
-		b_parent_outputs -> b_parent_stdout_file [label = "garbage"]
-		b_parent_errors -> b_parent_stderr [label = "garbage"]
-		b_parent_errors -> b_parent_stderr_file [label = "garbage"]
+		b_child_stdout [label = "stdout"]
+		b_child_stderr [label = "stderr"]
 	}
 
-	subgraph cluster_c {
-		label = "option C"
+	subgraph cluster_b_parent {
+		labelloc = b
+		label = "parent"
 
 		node [shape = box]
 
-		c_child_cheat_assert [label = "child\ncheat_assert"]
-		c_child_fprintf [label = "child\nfprintf"]
-		c_parent_cheat_sequence [label = "parent\ncheat_sequence"]
+		b_parent_demultiplex [label = "demultiplex"]
+		b_parent_sequence [label = "sequence"]
 
 		node [shape = house]
 
-		c_parent_messages [label = "parent\nmessages"]
-		c_parent_outputs [label = "parent\noutputs"]
-		c_parent_errors [label = "parent\nerrors"]
+		b_parent_messages [label = "messages"]
+		b_parent_outputs [label = "outputs"]
+		b_parent_errors [label = "errors"]
 
 		node [shape = diamond]
 
-		c_child_message_writer [label = "child\nmessage_writer"]
-		c_parent_message_reader [label = "parent\nmessage_reader"]
-		c_child_output_writer [label = "child\noutput_writer"]
-		c_parent_output_reader [label = "parent\noutput_reader"]
-		c_child_error_writer [label = "child\nerror_writer"]
-		c_parent_error_reader [label = "parent\nerror_reader"]
+		b_parent_mixed_reader [label = "mixed_reader"]
+		b_parent_output_reader [label = "output_reader"]
 
 		node [shape = oval]
 
-		c_child_stdout [label = "child\nstdout"]
-		c_child_stderr [label = "child\nstderr"]
-		c_child_pipe [label = "child\npipe"]
-		c_parent_stdout [label = "parent\nstdout"]
-		c_parent_stderr [label = "parent\nstderr"]
-		c_parent_stdout_file [label = "parent\nfile"]
-		c_parent_stderr_file [label = "parent\nfile"]
-
-		node [shape = none]
-
-		c_child_cheat_assert -> c_child_pipe [label = "message"]
-		c_child_fprintf -> c_child_stdout [label = "garbage"]
-		c_child_fprintf -> c_child_stderr [label = "garbage"]
-		c_child_pipe -> c_child_message_writer [label = "message"]
-		c_child_stdout -> c_child_output_writer [label = "garbage"]
-		c_child_stderr -> c_child_error_writer [label = "garbage"]
-		c_child_message_writer -> c_parent_message_reader [label = "message"]
-		c_child_output_writer -> c_parent_output_reader [label = "garbage"]
-		c_child_error_writer -> c_parent_error_reader [label = "garbage"]
-		c_parent_message_reader -> c_parent_messages [label = "message"]
-		c_parent_output_reader -> c_parent_cheat_sequence [label = "garbage"]
-		c_parent_error_reader -> c_parent_cheat_sequence [label = "message"]
-		c_parent_cheat_sequence -> c_parent_outputs [label = "garbage"]
-		c_parent_cheat_sequence -> c_parent_errors [label = "message"]
-		c_parent_messages -> c_parent_stdout [label = "message"]
-		c_parent_outputs -> c_parent_stderr [label = "garbage"]
-		c_parent_outputs -> c_parent_stdout_file [label = "garbage"]
-		c_parent_errors -> c_parent_stderr [label = "garbage"]
-		c_parent_errors -> c_parent_stderr_file [label = "garbage"]
+		b_parent_stdout [label = "stdout"]
 	}
+
+	b_child_assert -> b_child_multiplex [style = dotted]
+	b_child_multiplex -> b_child_stderr [style = dotted]
+	b_child_fputs -> b_child_stdout [style = bold]
+	b_child_fputs -> b_child_stderr [style = solid]
+	b_child_stdout -> b_child_output_writer [style = bold]
+	b_child_stderr -> b_child_mixed_writer [style = dashed]
+	b_child_mixed_writer -> b_parent_mixed_reader [style = dashed]
+	b_child_output_writer -> b_parent_output_reader [style = bold]
+	b_parent_mixed_reader -> b_parent_demultiplex [style = dashed]
+	b_parent_output_reader -> b_parent_sequence [style = bold]
+	b_parent_demultiplex -> b_parent_sequence [style = dotted]
+	b_parent_demultiplex -> b_parent_sequence [style = solid]
+	b_parent_sequence -> b_parent_messages [style = dotted]
+	b_parent_sequence -> b_parent_outputs [style = bold]
+	b_parent_sequence -> b_parent_errors [style = solid]
+	b_parent_messages -> b_parent_stdout [style = dotted]
+	b_parent_outputs -> b_parent_stdout [style = bold]
+	b_parent_errors -> b_parent_stdout [style = solid]
+
+	subgraph cluster_c_child {
+		labelloc = t
+		label = "child"
+
+		node [shape = box]
+
+		c_child_assert [label = "assert"]
+		c_child_fputs [label = "fputs"]
+
+		node [shape = house]
+
+
+		node [shape = diamond]
+
+		c_child_message_writer [label = "message_writer"]
+		c_child_output_writer [label = "output_writer"]
+		c_child_error_writer [label = "error_writer"]
+
+		node [shape = oval]
+
+		c_child_stdout [label = "stdout"]
+		c_child_stderr [label = "stderr"]
+		c_child_pipe [label = "pipe"]
+	}
+
+	subgraph cluster_c_parent {
+		labelloc = b
+		label = "parent"
+
+		node [shape = box]
+
+		c_parent_sequence [label = "sequence"]
+
+		node [shape = house]
+
+		c_parent_messages [label = "messages"]
+		c_parent_outputs [label = "outputs"]
+		c_parent_errors [label = "errors"]
+
+		node [shape = diamond]
+
+		c_parent_message_reader [label = "message_reader"]
+		c_parent_output_reader [label = "output_reader"]
+		c_parent_error_reader [label = "error_reader"]
+
+		node [shape = oval]
+
+		c_parent_stdout [label = "stdout"]
+	}
+
+	c_child_assert -> c_child_pipe [style = dotted]
+	c_child_fputs -> c_child_stdout [style = bold]
+	c_child_fputs -> c_child_stderr [style = solid]
+	c_child_pipe -> c_child_message_writer [style = dotted]
+	c_child_stdout -> c_child_output_writer [style = bold]
+	c_child_stderr -> c_child_error_writer [style = solid]
+	c_child_message_writer -> c_parent_message_reader [style = dotted]
+	c_child_output_writer -> c_parent_output_reader [style = bold]
+	c_child_error_writer -> c_parent_error_reader [style = solid]
+	c_parent_message_reader -> c_parent_sequence [style = dotted]
+	c_parent_output_reader -> c_parent_sequence [style = bold]
+	c_parent_error_reader -> c_parent_sequence [style = solid]
+	c_parent_sequence -> c_parent_messages [style = dotted]
+	c_parent_sequence -> c_parent_outputs [style = bold]
+	c_parent_sequence -> c_parent_errors [style = solid]
+	c_parent_messages -> c_parent_stdout [style = dotted]
+	c_parent_outputs -> c_parent_stdout [style = bold]
+	c_parent_errors -> c_parent_stdout [style = solid]
 }
