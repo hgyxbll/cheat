@@ -9,7 +9,7 @@ The full license can be found in the LICENSE file.
 #ifndef CHEAT_H
 #define CHEAT_H
 
-#ifndef __BASE_FILE__ /* This error directive is indented for a reason. */
+#ifndef __BASE_FILE__ /* This is indented so that older compilers ignore it. */
 	#error "the __BASE_FILE__ preprocessor directive is not defined"
 #endif
 
@@ -105,7 +105,8 @@ typedef int bool;
 
 #ifdef _WIN32
 #include <windows.h> /* spaghetti */
-#elif _POSIX_C_SOURCE >= 198809L
+#else
+#if _POSIX_C_SOURCE >= 198809L
 #include <sys/types.h> /* pid_t, ssize_t */
 #include <sys/wait.h>
 #include <unistd.h> /* STDERR_FILENO, STDOUT_FILENO */
@@ -113,6 +114,7 @@ typedef int bool;
 #include <sys/select.h> /* fd_set */
 #else
 #include <sys/time.h> /* fd_set */
+#endif
 #endif
 #endif
 
@@ -243,7 +245,7 @@ This naming convention follows the notion that
  lists have items,
  arrays have elements,
  arrays of structures have counts and
- arrays of value types have sizes.
+ arrays of primitive types have sizes.
 */
 
 struct cheat_string_array {
@@ -298,6 +300,9 @@ struct cheat_suite {
 	enum cheat_outcome outcome; /* The outcome of
 			the most recently run test (changes for each test). */
 
+	FILE* message_stream; /* The auxiliary stream that
+			gathers internal messages (changes for each test). */
+
 	struct cheat_character_array_list messages; /* The messages related to
 			the test suite (changes for each test). */
 	struct cheat_character_array_list outputs; /* The captured output of
@@ -307,9 +312,6 @@ struct cheat_suite {
 
 	jmp_buf environment; /* The recovery point in case of
 			a fatal signal (changes for each test). */
-
-	FILE* progress_stream;
-	FILE* message_stream;
 };
 
 #if _POSIX_C_SOURCE >= 198809L
@@ -647,7 +649,6 @@ static void cheat_initialize(struct cheat_suite* const suite) {
 
 	/* Do not touch suite->environment either. */
 
-	suite->progress_stream = NULL;
 	suite->message_stream = NULL;
 }
 
@@ -1356,7 +1357,8 @@ static void cheat_run_isolated_test(
 
 	suite->outcome = cheat_decode_status(status);
 
-#elif _POSIX_C_SOURCE >= 198809L
+#else
+#if _POSIX_C_SOURCE >= 198809L
 
 	pid_t pid;
 	struct cheat_channel channels[3];
@@ -1494,6 +1496,7 @@ static void cheat_run_isolated_test(
 
 	cheat_death("failed to isolate a test", 0);
 
+#endif
 #endif
 
 }
@@ -1672,7 +1675,8 @@ static void cheat_prepare(void) {
 	mode = SetErrorMode(SEM_NOGPFAULTERRORBOX);
 	SetErrorMode(mode | SEM_NOGPFAULTERRORBOX);
 
-#elif _POSIX_C_SOURCE >= 198809L
+#else
+#if _POSIX_C_SOURCE >= 198809L
 
 	/*
 	Interruptions are unnecessary since
@@ -1681,6 +1685,7 @@ static void cheat_prepare(void) {
 	*/
 	signal(SIGPIPE, SIG_IGN);
 
+#endif
 #endif
 
 }
@@ -2116,10 +2121,12 @@ int main(int const count, char** const arguments) {
 	cheat_suite.style = CHEAT_PLAIN;
 #ifdef _WIN32
 	cheat_suite.harness = CHEAT_SAFE;
-#elif _POSIX_C_SOURCE >= 198809L
+#else
+#if _POSIX_C_SOURCE >= 198809L
 	cheat_suite.harness = CHEAT_SAFE;
 	if (isatty(STDOUT_FILENO) == 1)
 		cheat_suite.style = CHEAT_COLORFUL;
+#endif
 #endif
 
 	cheat_parse(&cheat_suite);
@@ -2191,11 +2198,13 @@ static int cheat_wrapped_vfprintf(FILE* const stream,
 		(void )fclose(file);
 		return result;
 
-#elif __STDC_VERSION__ >= 199901L
+#else
+#if __STDC_VERSION__ >= 199901L
 
 		return vsnprintf(NULL, 0, format, list);
 
-#elif _POSIX_C_SOURCE >= 198809L
+#else
+#if _POSIX_C_SOURCE >= 198809L
 
 		FILE* file;
 		int result;
@@ -2211,6 +2220,8 @@ static int cheat_wrapped_vfprintf(FILE* const stream,
 
 		return 1; /* Pretend to write one byte in case of a failure. */
 
+#endif
+#endif
 #endif
 
 	}

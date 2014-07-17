@@ -26,7 +26,7 @@ CHEAT_DECLARE(
 
 		if (x < y)
 			d = y - x;
-		else
+		else /* Turbo C would parse this wrong without this comment. */
 			d = x - y;
 		return d <= e;
 	}
