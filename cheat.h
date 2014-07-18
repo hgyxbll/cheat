@@ -193,6 +193,7 @@ enum cheat_outcome {
 	CHEAT_FAILED,
 	CHEAT_EXITED,
 	CHEAT_CRASHED,
+	CHEAT_TIMED_OUT,
 	CHEAT_IGNORED,
 	CHEAT_SKIPPED
 };
@@ -212,7 +213,14 @@ For example POSIX allows
   241 ... 253 (12).
 */
 #ifndef CHEAT_OFFSET /* This can be set externally. */
-#define CHEAT_OFFSET 40
+#define CHEAT_OFFSET ((int )40)
+#endif
+
+/*
+Isolated tests that take too long to send data are terminated.
+*/
+#ifndef CHEAT_TIME
+#define CHEAT_TIME 1000 /* This is in milliseconds. */
 #endif
 
 /*
@@ -556,10 +564,12 @@ static int cheat_encode_outcome(enum cheat_outcome const outcome) {
 		return CHEAT_OFFSET + 1;
 	case CHEAT_CRASHED:
 		return CHEAT_OFFSET + 2;
-	case CHEAT_IGNORED:
+	case CHEAT_TIMED_OUT:
 		return CHEAT_OFFSET + 3;
-	case CHEAT_SKIPPED:
+	case CHEAT_IGNORED:
 		return CHEAT_OFFSET + 4;
+	case CHEAT_SKIPPED:
+		return CHEAT_OFFSET + 5;
 	default:
 		cheat_death("invalid outcome", outcome);
 	}
@@ -580,8 +590,10 @@ static enum cheat_outcome cheat_decode_status(int const status) {
 	case CHEAT_OFFSET + 2:
 		return CHEAT_CRASHED;
 	case CHEAT_OFFSET + 3:
-		return CHEAT_IGNORED;
+		return CHEAT_TIMED_OUT;
 	case CHEAT_OFFSET + 4:
+		return CHEAT_IGNORED;
+	case CHEAT_OFFSET + 5:
 		return CHEAT_SKIPPED;
 	default:
 		return CHEAT_CRASHED;
@@ -741,6 +753,7 @@ static void cheat_handle_outcome(struct cheat_suite* const suite) {
 		break;
 	case CHEAT_EXITED:
 	case CHEAT_CRASHED:
+	case CHEAT_TIMED_OUT:
 		++suite->tests.run;
 		++suite->tests.failed;
 		break;
@@ -871,29 +884,37 @@ Prints the outcome of a single test or
 __attribute__ ((__io__, __nonnull__))
 static void cheat_print_outcome(struct cheat_suite const* const suite) {
 	bool print_bar;
-	char const* success;
-	char const* failure;
-	char const* ignored;
+	char const* successful;
+	char const* failed;
+	char const* exited;
 	char const* crashed;
+	char const* timed_out;
+	char const* ignored;
 
 	switch (suite->style) {
 	case CHEAT_PLAIN:
 		print_bar = true;
-		success = ".";
-		failure = ":";
-		ignored = "?";
+		successful = ".";
+		failed = ":";
+		exited = "!";
 		crashed = "!";
+		timed_out = "!";
+		ignored = "?";
 		break;
 	case CHEAT_COLORFUL:
 		print_bar = true;
-		success = CHEAT_BACKGROUND_GREEN
+		successful = CHEAT_BACKGROUND_GREEN
 			"." CHEAT_RESET;
-		failure = CHEAT_BACKGROUND_RED
+		failed = CHEAT_BACKGROUND_RED
 			":" CHEAT_RESET;
-		ignored = CHEAT_BACKGROUND_YELLOW
-			"?" CHEAT_RESET;
+		exited = CHEAT_BACKGROUND_RED
+			"!" CHEAT_RESET;
 		crashed = CHEAT_BACKGROUND_RED
 			"!" CHEAT_RESET;
+		timed_out = CHEAT_BACKGROUND_YELLOW
+			"!" CHEAT_RESET;
+		ignored = CHEAT_BACKGROUND_YELLOW
+			"?" CHEAT_RESET;
 		break;
 	case CHEAT_MINIMAL:
 		print_bar = false;
@@ -905,14 +926,19 @@ static void cheat_print_outcome(struct cheat_suite const* const suite) {
 	if (print_bar) {
 		switch (suite->outcome) {
 		case CHEAT_SUCCESSFUL:
-			(void )fputs(success, stdout);
+			(void )fputs(successful, stdout);
 			break;
 		case CHEAT_FAILED:
-			(void )fputs(failure, stdout);
+			(void )fputs(failed, stdout);
 			break;
 		case CHEAT_EXITED:
+			(void )fputs(exited, stdout);
+			break;
 		case CHEAT_CRASHED:
 			(void )fputs(crashed, stdout);
+			break;
+		case CHEAT_TIMED_OUT:
+			(void )fputs(timed_out, stdout);
 			break;
 		case CHEAT_IGNORED:
 			(void )fputs(ignored, stdout);
@@ -1383,8 +1409,9 @@ hell:
 	pid_t pid;
 	struct cheat_channel channels[3];
 	size_t channel_count;
-	int fds[2];
 	size_t index;
+	int fds[2];
+	bool due;
 	int status;
 
 	channel_count = sizeof channels / sizeof *channels;
@@ -1444,9 +1471,11 @@ hell:
 		if (close(channels[index].writer) == -1)
 			cheat_death("failed to close the write end of a pipe", errno);
 
+	due = false;
 	do {
-		fd_set set;
 		int maximum;
+		fd_set set;
+		struct timeval limit;
 		int result;
 
 		FD_ZERO(&set);
@@ -1462,13 +1491,17 @@ hell:
 			if (channels[index].reader > maximum)
 				maximum = channels[index].reader;
 
-		result = select(maximum + 1, &set, NULL, NULL, NULL);
+		limit.tv_sec = CHEAT_TIME / 1000;
+		limit.tv_usec = CHEAT_TIME % 1000;
+
+		result = select(maximum + 1, &set, NULL, NULL, &limit);
 
 		if (result == -1)
 			cheat_death("failed to select a pipe", errno);
-		else if (result == 0) /* This is not used. */
-			cheat_death("reached a time limit", 0);
-		else {
+		else if (result == 0) {
+			due = true;
+			break; /* TODO Make sense of this control flow. */
+		} else {
 			char buffer[BUFSIZ];
 			ssize_t size;
 
@@ -1499,13 +1532,19 @@ hell:
 		if (close(channels[index].reader) == -1)
 			cheat_death("failed to close the read end of a pipe", errno);
 
-	if (waitpid(pid, &status, 0) == -1)
-		cheat_death("failed to wait for a process", errno);
+	if (due) {
+		if (kill(pid, SIGKILL) == -1) /* TODO Possible race?
+			cheat_death("failed to terminate a process", errno) */;
+		suite->outcome = CHEAT_TIMED_OUT;
+	} else {
+		if (waitpid(pid, &status, 0) == -1)
+			cheat_death("failed to wait for a process", errno);
 
-	if (WIFEXITED(status))
-		suite->outcome = cheat_decode_status(WEXITSTATUS(status));
-	else
-		suite->outcome = CHEAT_CRASHED;
+		if (WIFEXITED(status))
+			suite->outcome = cheat_decode_status(WEXITSTATUS(status));
+		else
+			suite->outcome = CHEAT_CRASHED;
+	}
 
 #else
 
