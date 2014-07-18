@@ -1,3 +1,5 @@
+#define CHEAT_TIME 500
+
 #include <cheat.h>
 
 #ifdef _WIN32
@@ -23,5 +25,5 @@ CHEAT_DECLARE(
 #endif
 
 CHEAT_TEST(sleep,
-	sleep(3); /* This could be an infinite loop. */
+	sleep(1); /* This could be an infinite loop. */
 )

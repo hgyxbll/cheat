@@ -119,6 +119,9 @@ Additionally the `-d` for `--dangerous` option provides some stability by
  most likely leading to undefined behavior.
 Luckily undefined behavior is often defined enough behavior.
 
+The incomplete `-t` for `--timed` and
+ `-e` for `--eternal` allow controlling isolated tests that get stuck.
+
 The results are reported in a format similar to
  what many popular C compilers produce.
 As an added bonus the `-c` for `--colorful` option makes everything colorful,

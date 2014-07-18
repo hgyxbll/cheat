@@ -294,6 +294,9 @@ struct cheat_suite {
 	struct cheat_string_array arguments; /* The arguments passed to
 			the entry point (changes for each execution). */
 
+	bool timed; /* Whether tests that
+			take too long are terminated (changes for each execution). */
+
 	enum cheat_harness harness; /* The security measures to
 			use (changes for each execution). */
 
@@ -649,6 +652,8 @@ static void cheat_initialize(struct cheat_suite* const suite) {
 	suite->program = NULL;
 	cheat_initialize_string_array(&suite->arguments);
 
+	suite->timed = true;
+
 	suite->harness = CHEAT_UNSAFE;
 
 	suite->style = CHEAT_PLAIN;
@@ -658,13 +663,13 @@ static void cheat_initialize(struct cheat_suite* const suite) {
 	suite->test_name = NULL;
 	suite->outcome = CHEAT_SUCCESSFUL;
 
+	suite->message_stream = NULL;
+
 	cheat_initialize_character_array_list(&suite->messages);
 	cheat_initialize_character_array_list(&suite->outputs);
 	cheat_initialize_character_array_list(&suite->errors);
 
 	/* Do not touch suite->environment either. */
-
-	suite->message_stream = NULL;
 }
 
 /*
@@ -697,14 +702,14 @@ Copies a message in
  the form of a character array to
  the message list of a test suite.
 */
-__attribute__ ((__nonnull__))
+__attribute__ ((__nonnull__ (1)))
 static void cheat_append_character_array(
 		struct cheat_character_array_list* const list,
 		char const* const buffer, size_t const size) {
 	size_t count;
 	char* elements;
 
-	if (size == 0)
+	if (buffer == NULL || size == 0)
 		return;
 
 	if (list->count == SIZE_MAX)
@@ -837,6 +842,7 @@ Usage: \
 Options: -c  --colorful   Use ISO/IEC 6429 escape codes to color reports\n\
          -d  --dangerous  Pretend that crashing tests do\n\
                           not raise signals and cause undefined behavior\n\
+         -e  --eternal    Allow isolated tests to take their time\n\
          -h  --help       Show this help\n\
          -l  --list       List test cases\n\
 ", stdout); /* String literals must not exceed CHEAT_LIMIT. */
@@ -845,6 +851,7 @@ Options: -c  --colorful   Use ISO/IEC 6429 escape codes to color reports\n\
                           and tests run in a machine readable format\n\
          -p  --plain      Present reports in plain text\n\
          -s  --safe       Run tests in isolated subprocesses\n\
+         -t  --timed      Terminate isolated tests that take too long\n\
          -u  --unsafe     Let crashing tests bring down the whole suite\n\
 ", stdout);
 }
@@ -1479,7 +1486,7 @@ hell:
 	do {
 		int maximum;
 		fd_set set;
-		struct timeval limit;
+		struct timeval time;
 		int result;
 
 		FD_ZERO(&set);
@@ -1495,10 +1502,13 @@ hell:
 			if (channels[index].reader > maximum)
 				maximum = channels[index].reader;
 
-		limit.tv_sec = CHEAT_TIME / 1000;
-		limit.tv_usec = CHEAT_TIME % 1000;
+		if (suite->timed) {
+			time.tv_sec = CHEAT_TIME / 1000;
+			time.tv_usec = CHEAT_TIME % 1000;
 
-		result = select(maximum + 1, &set, NULL, NULL, &limit);
+			result = select(maximum + 1, &set, NULL, NULL, &time);
+		} else
+			result = select(maximum + 1, &set, NULL, NULL, NULL);
 
 		if (result == -1)
 			cheat_death("failed to select a pipe", errno);
@@ -1567,11 +1577,13 @@ __attribute__ ((__io__, __nonnull__))
 static void cheat_parse(struct cheat_suite* const suite) {
 	bool colorful;
 	bool dangerous;
+	bool eternal;
 	bool help;
 	bool list;
 	bool minimal;
 	bool plain;
 	bool safe;
+	bool timed;
 	bool unsafe;
 	size_t names;
 	char const* name;
@@ -1581,11 +1593,13 @@ static void cheat_parse(struct cheat_suite* const suite) {
 
 	colorful = false;
 	dangerous = false;
+	eternal = false;
 	help = false;
 	list = false;
 	minimal = false;
 	plain = false;
 	safe = false;
+	timed = false;
 	unsafe = false;
 	names = 0;
 	options = true;
@@ -1605,6 +1619,9 @@ static void cheat_parse(struct cheat_suite* const suite) {
 			else if (strcmp(argument, "-d") == 0
 					|| strcmp(argument, "--dangerous") == 0)
 				dangerous = true;
+			else if (strcmp(argument, "-e") == 0
+					|| strcmp(argument, "--eternal") == 0)
+				eternal = true;
 			else if (strcmp(argument, "-h") == 0
 					|| strcmp(argument, "--help") == 0)
 				help = true;
@@ -1620,6 +1637,9 @@ static void cheat_parse(struct cheat_suite* const suite) {
 			else if (strcmp(argument, "-s") == 0
 					|| strcmp(argument, "--safe") == 0)
 				safe = true;
+			else if (strcmp(argument, "-t") == 0
+					|| strcmp(argument, "--timed") == 0)
+				timed = true;
 			else if (strcmp(argument, "-u") == 0
 					|| strcmp(argument, "--unsafe") == 0)
 				unsafe = true;
@@ -1643,10 +1663,10 @@ static void cheat_parse(struct cheat_suite* const suite) {
 	}
 
 	if (help /* No running options for help. */
-			&& !(dangerous || list || safe || unsafe)) {
+			&& !(dangerous || eternal || list || safe || timed || unsafe)) {
 		cheat_print_usage(suite);
 	} else if (list /* No running options for list either. */
-			&& !(dangerous || help || safe || unsafe)) {
+			&& !(dangerous || eternal || help || safe || timed || unsafe)) {
 		cheat_print_tests(suite);
 	} else if (!(help || list) /* No conflicting running options. */
 			&& !(colorful && minimal)
@@ -1654,19 +1674,24 @@ static void cheat_parse(struct cheat_suite* const suite) {
 			&& !(minimal && plain)
 			&& !(dangerous && safe)
 			&& !(dangerous && unsafe)
-			&& !(safe && unsafe)) {
+			&& !(safe && unsafe)
+			&& !(eternal && timed)) {
 		if (colorful)
 			suite->style = CHEAT_COLORFUL;
+		if (dangerous)
+			suite->harness = CHEAT_DANGEROUS;
+		if (eternal)
+			suite->timed = false;
 		if (minimal)
 			suite->style = CHEAT_MINIMAL;
 		if (plain)
 			suite->style = CHEAT_PLAIN;
 		if (safe)
 			suite->harness = CHEAT_SAFE;
+		if (timed)
+			suite->timed = true;
 		if (unsafe)
 			suite->harness = CHEAT_UNSAFE;
-		if (dangerous)
-			suite->harness = CHEAT_DANGEROUS;
 		if (test) {
 			struct cheat_unit const* unit;
 
@@ -2039,11 +2064,11 @@ static struct cheat_unit const cheat_units[] = {
 		CHEAT_TERMINATOR,
 		NULL
 	} /* This terminator exists to avoid
-		the problems some compilers have with
-		trailing commas or arrays with zero size, but
-		also helps avoid having to
-		extend the test suite with the unit count, which
-		has to be qualified const. */
+			the problems some compilers have with
+			trailing commas or arrays with zero size, but
+			also helps avoid having to
+			extend the test suite with the unit count, which
+			has to be qualified const. */
 };
 
 #undef CHEAT_TEST
@@ -2084,8 +2109,8 @@ static struct cheat_unit const cheat_units[] = {
 		return; \
 		{ \
 			__VA_ARGS__ /* This ensures that \
-				the test is checked by the compiler even \
-				if it is optimized out afterwards. */ \
+					the test is checked by the compiler even \
+					if it is optimized out afterwards. */ \
 		} \
 	}
 
