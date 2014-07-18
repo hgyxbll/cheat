@@ -400,31 +400,34 @@ static size_t cheat_format_specifiers(char const* const format) {
 
 /*
 Safely allocates memory for
- a block of size (size + ... + 0) and
+ a block of certain size and
  returns a pointer to the allocated region or
  returns NULL and sets errno in case of a failure.
 */
 __attribute__ ((__malloc__, __warn_unused_result__))
-static void* cheat_allocate(size_t const size, ...) {
-	size_t total_size;
+static void* cheat_allocate(size_t const count, ...) {
 	va_list list;
+	size_t size;
+	size_t index;
 
-	total_size = size;
-	va_start(list, size);
-	do {
-		size_t another_size;
+	va_start(list, count);
+	size = 0;
+	for (index = 0;
+			index < count;
+			++index) {
+		size_t argument;
 
-		another_size = va_arg(list, size_t);
-		if (another_size == 0)
-			break;
-
-		if (total_size > SIZE_MAX - another_size)
+		argument = va_arg(list, size_t);
+		if (size > SIZE_MAX - argument) {
+			va_end(list);
 			return NULL;
-		total_size += another_size;
-	} while (true);
+		}
+
+		size += argument;
+	}
 	va_end(list);
 
-	return malloc(total_size);
+	return malloc(size);
 }
 
 /*
@@ -513,7 +516,7 @@ Prints a formatted string into a string or
  fails safely in case the amount of conversion specifiers in
  the format string does not match the expected count.
 */
-__attribute__ ((__format__ (__printf__, 1, 4), __nonnull__ (1), __pure__))
+__attribute__ ((__format__ (__printf__, 1, 4), __nonnull__ (1)))
 static int cheat_print_string(char const* const format,
 		char* const destination,
 		size_t const count, ...) {
@@ -1159,8 +1162,9 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 		switch (suite->harness) {
 		case CHEAT_UNSAFE:
 		case CHEAT_DANGEROUS:
-			buffer = CHEAT_CAST(char*) cheat_allocate(strlen(assertion_format),
-				strlen(file), CHEAT_LENGTH(line), strlen(expression), 0);
+			buffer = CHEAT_CAST(char*) cheat_allocate(5,
+					strlen(assertion_format), strlen(file), CHEAT_LENGTH(line),
+					strlen(suite->test_name), strlen(assertion));
 			if (buffer == NULL)
 				cheat_death("failed to allocate memory", errno);
 
@@ -1288,8 +1292,8 @@ static void cheat_run_isolated_test(
 
 	id = GetCurrentProcessId();
 
-	name = CHEAT_CAST(LPTSTR) cheat_allocate(strlen(CHEAT_PREFIX),
-			CHEAT_LENGTH(id), 1, 0);
+	name = CHEAT_CAST(LPTSTR) cheat_allocate(2,
+			strlen(CHEAT_PREFIX), CHEAT_LENGTH(id), 1);
 	if (name == NULL)
 		cheat_death("failed to allocate memory", errno);
 	(void )cheat_print_string("%s%d", name, 2, CHEAT_PREFIX, 0 /* id */);
@@ -1324,7 +1328,7 @@ static void cheat_run_isolated_test(
 
 	command_length = strlen(GetCommandLine());
 	name_length = strlen(test->name);
-	command = cheat_allocate(command_length + 1, name_length + 1, 0);
+	command = cheat_allocate(2, command_length + 1, name_length + 1);
 	if (command == NULL)
 		cheat_death("failed to allocate memory", errno);
 	memcpy(command, GetCommandLine(), command_length);
