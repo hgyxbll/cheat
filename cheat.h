@@ -220,7 +220,7 @@ For example POSIX allows
 Isolated tests that take too long to send data are terminated.
 */
 #ifndef CHEAT_TIME
-#define CHEAT_TIME 1000 /* This is in milliseconds. */
+#define CHEAT_TIME 2000 /* This is in milliseconds. */
 #endif
 
 /*
