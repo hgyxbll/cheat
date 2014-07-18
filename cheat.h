@@ -14,11 +14,8 @@ The full license can be found in the LICENSE file.
 #endif
 
 /*
-Identifiers starting with
- CHEAT_ and cheat_ are
- reserved for internal use and
- identifiers starting with
- cheat_test_ and cheat_wrapped_ for external use.
+Identifiers starting with CHEAT_ and cheat_ are reserved for internal use and
+ identifiers starting with cheat_test_ and cheat_wrapped_ for external use.
 */
 
 #ifndef __STDC_VERSION__
@@ -26,8 +23,7 @@ Identifiers starting with
 #endif
 
 /*
-This disables GNU extensions when
- using compilers that do not support them.
+This disables GNU extensions for compilers that do not support them.
 */
 #if __GNUC__ >= 4
 #define __io__ __cold__ /* This is informational. */
@@ -79,7 +75,7 @@ These are needed to print size types.
 	(size)
 
 /*
-This is used to truncate too long string literals.
+This is used to detect too long string literals.
 */
 #define CHEAT_LIMIT ((size_t )4095)
 
@@ -148,10 +144,35 @@ These are ISO/IEC 6429 escape sequences for
 #define CHEAT_BACKGROUND_GRAY "\x1b[47;1m"
 
 /*
-Computes an upper bound for string length of an unsigned integer type.
+Test outcomes are reported through exit codes, but
+ some of them are reserved for the operating system, so
+ this is needed to move them out of the way.
+For example POSIX allows
+  0 ... 255
+ and in that range Windows allows
+  35, 37, 40 ... 49, 73 ... 79, 81, 90 ... 99, 115 ... 116, 163, 165 ... 166,
+  168 ... 169, 171 ... 172, 175 ... 179, 181, 184 ... 185, 204, 211, 213,
+  217 ... 229, 235 ... 239 and 241 ... 253
+ of which long enough are
+  40 ... 49 (9), 73 ... 79 (6), 90 ... 99 (9), 217 ... 229 (12) and
+  241 ... 253 (12).
+*/
+#ifndef CHEAT_OFFSET /* This can be set externally. */
+#define CHEAT_OFFSET ((int )40)
+#endif
+
+/*
+Isolated tests that take too long to send data are terminated after this time.
+*/
+#ifndef CHEAT_TIME
+#define CHEAT_TIME 2000 /* This is in milliseconds. */
+#endif
+
+/*
+This computes an upper bound for the string length of an unsigned integer type.
 */
 #define CHEAT_LENGTH(type) \
-	(CHAR_BIT * sizeof type / 3 + 1) /* This is an upper bound for
+	(CHAR_BIT * sizeof type / 3 + 1) /* This is derived from
 		the base 2 logarithm of 10. */
 
 /*
@@ -199,31 +220,6 @@ enum cheat_outcome {
 };
 
 /*
-Test outcomes are reported through exit codes, but
- some of them are reserved for the operating system, so
- this is needed to move them out of the way.
-For example POSIX allows
-  0 ... 255
- and in that range Windows allows
-  35, 37, 40 ... 49, 73 ... 79, 81, 90 ... 99, 115 ... 116, 163, 165 ... 166,
-  168 ... 169, 171 ... 172, 175 ... 179, 181, 184 ... 185, 204, 211, 213,
-  217 ... 229, 235 ... 239 and 241 ... 253
- of which long enough are
-  40 ... 49 (9), 73 ... 79 (6), 90 ... 99 (9), 217 ... 229 (12) and
-  241 ... 253 (12).
-*/
-#ifndef CHEAT_OFFSET /* This can be set externally. */
-#define CHEAT_OFFSET ((int )40)
-#endif
-
-/*
-Isolated tests that take too long to send data are terminated.
-*/
-#ifndef CHEAT_TIME
-#define CHEAT_TIME 2000 /* This is in milliseconds. */
-#endif
-
-/*
 These could be defined as function types instead of function pointer types, but
  that would be inconsistent with the standard library and
  confuse some old compilers.
@@ -239,13 +235,9 @@ It would not hurt to have
 */
 
 struct cheat_unit {
-	char const* name; /* Tests have names that are used to
-			generate identifiers and report test results. */
-
-	enum cheat_type const type; /* Whether the procedure is a test or
-			a set up or tear down utility procedure. */
-
-	cheat_procedure const procedure; /* A pointer to the procedure. */
+	char const* name;
+	enum cheat_type const type;
+	cheat_procedure const procedure;
 };
 
 /*
@@ -255,17 +247,14 @@ This naming convention follows the notion that
  arrays of structures have counts and
  arrays of primitive types have sizes.
 */
-
 struct cheat_string_array {
 	size_t count;
 	char** elements;
 };
-
 struct cheat_character_array {
 	size_t size;
 	char* elements;
 };
-
 struct cheat_character_array_list {
 	size_t count;
 	size_t capacity;
@@ -276,7 +265,7 @@ struct cheat_statistics {
 	size_t run; /* This includes tests that are ignored, but
 			not tests that are skipped. */
 	size_t successful; /* This includes tests that did nothing. */
-	size_t failed; /* This includes tests that crashed. */
+	size_t failed; /* This includes tests that exited, crashed or timed out. */
 };
 
 struct cheat_suite {
@@ -284,7 +273,7 @@ struct cheat_suite {
 			utility procedures (changes for each compilation). */
 
 	size_t assertion_length; /* The maximum length of an assertion to
-			use in a message (changes for each compilation). */
+			write into a message (changes for each compilation). */
 
 	cheat_handler handler; /* The procedure to handle the recovery from
 			a fatal signal (changes for each compilation). */
@@ -294,8 +283,8 @@ struct cheat_suite {
 	struct cheat_string_array arguments; /* The arguments passed to
 			the entry point (changes for each execution). */
 
-	bool timed; /* Whether tests that
-			take too long are terminated (changes for each execution). */
+	bool timed; /* Whether tests that do not send messages within
+			a time limit are terminated (changes for each execution). */
 
 	enum cheat_harness harness; /* The security measures to
 			use (changes for each execution). */
@@ -304,7 +293,7 @@ struct cheat_suite {
 			print messages (changes for each execution). */
 
 	struct cheat_statistics tests; /* The totals of
-			different test outcomes (changes for each test). */
+			various test outcomes (changes for each test). */
 
 	char const* test_name; /* The name of
 			the most recently run test (changes for each test). */
@@ -335,6 +324,11 @@ struct cheat_channel {
 };
 
 #endif
+
+/*
+Procedures are ordered from more pure and general to
+ more effectful and domain specific.
+*/
 
 /*
 Finds the minimum of two sizes and
@@ -1662,6 +1656,7 @@ static void cheat_parse(struct cheat_suite* const suite) {
 		cheat_death("too many test options", names);
 	}
 
+	/* TODO Conflict of -t and -u. */
 	if (help /* No running options for help. */
 			&& !(dangerous || eternal || list || safe || timed || unsafe)) {
 		cheat_print_usage(suite);
@@ -1781,7 +1776,7 @@ This global test suite contains a pointer to the test units instead of
 static struct cheat_suite cheat_suite;
 
 /*
-This adds source information to assertions.
+Adds source information to assertions.
 */
 #define cheat_assert(expression) \
 	cheat_check(&cheat_suite, expression, #expression, __FILE__, __LINE__)
@@ -1928,13 +1923,23 @@ These are automatically generated with the command
 #define CHEAT_COMMAS_125(x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39, x40, x41, x42, x43, x44, x45, x46, x47, x48, x49, x50, x51, x52, x53, x54, x55, x56, x57, x58, x59, x60, x61, x62, x63, x64, x65, x66, x67, x68, x69, x70, x71, x72, x73, x74, x75, x76, x77, x78, x79, x80, x81, x82, x83, x84, x85, x86, x87, x88, x89, x90, x91, x92, x93, x94, x95, x96, x97, x98, x99, x100, x101, x102, x103, x104, x105, x106, x107, x108, x109, x110, x111, x112, x113, x114, x115, x116, x117, x118, x119, x120, x121, x122, x123, x124, x125, x126) x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39, x40, x41, x42, x43, x44, x45, x46, x47, x48, x49, x50, x51, x52, x53, x54, x55, x56, x57, x58, x59, x60, x61, x62, x63, x64, x65, x66, x67, x68, x69, x70, x71, x72, x73, x74, x75, x76, x77, x78, x79, x80, x81, x82, x83, x84, x85, x86, x87, x88, x89, x90, x91, x92, x93, x94, x95, x96, x97, x98, x99, x100, x101, x102, x103, x104, x105, x106, x107, x108, x109, x110, x111, x112, x113, x114, x115, x116, x117, x118, x119, x120, x121, x122, x123, x124, x125, x126
 #define CHEAT_COMMAS_126(x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39, x40, x41, x42, x43, x44, x45, x46, x47, x48, x49, x50, x51, x52, x53, x54, x55, x56, x57, x58, x59, x60, x61, x62, x63, x64, x65, x66, x67, x68, x69, x70, x71, x72, x73, x74, x75, x76, x77, x78, x79, x80, x81, x82, x83, x84, x85, x86, x87, x88, x89, x90, x91, x92, x93, x94, x95, x96, x97, x98, x99, x100, x101, x102, x103, x104, x105, x106, x107, x108, x109, x110, x111, x112, x113, x114, x115, x116, x117, x118, x119, x120, x121, x122, x123, x124, x125, x126, x127) x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39, x40, x41, x42, x43, x44, x45, x46, x47, x48, x49, x50, x51, x52, x53, x54, x55, x56, x57, x58, x59, x60, x61, x62, x63, x64, x65, x66, x67, x68, x69, x70, x71, x72, x73, x74, x75, x76, x77, x78, x79, x80, x81, x82, x83, x84, x85, x86, x87, x88, x89, x90, x91, x92, x93, x94, x95, x96, x97, x98, x99, x100, x101, x102, x103, x104, x105, x106, x107, x108, x109, x110, x111, x112, x113, x114, x115, x116, x117, x118, x119, x120, x121, x122, x123, x124, x125, x126, x127
 
+/*
+These determine the reserved names.
+*/
+
+#define CHEAT_WRAP(name) \
+	(cheat_wrapped_##name)
+
 #define CHEAT_GET(name) \
 	(cheat_test_##name)
 
 #define CHEAT_CALL(name) \
 	(CHEAT_GET(name)())
 
-#define CHEAT_PASS 1 /* This is not used internally. */
+/*
+This pass declare the prototypes of test and utility procedures.
+*/
+#define CHEAT_PASS 1 /* This is informational. */
 
 #if __STDC_VERSION__ >= 199901L
 
@@ -1991,6 +1996,9 @@ These variations eliminate the comma problem.
 
 #undef CHEAT_PASS
 
+/*
+This pass generates a list of the previously declared procedures.
+*/
 #define CHEAT_PASS 2
 
 #if __STDC_VERSION__ >= 199901L
@@ -2068,7 +2076,7 @@ static struct cheat_unit const cheat_units[] = {
 			trailing commas or arrays with zero size, but
 			also helps avoid having to
 			extend the test suite with the unit count, which
-			has to be qualified const. */
+			would have to be qualified const. */
 };
 
 #undef CHEAT_TEST
@@ -2080,6 +2088,9 @@ static struct cheat_unit const cheat_units[] = {
 
 #undef CHEAT_PASS
 
+/*
+This pass defines and wraps up the previously listed procedures.
+*/
 #define CHEAT_PASS 3
 
 #if __STDC_VERSION__ >= 199901L
@@ -2231,51 +2242,45 @@ int main(int const count, char** const arguments) {
 }
 
 /*
-These are a "best effort" attempt to
- manage process termination.
-Some libraries and system calls can still exit, but
+These are a "best effort" attempt to manage process termination
+ and stream capturing without process isolation.
+Some libraries and system calls can still exit or print things, but
  that is a problem for the user to solve.
 */
 
+#ifdef FUCK /* This breaks everything; do not define it. */
+
 __attribute__ ((__unused__))
-static void cheat_wrapped_exit(int const status) {
+static void CHEAT_WRAP(exit)(int const status) {
 	cheat_exit(&cheat_suite, exit);
 }
 
-#define exit cheat_wrapped_exit
+#define exit CHEAT_WRAP(exit)
 
 #if __STDC_VERSION__ >= 199901L
 
 __attribute__ ((__unused__))
-static void cheat_wrapped__Exit(int const status) {
+static void CHEAT_WRAP(_Exit)(int const status) {
 	cheat_exit(&cheat_suite, _Exit);
 }
 
-#define _exit cheat_wrapped__Exit
+#define _exit CHEAT_WRAP(_Exit)
 
 #endif
 
 #if _POSIX_C_SOURCE >= 198809L
 
 __attribute__ ((__unused__))
-static void cheat_wrapped__exit(int const status) {
+static void CHEAT_WRAP(_exit)(int const status) {
 	cheat_exit(&cheat_suite, _exit);
 }
 
-#define _Exit cheat_wrapped__exit
+#define _Exit CHEAT_WRAP(_exit)
 
 #endif
 
-/*
-These are similarly used to
- hide streams that might interfere with messages when
- stream capturing is disabled.
-*/
-
-#ifdef FUCK
-
 __attribute__ ((__unused__))
-static int cheat_wrapped_vfprintf(FILE* const stream,
+static int CHEAT_WRAP(vfprintf)(FILE* const stream,
 		char const* const format, va_list list) {
 	if (cheat_hide(&cheat_suite, stream)) {
 
@@ -2322,97 +2327,61 @@ static int cheat_wrapped_vfprintf(FILE* const stream,
 	return vfprintf(stream, format, list);
 }
 
-/*
-Nothing interesting happens after this line.
-*/
+#define vfprintf CHEAT_WRAP(vfprintf)
 
 __attribute__ ((__unused__))
-static int cheat_wrapped_vprintf(char const* const format, va_list list) {
-	return cheat_wrapped_vfprintf(stdout, format, list);
+static int CHEAT_WRAP(vprintf)(char const* const format, va_list list) {
+	return CHEAT_WRAP(vfprintf)(stdout, format, list);
 }
 
+#define vprintf CHEAT_WRAP(vprintf)
+
 __attribute__ ((__unused__))
-static int cheat_wrapped_fprintf(FILE* const stream,
+static int CHEAT_WRAP(fprintf)(FILE* const stream,
 		char const* const format, ...) {
 	va_list list;
 	int result;
 
 	va_start(list, format);
-	result = cheat_wrapped_vfprintf(stream, format, list);
+	result = CHEAT_WRAP(vfprintf)(stream, format, list);
 	va_end(list);
 	return result;
 }
 
+#define fprintf CHEAT_WRAP(fprintf)
+
 __attribute__ ((__unused__))
-static int cheat_wrapped_printf(char const* const format, ...) {
+static int CHEAT_WRAP(printf)(char const* const format, ...) {
 	va_list list;
 	int result;
 
 	va_start(list, format);
-	result = cheat_wrapped_vprintf(format, list);
+	result = CHEAT_WRAP(vprintf)(format, list);
 	va_end(list);
 	return result;
 }
 
+#define printf CHEAT_WRAP(printf)
+
 __attribute__ ((__unused__))
-static int cheat_wrapped_fputs(char const* const message, FILE* const stream) {
+static int CHEAT_WRAP(fputs)(char const* const message, FILE* const stream) {
 	if (cheat_hide(&cheat_suite, stream))
 		return 0;
 
 	return fputs(message, stream);
 }
 
+#define fputs CHEAT_WRAP(fputs)
+
 __attribute__ ((__unused__))
-static int cheat_wrapped_fputc(int const character, FILE* const stream) {
+static int CHEAT_WRAP(fputc)(int const character, FILE* const stream) {
 	if (cheat_hide(&cheat_suite, stream))
 		return (int )(unsigned char )character;
 
 	return fputc(character, stream);
 }
 
-__attribute__ ((__unused__))
-static int cheat_wrapped_putc(int const character, FILE* const stream) {
-	return cheat_wrapped_fputc(character, stream);
-}
-
-__attribute__ ((__unused__))
-static int cheat_wrapped_putchar(int const character) {
-	return cheat_wrapped_putc(character, stdout);
-}
-
-__attribute__ ((__unused__))
-static int cheat_wrapped_puts(char const* const message) {
-	if (cheat_wrapped_fputs(message, stdout) == EOF
-			|| cheat_wrapped_putchar('\n') == EOF)
-		return EOF;
-
-	return 0;
-}
-
-__attribute__ ((__unused__))
-static size_t cheat_wrapped_fwrite(void const* const pointer,
-		size_t const size, size_t const count, FILE* const stream) {
-	if (cheat_hide(&cheat_suite, stream))
-		return count;
-
-	return fwrite(pointer, size, count, stream);
-}
-
-__attribute__ ((__unused__))
-static int cheat_wrapped_fflush(FILE* const stream) {
-	if (cheat_hide(&cheat_suite, stream))
-		return 0;
-
-	return fflush(stream);
-}
-
-__attribute__ ((__unused__))
-static void cheat_wrapped_perror(char const* const message) {
-	if (cheat_hide(&cheat_suite, stderr))
-		return;
-
-	perror(message);
-}
+#define fputc CHEAT_WRAP(fputc)
 
 /*
 This is needed if putc() is defined as a preprocessor directive.
@@ -2421,23 +2390,66 @@ This is needed if putc() is defined as a preprocessor directive.
 #undef putc
 #endif
 
-#define vfprintf cheat_wrapped_vfprintf
-#define vprintf cheat_wrapped_vprintf
-#define fprintf cheat_wrapped_fprintf
-#define printf cheat_wrapped_printf
-#define fputs cheat_wrapped_fputs
-#define fputc cheat_wrapped_fputc
-#define putc cheat_wrapped_putc
-#define putchar cheat_wrapped_putchar
-#define puts cheat_wrapped_puts
-#define fwrite cheat_wrapped_fwrite
-#define fflush cheat_wrapped_fflush
-#define perror cheat_wrapped_perror
+__attribute__ ((__unused__))
+static int CHEAT_WRAP(putc)(int const character, FILE* const stream) {
+	return CHEAT_WRAP(fputc)(character, stream);
+}
+
+#define putc CHEAT_WRAP(putc)
+
+__attribute__ ((__unused__))
+static int CHEAT_WRAP(putchar)(int const character) {
+	return CHEAT_WRAP(putc)(character, stdout);
+}
+
+#define putchar CHEAT_WRAP(putchar)
+
+__attribute__ ((__unused__))
+static int CHEAT_WRAP(puts)(char const* const message) {
+	if (CHEAT_WRAP(fputs)(message, stdout) == EOF
+			|| CHEAT_WRAP(putchar)('\n') == EOF)
+		return EOF;
+
+	return 0;
+}
+
+#define puts CHEAT_WRAP(puts)
+
+__attribute__ ((__unused__))
+static size_t CHEAT_WRAP(fwrite)(void const* const pointer,
+		size_t const size, size_t const count, FILE* const stream) {
+	if (cheat_hide(&cheat_suite, stream))
+		return count;
+
+	return fwrite(pointer, size, count, stream);
+}
+
+#define fwrite CHEAT_WRAP(fwrite)
+
+__attribute__ ((__unused__))
+static int CHEAT_WRAP(fflush)(FILE* const stream) {
+	if (cheat_hide(&cheat_suite, stream))
+		return 0;
+
+	return fflush(stream);
+}
+
+#define fflush CHEAT_WRAP(fflush)
+
+__attribute__ ((__unused__))
+static void CHEAT_WRAP(perror)(char const* const message) {
+	if (cheat_hide(&cheat_suite, stderr))
+		return;
+
+	perror(message);
+}
+
+#define perror CHEAT_WRAP(perror)
 
 #if _POSIX_C_SOURCE >= 198809L
 
 __attribute__ ((__unused__))
-static ssize_t cheat_wrapped_write(int const fd,
+static ssize_t CHEAT_WRAP(write)(int const fd,
 		void const* const buffer, size_t const size) {
 	FILE* stream;
 
@@ -2448,7 +2460,7 @@ static ssize_t cheat_wrapped_write(int const fd,
 	return write(fd, buffer, size);
 }
 
-#define write cheat_wrapped_write
+#define write CHEAT_WRAP(write)
 
 #endif
 
