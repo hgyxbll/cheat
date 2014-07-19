@@ -124,24 +124,24 @@ These make preprocessor directives work like statements.
 These are ISO/IEC 6429 escape sequences for
  communicating text attributes to terminal emulators.
 */
-#define CHEAT_RESET "\x1b[0m"
-#define CHEAT_BOLD "\x1b[1m"
-#define CHEAT_FOREGROUND_GRAY "\x1b[30;1m"
-#define CHEAT_FOREGROUND_RED "\x1b[31;1m"
-#define CHEAT_FOREGROUND_GREEN "\x1b[32;1m"
-#define CHEAT_FOREGROUND_YELLOW "\x1b[33;1m"
-#define CHEAT_FOREGROUND_BLUE "\x1b[34;1m"
-#define CHEAT_FOREGROUND_MAGENTA "\x1b[35;1m"
-#define CHEAT_FOREGROUND_CYAN "\x1b[36;1m"
-#define CHEAT_FOREGROUND_WHITE "\x1b[37;1m"
-#define CHEAT_BACKGROUND_BLACK "\x1b[40;1m"
-#define CHEAT_BACKGROUND_RED "\x1b[41;1m"
-#define CHEAT_BACKGROUND_GREEN "\x1b[42;1m"
-#define CHEAT_BACKGROUND_YELLOW "\x1b[43;1m"
-#define CHEAT_BACKGROUND_BLUE "\x1b[44;1m"
-#define CHEAT_BACKGROUND_MAGENTA "\x1b[45;1m"
-#define CHEAT_BACKGROUND_CYAN "\x1b[46;1m"
-#define CHEAT_BACKGROUND_GRAY "\x1b[47;1m"
+#define CHEAT_RESET "\033[0m"
+#define CHEAT_BOLD "\033[1m"
+#define CHEAT_FOREGROUND_GRAY "\033[30;1m"
+#define CHEAT_FOREGROUND_RED "\033[31;1m"
+#define CHEAT_FOREGROUND_GREEN "\033[32;1m"
+#define CHEAT_FOREGROUND_YELLOW "\033[33;1m"
+#define CHEAT_FOREGROUND_BLUE "\033[34;1m"
+#define CHEAT_FOREGROUND_MAGENTA "\033[35;1m"
+#define CHEAT_FOREGROUND_CYAN "\033[36;1m"
+#define CHEAT_FOREGROUND_WHITE "\033[37;1m"
+#define CHEAT_BACKGROUND_BLACK "\033[40;1m"
+#define CHEAT_BACKGROUND_RED "\033[41;1m"
+#define CHEAT_BACKGROUND_GREEN "\033[42;1m"
+#define CHEAT_BACKGROUND_YELLOW "\033[43;1m"
+#define CHEAT_BACKGROUND_BLUE "\033[44;1m"
+#define CHEAT_BACKGROUND_MAGENTA "\033[45;1m"
+#define CHEAT_BACKGROUND_CYAN "\033[46;1m"
+#define CHEAT_BACKGROUND_GRAY "\033[47;1m"
 
 /*
 Test outcomes are reported through exit codes, but
@@ -440,35 +440,118 @@ __attribute__ ((__malloc__, __nonnull__, __warn_unused_result__))
 static char* cheat_allocate_truncated(char const* const literal,
 		size_t const length, char const* const marker) {
 	size_t literal_length;
-	size_t cut_length;
-	char* cut;
+	size_t result_length;
+	char* result;
 
 	literal_length = strlen(literal);
-	cut_length = cheat_minimum(length, CHEAT_LIMIT);
-	if (literal_length > cut_length) {
+	result_length = cheat_minimum(length, CHEAT_LIMIT);
+	if (literal_length > result_length) {
 		size_t marker_length;
 		size_t paste_length;
 
 		marker_length = strlen(marker);
-		if (marker_length > cut_length)
+		if (marker_length > result_length)
 			return NULL;
 
-		cut = CHEAT_CAST(char*) malloc(cut_length + 1);
-		if (cut == NULL)
+		result = CHEAT_CAST(char*) malloc(result_length + 1);
+		if (result == NULL)
 			return NULL;
 
-		paste_length = cut_length - marker_length;
-		memcpy(cut, literal, paste_length);
-		memcpy(&cut[paste_length], marker, marker_length + 1);
+		paste_length = result_length - marker_length;
+		memcpy(result, literal, paste_length);
+		memcpy(&result[paste_length], marker, marker_length + 1);
 	} else {
-		cut = CHEAT_CAST(char*) malloc(literal_length + 1);
-		if (cut == NULL)
+		result = CHEAT_CAST(char*) malloc(literal_length + 1);
+		if (result == NULL)
 			return NULL;
 
-		memcpy(cut, literal, literal_length + 1);
+		memcpy(result, literal, literal_length + 1);
 	}
 
-	return cut;
+	return result;
+}
+
+/* TODO Make use of the fun one. */
+
+/*
+This is a fun one.
+*/
+__attribute__ ((__nonnull__ (1, 2)))
+static size_t cheat_apply_stripped(char const* const literal,
+		void (* procedure)(char*, char const*, size_t), char* const argument) {
+	size_t out;
+	size_t in;
+
+	out = 0;
+	for (in = 0;
+			literal[in] != '\0';
+			++in) {
+		if (literal[in] == '\033')
+			if (literal[in + 1] == '[') {
+				size_t off;
+
+				for (off = 2;
+						literal[in + off] < '@' || literal[in + off] > '~';
+						++off) {
+					if (literal[in + off] == '\0') {
+						procedure(&argument[out], &literal[in], off);
+						out += off;
+
+						break;
+					}
+				}
+				in += off;
+
+				continue;
+			} else if (literal[in + 1] >= '@' && literal[in + 1] <= '_') {
+				++in;
+
+				continue;
+			}
+
+		procedure(&argument[out], &literal[in], 1);
+		++out;
+	}
+
+	procedure(&argument[out], &literal[in], 1);
+	return out;
+}
+
+/*
+Does not copy anything.
+*/
+__attribute__ ((__const__, __nonnull__))
+static void cheat_copy_nothing(char* const destination,
+		char const* const source, size_t const size) {}
+
+/*
+Copies a character array.
+*/
+__attribute__ ((__nonnull__))
+static void cheat_copy_disjoint(char* const destination,
+		char const* const source, size_t const size) {
+	(void )memcpy(CHEAT_CAST(char*) destination, CHEAT_CAST(char const*) source,
+			size);
+}
+
+/*
+Allocates a string with ISO/IEC 6429 escape sequences stripped out or
+ returns NULL and sets errno in case of a failure.
+*/
+__attribute__ ((__malloc__, __nonnull__, __warn_unused_result__))
+static char* cheat_allocate_stripped(char const* const literal) {
+	size_t length;
+	char* result;
+
+	length = cheat_apply_stripped(literal, cheat_copy_nothing, NULL);
+
+	result = CHEAT_CAST(char*) malloc(length + 1);
+	if (result == NULL)
+		return NULL;
+
+	(void )cheat_apply_stripped(literal, cheat_copy_disjoint, result);
+
+	return result;
 }
 
 /*
