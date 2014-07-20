@@ -6,6 +6,11 @@ All rights reserved.
 The full license can be found in the LICENSE file.
 */
 
+/*
+Identifiers starting with CHEAT_ and cheat_ are reserved for internal use and
+ identifiers starting with cheat_test_ and cheat_wrapped_ for external use.
+*/
+
 #ifndef CHEAT_H
 #define CHEAT_H
 
@@ -13,38 +18,36 @@ The full license can be found in the LICENSE file.
 	#error "the __BASE_FILE__ preprocessor directive is not defined"
 #endif
 
-/*
-Identifiers starting with CHEAT_ and cheat_ are reserved for internal use and
- identifiers starting with cheat_test_ and cheat_wrapped_ for external use.
-*/
-
 #ifndef __STDC_VERSION__
 #define __STDC_VERSION__ 198912L /* This refers to ANSI X3.159-1989. */
 #endif
 
-/*
-This disables GNU extensions for compilers that do not support them.
-*/
-#if __GNUC__ >= 4
-#define __io__ __cold__ /* This is informational. */
-#else
-#define __attribute__(_)
+#if __STDC_VERSION__ >= 199901L
+#define CHEAT_MODERN
+#define CHEAT_VARIADIC
+#endif
+
+#ifdef _WIN32
+#define CHEAT_WINDOWED
+#define CHEAT_SIZED
+#define CHEAT_VARIADIC
+#endif
+
+#if _POSIX_C_SOURCE >= 198809L
+#define CHEAT_POSIXLY
 #endif
 
 #ifdef __cplusplus
+#define CHEAT_POSTMODERN
+#define CHEAT_BOOLEAN
+#endif
 
+#if __GNUC__ >= 4
+#define CHEAT_GNUTIFUL
+#endif
+
+#ifdef CHEAT_POSTMODERN
 extern "C" {
-
-/*
-This is used to cast a void pointer to any other pointer type.
-*/
-#define CHEAT_CAST(type) \
-	(type )
-
-#else
-
-#define CHEAT_CAST(type)
-
 #endif
 
 /*
@@ -52,6 +55,7 @@ These headers are also
  available externally even though
  they do not need to be.
 */
+
 #include <errno.h> /* errno */
 #include <limits.h> /* INT_MAX */
 #include <setjmp.h> /* jmp_buf */
@@ -62,69 +66,89 @@ These headers are also
 #include <stdlib.h> /* EXIT_FAILURE, EXIT_SUCCESS */
 #include <string.h>
 
-#if __STDC_VERSION__ >= 199901L
-
+#ifndef CHEAT_BOOLEAN
+#ifdef CHEAT_MODERN
 #include <stdbool.h> /* bool, false, true */
-#include <stdint.h> /* SIZE_MAX */
-
-/*
-These are needed to print size types.
-*/
-#define CHEAT_SIZE_FORMAT "%zu"
-#define CHEAT_SIZE_TYPE(size) \
-	(size)
-
-/*
-This is used to detect too long string literals.
-*/
-#define CHEAT_LIMIT ((size_t )4095)
-
 #else
-
-#ifndef __cplusplus
 typedef int bool;
 #define false 0
 #define true (!false)
 #endif
+#endif
 
-#ifndef SIZE_MAX
+#ifndef CHEAT_SIZED
+#ifdef CHEAT_MODERN
+#include <stdint.h> /* SIZE_MAX */
+#else
 #define SIZE_MAX ((size_t )-1)
 #endif
-
-#define CHEAT_SIZE_FORMAT "%lu"
-#define CHEAT_SIZE_TYPE(size) \
-	((unsigned long int )(size))
-
-#define CHEAT_LIMIT ((size_t )509)
-
 #endif
 
-#ifdef _WIN32
+#ifdef CHEAT_WINDOWED
 #include <windows.h> /* spaghetti */
 #else
-#if _POSIX_C_SOURCE >= 198809L
+#ifdef CHEAT_POSIXLY
+#include <sys/time.h> /* fd_set */
 #include <sys/types.h> /* pid_t, ssize_t */
 #include <sys/wait.h>
 #include <unistd.h> /* STDERR_FILENO, STDOUT_FILENO */
-#if _POSIX_C_SOURCE >= 200112L
-#include <sys/select.h> /* fd_set */
+#endif
+#endif
+
+/*
+This is used to detect too long string literals.
+*/
+#ifdef CHEAT_WINDOWED
+#define CHEAT_LIMIT ((size_t )2047)
 #else
-#include <sys/time.h> /* fd_set */
+#ifdef CHEAT_MODERN
+#define CHEAT_LIMIT ((size_t )4095)
+#else
+#ifdef CHEAT_POSTMODERN
+#define CHEAT_LIMIT ((size_t )65535)
+#else
+#define CHEAT_LIMIT ((size_t )509)
 #endif
 #endif
 #endif
 
 /*
-These make preprocessor directives work like statements.
+This is needed to be able to cast a void pointer to any other pointer type.
 */
-#define CHEAT_BEGIN do {
-#define CHEAT_END } while (false)
+#ifdef CHEAT_POSTMODERN
+#define CHEAT_CAST(type) \
+	(type )
+#else
+#define CHEAT_CAST(type)
+#endif
+
+/*
+This disables GNU extensions for compilers that do not support them.
+*/
+#ifdef CHEAT_GNUTIFUL
+#define __io__ __cold__ /* This is informational. */
+#else
+#define __attribute__(_)
+#endif
+
+/*
+These are needed to print size types correctly.
+*/
+#ifdef CHEAT_MODERN
+#define CHEAT_SIZE_FORMAT "%zu"
+#define CHEAT_SIZE_TYPE(size) \
+	(size)
+#else
+#define CHEAT_SIZE_FORMAT "%lu"
+#define CHEAT_SIZE_TYPE(size) \
+	((unsigned long int )(size))
+#endif
 
 /*
 These are ISO/IEC 6429 escape sequences for
  communicating text attributes to terminal emulators.
 */
-#define CHEAT_RESET "\033[0m"
+#define CHEAT_RESET "\033[0m" /* Some compilers do not understand '\x1b'. */
 #define CHEAT_BOLD "\033[1m"
 #define CHEAT_FOREGROUND_GRAY "\033[30;1m"
 #define CHEAT_FOREGROUND_RED "\033[31;1m"
@@ -142,53 +166,6 @@ These are ISO/IEC 6429 escape sequences for
 #define CHEAT_BACKGROUND_MAGENTA "\033[45;1m"
 #define CHEAT_BACKGROUND_CYAN "\033[46;1m"
 #define CHEAT_BACKGROUND_GRAY "\033[47;1m"
-
-/*
-Test outcomes are reported through exit codes, but
- some of them are reserved for the operating system, so
- this is needed to move them out of the way.
-For example POSIX allows
-  0 ... 255
- and in that range Windows allows
-  35, 37, 40 ... 49, 73 ... 79, 81, 90 ... 99, 115 ... 116, 163, 165 ... 166,
-  168 ... 169, 171 ... 172, 175 ... 179, 181, 184 ... 185, 204, 211, 213,
-  217 ... 229, 235 ... 239 and 241 ... 253
- of which long enough are
-  40 ... 49 (9), 73 ... 79 (6), 90 ... 99 (9), 217 ... 229 (12) and
-  241 ... 253 (12).
-*/
-#ifndef CHEAT_OFFSET /* This can be set externally. */
-#define CHEAT_OFFSET ((int )40)
-#endif
-
-/*
-Isolated tests that take too long to send data are terminated after this time.
-*/
-#ifndef CHEAT_TIME
-#define CHEAT_TIME 2000 /* This is in milliseconds. */
-#endif
-
-/*
-This computes an upper bound for the string length of an unsigned integer type.
-*/
-#define CHEAT_LENGTH(type) \
-	(CHAR_BIT * sizeof type / 3 + 1) /* This is derived from
-		the base 2 logarithm of 10. */
-
-/*
-Prints an error message and
- terminates the program.
-The error number is context sensitive and
- might only contain the least significant bytes of the actual error code.
-*/
-#define cheat_death(message, number) \
-	CHEAT_BEGIN \
-		(void )fprintf(stderr, \
-				"%s:%d: %s (0x%x)\n", \
-				__FILE__, __LINE__, message, (unsigned int )number); \
-		exit(EXIT_FAILURE); \
-	CHEAT_END /* Using cheat_print(), cheat_exit() and
-		cheat_suite.quiet is intentionally avoided here. */
 
 enum cheat_type {
 	CHEAT_TESTER,
@@ -220,12 +197,68 @@ enum cheat_outcome {
 };
 
 /*
+Test outcomes are reported through exit codes, but
+ some of them are reserved for the operating system, so
+ this is needed to move them out of the way.
+For example POSIX allows
+  0 ... 255
+ and in that range Windows allows
+  35, 37, 40 ... 49, 73 ... 79, 81, 90 ... 99, 115 ... 116, 163, 165 ... 166,
+  168 ... 169, 171 ... 172, 175 ... 179, 181, 184 ... 185, 204, 211, 213,
+  217 ... 229, 235 ... 239 and 241 ... 253
+ of which long enough are
+  40 ... 49 (9), 90 ... 99 (9), 217 ... 229 (12) and 241 ... 253 (12).
+Therefore an
+  #ifdef
+ maze is not necessary.
+*/
+#ifndef CHEAT_OFFSET /* This can be set externally. */
+#define CHEAT_OFFSET ((int )40)
+#endif
+
+/*
+Isolated tests that take too long to send data are terminated after this time.
+*/
+#ifndef CHEAT_TIME
+#define CHEAT_TIME 2000 /* This is in milliseconds. */
+#endif
+
+/*
+These make preprocessor directives work like statements.
+*/
+#define CHEAT_BEGIN do {
+#define CHEAT_END } while (false)
+
+/*
+This computes an upper bound for the string length of an unsigned integer type.
+*/
+#define CHEAT_LENGTH(type) \
+	(CHAR_BIT * sizeof type / 3 + 1) /* This is derived from
+		the base 2 logarithm of 10. */
+
+/*
+Prints an error message and terminates the program.
+The error number is context sensitive and
+ might only contain the least significant bytes of the actual error code.
+*/
+#define cheat_death(message, number) \
+	CHEAT_BEGIN \
+		(void )fprintf(stderr, \
+				"%s:%d: %s (0x%x)\n", \
+				__FILE__, __LINE__, message, (unsigned int )number); \
+		exit(EXIT_FAILURE); \
+	CHEAT_END /* Using cheat_print(), cheat_exit() and
+		cheat_suite.quiet is intentionally avoided here. */
+
+/*
 These could be defined as function types instead of function pointer types, but
  that would be inconsistent with the standard library and
  confuse some old compilers.
 */
 typedef void (* cheat_procedure)(void); /* A test or a utility procedure. */
 typedef void (* cheat_handler)(int); /* A recovery procedure. */
+typedef void (* cheat_copier)(char*, char const*, size_t); /* A procedure for
+		copying strings. */
 typedef void (* cheat_terminator)(int); /* An exit procedure. */
 
 /*
@@ -317,7 +350,7 @@ struct cheat_suite {
 			a fatal signal (changes for each test). */
 };
 
-#if _POSIX_C_SOURCE >= 198809L
+#ifdef CHEAT_POSIXLY
 
 struct cheat_channel {
 	int reader;
@@ -475,27 +508,28 @@ static char* cheat_allocate_truncated(char const* const literal,
 }
 
 /*
-This is a fun one.
+Finds the length of a string with ISO/IEC 6429 escape sequences stripped out,
+ applies a copy procedure to the remaining parts and returns the copied length.
 */
 __attribute__ ((__nonnull__ (1, 2)))
-static size_t cheat_apply_stripped(char const* const literal,
-		void (* procedure)(char*, char const*, size_t), char* const argument) {
+static size_t cheat_apply_stripped(char const* const source,
+		cheat_copier copier, char* const destination) {
 	size_t out;
 	size_t in;
 
 	out = 0;
 	for (in = 0;
-			literal[in] != '\0';
+			source[in] != '\0';
 			++in) {
-		if (literal[in] == '\033') {
-			if (literal[in + 1] == '[') {
+		if (source[in] == '\033') {
+			if (source[in + 1] == '[') {
 				size_t off;
 
 				for (off = 2;
-						literal[in + off] < '@' || literal[in + off] > '~';
+						source[in + off] < '@' || source[in + off] > '~';
 						++off) {
-					if (literal[in + off] == '\0') {
-						procedure(&argument[out], &literal[in], off);
+					if (source[in + off] == '\0') {
+						copier(&destination[out], &source[in], off);
 						out += off;
 
 						break;
@@ -504,18 +538,16 @@ static size_t cheat_apply_stripped(char const* const literal,
 				in += off;
 
 				continue;
-			} else if (literal[in + 1] >= '@' && literal[in + 1] <= '_') {
+			} else if (source[in + 1] >= '@' && source[in + 1] <= '_') {
 				++in;
 
 				continue;
 			}
 		}
-
-		procedure(&argument[out], &literal[in], 1);
+		copier(&destination[out], &source[in], 1);
 		++out;
 	}
-
-	procedure(&argument[out], &literal[in], 1);
+	copier(&destination[out], &source[in], 1);
 	return out;
 }
 
@@ -532,8 +564,7 @@ Copies a character array.
 __attribute__ ((__nonnull__))
 static void cheat_copy_disjoint(char* const destination,
 		char const* const source, size_t const size) {
-	(void )memcpy(CHEAT_CAST(char*) destination, CHEAT_CAST(char const*) source,
-			size);
+	(void )memcpy(destination, source, size);
 }
 
 /*
@@ -1369,7 +1400,7 @@ static void cheat_run_coupled_test(struct cheat_suite* const suite,
 	cheat_run_utilities(suite, CHEAT_DOWN_TEARER);
 }
 
-#ifdef _WIN32
+#ifdef CHEAT_WINDOWED
 
 #define CHEAT_PREFIX "\\\\.\\pipe\\cheat"
 
@@ -1383,7 +1414,7 @@ __attribute__ ((__io__, __nonnull__))
 static void cheat_run_isolated_test(struct cheat_suite* const suite,
 		struct cheat_unit const* const test) {
 
-#ifdef _WIN32
+#ifdef CHEAT_WINDOWED
 
 	DWORD id;
 	LPTSTR name;
@@ -1532,7 +1563,7 @@ hell:
 	suite->outcome = cheat_decode_status(status);
 
 #else
-#if _POSIX_C_SOURCE >= 198809L
+#ifdef CHEAT_POSIXLY
 
 	pid_t pid;
 	struct cheat_channel channels[3];
@@ -1890,7 +1921,7 @@ Prepares the environment for running tests.
 */
 static void cheat_prepare(void) {
 
-#ifdef _WIN32
+#ifdef CHEAT_WINDOWED
 
 	DWORD mode;
 
@@ -1903,7 +1934,7 @@ static void cheat_prepare(void) {
 	SetErrorMode(mode | SEM_NOGPFAULTERRORBOX);
 
 #else
-#if _POSIX_C_SOURCE >= 198809L
+#ifdef CHEAT_POSIXLY
 
 	/*
 	Interruptions are unnecessary since
@@ -1936,7 +1967,7 @@ These help the preprocessor place commas.
 
 #define CHEAT_COMMA ,
 
-#if __STDC_VERSION__ >= 199901L
+#ifdef CHEAT_VARIADIC
 #define CHEAT_COMMAS(...) __VA_ARGS__ /* This is not very useful. */
 #endif
 
@@ -2090,7 +2121,7 @@ This pass declare the prototypes of test and utility procedures.
 */
 #define CHEAT_PASS 1 /* This is informational. */
 
-#if __STDC_VERSION__ >= 199901L
+#ifdef CHEAT_VARIADIC
 
 /*
 These variations eliminate the comma problem.
@@ -2150,7 +2181,7 @@ This pass generates a list of the previously declared procedures.
 */
 #define CHEAT_PASS 2
 
-#if __STDC_VERSION__ >= 199901L
+#ifdef CHEAT_VARIADIC
 
 #define CHEAT_TEST(name, ...) \
 	{ \
@@ -2242,7 +2273,7 @@ This pass defines and wraps up the previously listed procedures.
 */
 #define CHEAT_PASS 3
 
-#if __STDC_VERSION__ >= 199901L
+#ifdef CHEAT_VARIADIC
 
 #define CHEAT_TEST(name, ...) \
 	static void CHEAT_GET(name)(void) { \
@@ -2397,7 +2428,7 @@ int main(int const count, char** const arguments) {
 	cheat_suite.arguments.count = (size_t )(count - 1);
 	cheat_suite.arguments.elements = &arguments[1];
 	cheat_suite.harness = CHEAT_DANGEROUS;
-#ifdef _WIN32
+#ifdef CHEAT_WINDOWED
 	cheat_suite.timed = true;
 	cheat_suite.harness = CHEAT_SAFE;
 	cheat_suite.message_stream = CreateFile(CHEAT_PREFIX "0",
@@ -2406,7 +2437,7 @@ int main(int const count, char** const arguments) {
 	if (cheat_suite.message_stream == INVALID_HANDLE_VALUE)
 		cheat_suite.message_stream = stdout;
 #else
-#if _POSIX_C_SOURCE >= 198809L
+#ifdef CHEAT_POSIXLY
 	cheat_suite.timed = true;
 	cheat_suite.harness = CHEAT_SAFE;
 	if (isatty(STDOUT_FILENO) == 1)
@@ -2417,7 +2448,7 @@ int main(int const count, char** const arguments) {
 	cheat_parse(&cheat_suite);
 	cheat_clear_lists(&cheat_suite);
 
-#ifdef _WIN32
+#ifdef CHEAT_WINDOWED
 	system("pause"); /* TODO Uninstall Visual Studio. */
 #endif
 
@@ -2442,7 +2473,7 @@ static void CHEAT_WRAP(exit)(int const status) {
 
 #define exit CHEAT_WRAP(exit)
 
-#if __STDC_VERSION__ >= 199901L
+#ifdef CHEAT_MODERN
 
 __attribute__ ((__unused__))
 static void CHEAT_WRAP(_Exit)(int const status) {
@@ -2453,7 +2484,7 @@ static void CHEAT_WRAP(_Exit)(int const status) {
 
 #endif
 
-#if _POSIX_C_SOURCE >= 198809L
+#ifdef CHEAT_POSIXLY
 
 __attribute__ ((__unused__))
 static void CHEAT_WRAP(_exit)(int const status) {
@@ -2469,7 +2500,7 @@ static int CHEAT_WRAP(vfprintf)(FILE* const stream,
 		char const* const format, va_list list) {
 	if (cheat_hide(&cheat_suite, stream)) {
 
-#ifdef _WIN32
+#ifdef CHEAT_WINDOWED
 
 		FILE* file;
 		int result;
@@ -2482,12 +2513,12 @@ static int CHEAT_WRAP(vfprintf)(FILE* const stream,
 		return result;
 
 #else
-#if __STDC_VERSION__ >= 199901L
+#ifdef CHEAT_MODERN
 
 		return vsnprintf(NULL, 0, format, list);
 
 #else
-#if _POSIX_C_SOURCE >= 198809L
+#ifdef CHEAT_POSIXLY
 
 		FILE* file;
 		int result;
@@ -2631,7 +2662,7 @@ static void CHEAT_WRAP(perror)(char const* const message) {
 
 #define perror CHEAT_WRAP(perror)
 
-#if _POSIX_C_SOURCE >= 198809L
+#ifdef CHEAT_POSIXLY
 
 __attribute__ ((__unused__))
 static ssize_t CHEAT_WRAP(write)(int const fd,
@@ -2651,7 +2682,7 @@ static ssize_t CHEAT_WRAP(write)(int const fd,
 
 #endif
 
-#ifdef __cplusplus
+#ifdef CHEAT_POSTMODERN
 }
 #endif
 
