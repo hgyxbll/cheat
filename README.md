@@ -120,7 +120,9 @@ Additionally the `-d` for `--dangerous` option provides some stability by
 Luckily undefined behavior is often defined enough behavior.
 
 The incomplete `-t` for `--timed` and
- `-e` for `--eternal` allow controlling isolated tests that get stuck.
+ `-e` for `--eternal` allow controlling isolated tests that get stuck while
+ `-q` for `--quiet` and
+ `-n` for `--noisy` determine whether standard streams are captured and printed.
 
 The results are reported in a format similar to
  what many popular C compilers produce.

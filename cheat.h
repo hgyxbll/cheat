@@ -84,6 +84,14 @@ typedef int bool;
 #endif
 #endif
 
+/*
+All nested conditions use
+  #else
+  #if
+ instead of
+  #elif
+ since some compilers choke on the shorter form.
+*/
 #ifdef CHEAT_WINDOWED
 #include <windows.h> /* spaghetti */
 #else
@@ -253,7 +261,7 @@ The error number is context sensitive and
 /*
 These could be defined as function types instead of function pointer types, but
  that would be inconsistent with the standard library and
- confuse some old compilers.
+ confuse some compilers.
 */
 typedef void (* cheat_procedure)(void); /* A test or a utility procedure. */
 typedef void (* cheat_handler)(int); /* A recovery procedure. */
@@ -350,15 +358,22 @@ struct cheat_suite {
 			a fatal signal (changes for each test). */
 };
 
+#ifdef CHEAT_WINDOWED
+struct cheat_channel {
+	HANDLE reader;
+	HANDLE writer;
+	bool active;
+	struct cheat_character_array_list* list;
+};
+#else
 #ifdef CHEAT_POSIXLY
-
 struct cheat_channel {
 	int reader;
 	int writer;
 	bool active;
 	struct cheat_character_array_list* list;
 };
-
+#endif
 #endif
 
 /*
@@ -1401,9 +1416,7 @@ static void cheat_run_coupled_test(struct cheat_suite* const suite,
 }
 
 #ifdef CHEAT_WINDOWED
-
 #define CHEAT_PREFIX "\\\\.\\pipe\\cheat"
-
 #endif
 
 /*
@@ -1416,7 +1429,7 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 
 #ifdef CHEAT_WINDOWED
 
-	DWORD id;
+	DWORD pid;
 	LPTSTR name;
 	HANDLE message_pipe;
 	HANDLE output_reader;
@@ -1445,13 +1458,13 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 	security.lpSecurityDescriptor = NULL;
 	security.bInheritHandle = TRUE;
 
-	id = GetCurrentProcessId();
+	pid = GetCurrentProcessId();
 
 	name = CHEAT_CAST(LPTSTR) cheat_allocate_total(2,
-			strlen(CHEAT_PREFIX), CHEAT_LENGTH(id), 1);
+			strlen(CHEAT_PREFIX), CHEAT_LENGTH(pid), 1);
 	if (name == NULL)
 		cheat_death("failed to allocate memory", errno);
-	(void )cheat_print_string("%s%d", name, 2, CHEAT_PREFIX, 0 /* id */);
+	(void )cheat_print_string("%s%d", name, 2, CHEAT_PREFIX, 0 /* pid */);
 
 	/*
 	message_pipe = CreateNamedPipe(name,
@@ -1694,18 +1707,20 @@ hell:
 		if (close(channels[index].reader) == -1)
 			cheat_death("failed to close the read end of a pipe", errno);
 
+	/*
+	Both kill() and waitpid() can fail if
+	 the child process exits or crashes after select() has returned.
+	*/
 	if (due) {
-		if (kill(pid, SIGKILL) == -1) /* TODO Possible race?
-			cheat_death("failed to terminate a process", errno) */;
-		suite->outcome = CHEAT_TIMED_OUT;
-	} else {
-		if (waitpid(pid, &status, 0) == -1)
-			cheat_death("failed to wait for a process", errno);
-
-		if (WIFEXITED(status))
-			suite->outcome = cheat_decode_status(WEXITSTATUS(status));
-		else
+		if (kill(pid, SIGKILL) == -1)
 			suite->outcome = CHEAT_CRASHED;
+		else
+			suite->outcome = CHEAT_TIMED_OUT;
+	} else {
+		if (waitpid(pid, &status, 0) == -1 || !WIFEXITED(status))
+			suite->outcome = CHEAT_CRASHED;
+		else
+			suite->outcome = cheat_decode_status(WEXITSTATUS(status));
 	}
 
 #else
@@ -2431,7 +2446,7 @@ int main(int const count, char** const arguments) {
 #ifdef CHEAT_WINDOWED
 	cheat_suite.timed = true;
 	cheat_suite.harness = CHEAT_SAFE;
-	cheat_suite.message_stream = CreateFile(CHEAT_PREFIX "0",
+	cheat_suite.message_stream = CreateFile(CHEAT_PREFIX "0" /* pid */,
 			GENERIC_WRITE, 0, NULL,
 			OPEN_EXISTING, 0, NULL);
 	if (cheat_suite.message_stream == INVALID_HANDLE_VALUE)
