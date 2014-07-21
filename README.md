@@ -84,6 +84,8 @@ It is also possible to
 Additionally
  a reference to test can be retrieved with `CHEAT_GET(name)` or
  it can be directly called with `CHEAT_CALL(name)`.
+Magical `CHEAT_PASS`, `CHEAT_TIME`, `CHEAT_OFFSET`, `CHEAT_NO_WRAP`,
+ `CHEAT_WRAP(name)` and `CHEAT_UNWRAP(name)` also exist.
 
 Some examples are in the `cheat-example.c` file.
 
@@ -131,7 +133,7 @@ As an added bonus the `-c` for `--colorful` option makes everything colorful,
  the `-x` for `--xml` option does nothing for good measure.
 
 	[user@computer project]$ ./tests -m
-	6 2 10
+	8 2 12
 
 The default options depend on the target platform.
 
@@ -149,9 +151,10 @@ The names of the tests follow the ones given in the source file, but
 	       physics_still_work
 	       philosophy_never_worked
 
-They can be given as arguments to specify a single test to run.
+They can be given as arguments to specify the tests to run.
 
-	[user@computer project]$ ./tests mathematics_still_work
+	[user@computer project]$ ./tests -m physics_still_work physics_still_work
+	2 0 2
 	[user@computer project]$ echo returned $?
 	returned 0
 

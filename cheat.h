@@ -8,7 +8,8 @@ The full license can be found in the LICENSE file.
 
 /*
 Identifiers starting with CHEAT_ and cheat_ are reserved for internal use and
- identifiers starting with cheat_test_ and cheat_wrapped_ for external use.
+ identifiers starting with cheat_test_, cheat_wrapped_ or cheat_unwrapped_ for
+ external use.
 */
 
 #ifndef CHEAT_H
@@ -1458,6 +1459,7 @@ static void cheat_run_coupled_test(struct cheat_suite* const suite,
 
 #ifdef CHEAT_WINDOWED
 #define CHEAT_PIPE "\\\\.\\pipe\\cheat"
+#define CHEAT_OPTION "-__fork"
 #endif
 
 /*
@@ -1480,6 +1482,7 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 	STARTUPINFO startup;
 	PROCESS_INFORMATION process;
 	SIZE_T command_length;
+	SIZE_T option_length;
 	SIZE_T name_length;
 	LPTSTR command;
 	DWORD status;
@@ -1535,14 +1538,18 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 	startup.hStdError = error_writer;
 
 	command_length = strlen(GetCommandLine());
+	option_length = strlen(CHEAT_FORK);
 	name_length = strlen(test->name);
-	command = cheat_allocate_total(2, command_length + 1, name_length + 1);
+
+	command = cheat_allocate_total(4,
+			command_length, option_length, name_length, (size_t )3);
 	if (command == NULL)
 		cheat_death("failed to allocate memory", errno);
 
 	memcpy(command, GetCommandLine(), command_length);
-	command[command_length] = ' ';
-	memcpy(&command[command_length + 1], test->name, name_length + 1);
+	memcpy(&command[command_length], " " CHEAT_OPTION " ", option_length + 2);
+	memcpy(&command[command_length + option_length + 2],
+			test->name, name_length + 1);
 
 	if (!CreateProcess(NULL, command, NULL, NULL,
 				TRUE, NORMAL_PRIORITY_CLASS, NULL, NULL,
@@ -1796,7 +1803,7 @@ static void cheat_parse(struct cheat_suite* const suite) {
 	bool quiet = false;
 	bool test = false;
 	size_t names = 0;
-	char const* name;
+	char const* name; /* TODO Gather names. */
 
 	for (index = 0;
 			index < suite->arguments.count;
@@ -1848,9 +1855,8 @@ static void cheat_parse(struct cheat_suite* const suite) {
 					|| strcmp(argument, "--quiet") == 0)
 				quiet = true;
 #ifdef CHEAT_WINDOWED
-			else if (strcmp(argument, "-w") == 0
-					|| strcmp(argument, "--windows") == 0)
-				; /* TODO Consider this. */
+			else if (strcmp(argument, CHEAT_OPTION) == 0)
+				; /* TODO Emulate fork() here. */
 #endif
 			else
 				cheat_death("invalid option", index);
@@ -1914,7 +1920,7 @@ static void cheat_parse(struct cheat_suite* const suite) {
 			&& !(safe && unsafe)
 			&& !(eternal && timed)
 			&& !(timed && (dangerous || unsafe)))
-		if (test) { /* TODO Think about the necessity of this thing. */
+		if (test) { /* TODO Merge this below and allow any amount of names. */
 			struct cheat_unit const* unit;
 
 			unit = cheat_find(suite->units, name);
@@ -2156,6 +2162,9 @@ These determine the reserved names.
 
 #define CHEAT_WRAP(name) \
 	(cheat_wrapped_##name)
+
+#define CHEAT_UNWRAP(name) \
+	(cheat_unwrapped_##name)
 
 #define CHEAT_GET(name) \
 	(cheat_test_##name)
@@ -2533,6 +2542,13 @@ Some libraries and system calls can still exit or print things, but
  that is a problem for the user to solve.
 */
 
+#ifndef CHEAT_NO_WRAP
+
+__attribute__ ((__unused__))
+static void CHEAT_UNWRAP(exit)(int const status) {
+	exit(status);
+}
+
 __attribute__ ((__unused__))
 static void CHEAT_WRAP(exit)(int const status) {
 	cheat_exit(&cheat_suite, exit);
@@ -2541,6 +2557,11 @@ static void CHEAT_WRAP(exit)(int const status) {
 #define exit CHEAT_WRAP(exit)
 
 #ifdef CHEAT_MODERN
+
+__attribute__ ((__unused__))
+static void CHEAT_UNWRAP(_Exit)(int const status) {
+	_Exit(status);
+}
 
 __attribute__ ((__unused__))
 static void CHEAT_WRAP(_Exit)(int const status) {
@@ -2552,6 +2573,11 @@ static void CHEAT_WRAP(_Exit)(int const status) {
 #endif
 
 #ifdef CHEAT_POSIXLY
+
+__attribute__ ((__unused__))
+static void CHEAT_UNWRAP(_exit)(int const status) {
+	_exit(status);
+}
 
 __attribute__ ((__unused__))
 static void CHEAT_WRAP(_exit)(int const status) {
@@ -2574,6 +2600,12 @@ static size_t cheat_printed_length(char const* const format, va_list list) {
 }
 
 #endif
+
+__attribute__ ((__unused__))
+static int CHEAT_UNWRAP(vfprintf)(FILE* const stream,
+		char const* const format, va_list list) {
+	return vfprintf(stream, format, list);
+}
 
 __attribute__ ((__unused__))
 static int CHEAT_WRAP(vfprintf)(FILE* const stream,
@@ -2616,11 +2648,28 @@ static int CHEAT_WRAP(vfprintf)(FILE* const stream,
 #define vfprintf CHEAT_WRAP(vfprintf)
 
 __attribute__ ((__unused__))
+static int CHEAT_UNWRAP(vprintf)(char const* const format, va_list list) {
+	return vprintf(format, list);
+}
+
+__attribute__ ((__unused__))
 static int CHEAT_WRAP(vprintf)(char const* const format, va_list list) {
 	return CHEAT_WRAP(vfprintf)(stdout, format, list);
 }
 
 #define vprintf CHEAT_WRAP(vprintf)
+
+__attribute__ ((__unused__))
+static int CHEAT_UNWRAP(fprintf)(FILE* const stream,
+		char const* const format, ...) {
+	va_list list;
+	int result;
+
+	va_start(list, format);
+	result = CHEAT_UNWRAP(vfprintf)(stream, format, list);
+	va_end(list);
+	return result;
+}
 
 __attribute__ ((__unused__))
 static int CHEAT_WRAP(fprintf)(FILE* const stream,
@@ -2637,6 +2686,17 @@ static int CHEAT_WRAP(fprintf)(FILE* const stream,
 #define fprintf CHEAT_WRAP(fprintf)
 
 __attribute__ ((__unused__))
+static int CHEAT_UNWRAP(printf)(char const* const format, ...) {
+	va_list list;
+	int result;
+
+	va_start(list, format);
+	result = CHEAT_UNWRAP(vprintf)(format, list);
+	va_end(list);
+	return result;
+}
+
+__attribute__ ((__unused__))
 static int CHEAT_WRAP(printf)(char const* const format, ...) {
 	va_list list;
 	int result;
@@ -2648,6 +2708,11 @@ static int CHEAT_WRAP(printf)(char const* const format, ...) {
 }
 
 #define printf CHEAT_WRAP(printf)
+
+__attribute__ ((__unused__))
+static int CHEAT_UNWRAP(fputs)(char const* const message, FILE* const stream) {
+	return fputs(message, stream);
+}
 
 __attribute__ ((__unused__))
 static int CHEAT_WRAP(fputs)(char const* const message, FILE* const stream) {
@@ -2662,6 +2727,11 @@ static int CHEAT_WRAP(fputs)(char const* const message, FILE* const stream) {
 }
 
 #define fputs CHEAT_WRAP(fputs)
+
+__attribute__ ((__unused__))
+static int CHEAT_UNWRAP(fputc)(int const character, FILE* const stream) {
+	return fputc(character, stream);
+}
 
 __attribute__ ((__unused__))
 static int CHEAT_WRAP(fputc)(int const character, FILE* const stream) {
@@ -2685,6 +2755,11 @@ This is needed if putc() is defined as a preprocessor directive.
 #endif
 
 __attribute__ ((__unused__))
+static int CHEAT_UNWRAP(putc)(int const character, FILE* const stream) {
+	return putc(character, stream);
+}
+
+__attribute__ ((__unused__))
 static int CHEAT_WRAP(putc)(int const character, FILE* const stream) {
 	return CHEAT_WRAP(fputc)(character, stream);
 }
@@ -2692,11 +2767,21 @@ static int CHEAT_WRAP(putc)(int const character, FILE* const stream) {
 #define putc CHEAT_WRAP(putc)
 
 __attribute__ ((__unused__))
+static int CHEAT_UNWRAP(putchar)(int const character) {
+	return putchar(character);
+}
+
+__attribute__ ((__unused__))
 static int CHEAT_WRAP(putchar)(int const character) {
 	return CHEAT_WRAP(putc)(character, stdout);
 }
 
 #define putchar CHEAT_WRAP(putchar)
+
+__attribute__ ((__unused__))
+static int CHEAT_UNWRAP(puts)(char const* const message) {
+	return puts(message);
+}
 
 __attribute__ ((__unused__))
 static int CHEAT_WRAP(puts)(char const* const message) {
@@ -2708,6 +2793,12 @@ static int CHEAT_WRAP(puts)(char const* const message) {
 }
 
 #define puts CHEAT_WRAP(puts)
+
+__attribute__ ((__unused__))
+static size_t CHEAT_UNWRAP(fwrite)(void const* const buffer,
+		size_t const size, size_t const count, FILE* const stream) {
+	return fwrite(buffer, size, count, stream);
+}
 
 __attribute__ ((__unused__))
 static size_t CHEAT_WRAP(fwrite)(void const* const buffer,
@@ -2737,6 +2828,11 @@ static size_t CHEAT_WRAP(fwrite)(void const* const buffer,
 #define fwrite CHEAT_WRAP(fwrite)
 
 __attribute__ ((__unused__))
+static int CHEAT_UNWRAP(fflush)(FILE* const stream) {
+	return fflush(stream);
+}
+
+__attribute__ ((__unused__))
 static int CHEAT_WRAP(fflush)(FILE* const stream) {
 	if (cheat_hide(&cheat_suite, stream))
 		return 0;
@@ -2745,6 +2841,11 @@ static int CHEAT_WRAP(fflush)(FILE* const stream) {
 }
 
 #define fflush CHEAT_WRAP(fflush)
+
+__attribute__ ((__unused__))
+static void CHEAT_UNWRAP(perror)(char const* const message) {
+	return perror(message);
+}
 
 __attribute__ ((__unused__))
 static void CHEAT_WRAP(perror)(char const* const message) {
@@ -2770,6 +2871,12 @@ static void CHEAT_WRAP(perror)(char const* const message) {
 #ifdef CHEAT_POSIXLY
 
 __attribute__ ((__unused__))
+static ssize_t CHEAT_UNWRAP(write)(int const fd,
+		void const* const buffer, size_t const size) {
+	return write(fd, buffer, size);
+}
+
+__attribute__ ((__unused__))
 static ssize_t CHEAT_WRAP(write)(int const fd,
 		void const* const buffer, size_t const size) {
 	FILE* stream;
@@ -2790,6 +2897,8 @@ static ssize_t CHEAT_WRAP(write)(int const fd,
 }
 
 #define write CHEAT_WRAP(write)
+
+#endif
 
 #endif
 
