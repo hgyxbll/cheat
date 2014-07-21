@@ -826,18 +826,27 @@ static void cheat_append_array(struct cheat_character_array_list* const list,
 }
 
 /*
+Checks whether a stream should be captured.
+*/
+__attribute__ ((__pure__, __warn_unused_result__))
+static bool cheat_capture(struct cheat_suite const* const suite,
+		FILE const* const stream) {
+	return !suite->quiet && (stream == stdout || stream == stderr);
+}
+
+/*
 Checks whether a stream should be hidden or
  terminates the program in case of a failure.
 */
-__attribute__ ((__pure__, __warn_unused_result__))
+__attribute__ ((__warn_unused_result__))
 static bool cheat_hide(struct cheat_suite const* const suite,
 		FILE const* const stream) {
 	switch (suite->harness) {
 	case CHEAT_UNSAFE:
 	case CHEAT_DANGEROUS:
-		return true;
-	case CHEAT_SAFE:
 		return stream == stdout || stream == stderr;
+	case CHEAT_SAFE:
+		return false;
 	default:
 		cheat_death("invalid harness", suite->harness);
 	}
@@ -1292,7 +1301,6 @@ static void cheat_print_summary(struct cheat_suite const* const suite) {
 
 		(void )fputc('\n', stdout);
 	}
-	/* TODO Sweet copy and paste. */
 	if (print_messages && any_messages) {
 		if (separate)
 			cheat_print_separator(suite);
@@ -1300,15 +1308,14 @@ static void cheat_print_summary(struct cheat_suite const* const suite) {
 
 		cheat_print_list(&suite->messages);
 	}
-	if (print_outputs && any_outputs && !suite->quiet) {
+	if (print_outputs && any_outputs) {
 		if (separate)
 			cheat_print_separator(suite);
 		separate = true;
 
 		cheat_print_list(&suite->outputs);
 	}
-	/* TODO Do not capture with cheat_suite.quiet. */
-	if (print_errors && any_errors && !suite->quiet) {
+	if (print_errors && any_errors) {
 		if (separate)
 			cheat_print_separator(suite);
 		separate = true;
@@ -2653,17 +2660,19 @@ static int CHEAT_WRAP(vfprintf)(FILE* const stream,
 
 		length = cheat_printed_length(format, list);
 
-		buffer = CHEAT_CAST(char*) malloc(length + 1);
-		if (buffer == NULL)
-			return -1;
+		if (cheat_capture(&cheat_suite, stream)) {
+			buffer = CHEAT_CAST(char*) malloc(length + 1);
+			if (buffer == NULL)
+				return -1;
 
-		result = vsprintf(buffer, format, list);
-		if (stream == stdout)
-			cheat_append_array(&cheat_suite.outputs, buffer, length);
-		else
-			cheat_append_array(&cheat_suite.errors, buffer, length);
+			result = vsprintf(buffer, format, list);
+			if (stream == stdout)
+				cheat_append_array(&cheat_suite.outputs, buffer, length);
+			else
+				cheat_append_array(&cheat_suite.errors, buffer, length);
 
-		free(buffer);
+			free(buffer);
+		}
 
 		return result;
 
@@ -2840,10 +2849,12 @@ static size_t CHEAT_WRAP(fwrite)(void const* const buffer,
 
 #ifdef CHEAT_MODERN
 
-		if (stream == stdout)
-			cheat_append_array(&cheat_suite.outputs, buffer, size * count);
-		else
-			cheat_append_array(&cheat_suite.errors, buffer, size * count);
+		if (cheat_capture(&cheat_suite, stream)) {
+			if (stream == stdout)
+				cheat_append_array(&cheat_suite.outputs, buffer, size * count);
+			else
+				cheat_append_array(&cheat_suite.errors, buffer, size * count);
+		}
 
 		return count;
 

@@ -124,9 +124,9 @@ CHEAT_TEST(story,
 
 CHEAT_TEST(streams_get_captured,
 	if (fopen(".PHONY", "r") == NULL) {
-		(void )fwrite(", reporting \"", 1, 13, stderr);
+		(void )fwrite(" [\n", 1, 3, stderr);
 		perror("fopen");
-		(void )fputc('"', stderr);
+		(void )fputc(']', stderr);
 	}
 )
 
