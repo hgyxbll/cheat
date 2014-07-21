@@ -284,7 +284,6 @@ typedef void (* cheat_procedure)(void); /* A test or a utility procedure. */
 typedef void (* cheat_handler)(int); /* A recovery procedure. */
 typedef void (* cheat_copier)(char*, char const*, size_t); /* A procedure for
 		copying strings. */
-typedef void (* cheat_terminator)(int); /* An exit procedure. */
 
 /*
 It would not hurt to have
@@ -827,6 +826,24 @@ static void cheat_append_array(struct cheat_character_array_list* const list,
 }
 
 /*
+Checks whether a stream should be hidden or
+ terminates the program in case of a failure.
+*/
+__attribute__ ((__pure__, __warn_unused_result__))
+static bool cheat_hide(struct cheat_suite const* const suite,
+		FILE const* const stream) {
+	switch (suite->harness) {
+	case CHEAT_UNSAFE:
+	case CHEAT_DANGEROUS:
+		return true;
+	case CHEAT_SAFE:
+		return stream == stdout || stream == stderr;
+	default:
+		cheat_death("invalid harness", suite->harness);
+	}
+}
+
+/*
 Adds the outcome of a single test to a test suite or
  terminates the program in case of a failure.
 */
@@ -872,6 +889,25 @@ static void cheat_register_handler(cheat_handler const handler) {
 		cheat_death("failed to add a handler for SIGSEGV", errno);
 	if (signal(SIGTERM, handler) == SIG_ERR)
 		cheat_death("failed to add a handler for SIGTERM", errno);
+}
+
+/*
+Terminates a test or
+ terminates the program in case of a failure.
+*/
+__attribute__ ((__nonnull__))
+static void cheat_exit(struct cheat_suite* const suite,
+		int const status) {
+	switch (suite->harness) {
+	case CHEAT_UNSAFE:
+		break;
+	case CHEAT_DANGEROUS:
+		longjmp(suite->environment, CHEAT_EXITED);
+	case CHEAT_SAFE:
+		exit(CHEAT_EXITED);
+	default:
+		cheat_death("invalid harness", suite->harness);
+	}
 }
 
 /*
@@ -1319,14 +1355,14 @@ static void cheat_print_summary(struct cheat_suite const* const suite) {
 	if (print_conclusion) {
 		if (!any_failures) {
 			if (strip)
-				cheat_strip(failure_string);
-
-			(void )fputs(failure_string, stdout);
-		} else {
-			if (strip)
 				cheat_strip(success_string);
 
 			(void )fputs(success_string, stdout);
+		} else {
+			if (strip)
+				cheat_strip(failure_string);
+
+			(void )fputs(failure_string, stdout);
 		}
 		(void )fputc('\n', stdout);
 	}
@@ -1781,8 +1817,53 @@ hell:
 }
 
 /*
-Parses the arguments of a test suite and
- decides whether to do work or complain.
+Runs a test suite or
+ terminates the program in case of a failure.
+*/
+__attribute__ ((__io__, __nonnull__))
+static void cheat_run_suite(struct cheat_suite* const suite) {
+	size_t index;
+
+	for (index = 0;
+			suite->units[index].type != CHEAT_TERMINATOR;
+			++index) {
+		struct cheat_unit const* unit;
+
+		unit = &suite->units[index];
+		if (unit->type != CHEAT_TESTER)
+			continue;
+
+		switch (suite->harness) {
+			int status;
+
+		case CHEAT_SAFE:
+			cheat_run_isolated_test(suite, unit);
+			break;
+		case CHEAT_DANGEROUS:
+			status = setjmp(suite->environment);
+			if (status == 0)
+				cheat_run_coupled_test(suite, unit);
+			else
+				suite->outcome = cheat_decode_status(status);
+			break;
+		case CHEAT_UNSAFE:
+			cheat_run_coupled_test(suite, unit);
+			break;
+		default:
+			cheat_death("invalid harness", suite->harness);
+		}
+
+		cheat_handle_outcome(suite);
+
+		cheat_print_outcome(suite);
+	}
+
+	cheat_print_summary(suite);
+}
+
+/*
+Parses the arguments of a test suite and delegates work or
+ terminates the program in case of a failure.
 */
 __attribute__ ((__io__, __nonnull__))
 static void cheat_parse(struct cheat_suite* const suite) {
@@ -1929,41 +2010,14 @@ static void cheat_parse(struct cheat_suite* const suite) {
 
 			cheat_run_coupled_test(suite, unit);
 
+			/* cheat_run_picked_suite(suite, names); */
+
 			exit(cheat_encode_outcome(suite->outcome));
 		} else {
 			if (suite->harness == CHEAT_DANGEROUS)
 				cheat_register_handler(suite->handler);
-			for (index = 0;
-					suite->units[index].type != CHEAT_TERMINATOR;
-					++index) {
-				struct cheat_unit const* unit;
 
-				unit = &suite->units[index];
-				if (unit->type != CHEAT_TESTER)
-					continue;
-
-				switch (suite->harness) {
-				case CHEAT_SAFE:
-					cheat_run_isolated_test(suite, unit);
-					break;
-				case CHEAT_DANGEROUS:
-					if (setjmp(suite->environment) == 0)
-						cheat_run_coupled_test(suite, unit);
-					else
-						suite->outcome = CHEAT_CRASHED;
-					break;
-				case CHEAT_UNSAFE:
-					cheat_run_coupled_test(suite, unit);
-					break;
-				default:
-					cheat_death("invalid harness", suite->harness);
-				}
-
-				cheat_handle_outcome(suite);
-
-				cheat_print_outcome(suite);
-			}
-			cheat_print_summary(suite);
+			cheat_run_suite(suite);
 		}
 	else
 		cheat_death("invalid combination of options", 0);
@@ -2424,51 +2478,18 @@ The third pass continues past the end of this file, but
  the definitions for it end here.
 */
 
-/* TODO Something. */
-
-/*
-Terminates a subprocess or
- terminates the program in case of a failure.
-*/
-__attribute__ ((__nonnull__))
-static void cheat_exit(struct cheat_suite const* const suite,
-		cheat_terminator const terminator) {
-	switch (suite->harness) {
-	case CHEAT_UNSAFE:
-	case CHEAT_DANGEROUS:
-		break;
-	case CHEAT_SAFE:
-		terminator(CHEAT_EXITED);
-	default:
-		cheat_death("invalid harness", suite->harness);
-	}
-}
-
-/*
-Checks whether a stream should be hidden or
- terminates the program in case of a failure.
-*/
-__attribute__ ((__pure__, __warn_unused_result__))
-static bool cheat_hide(struct cheat_suite const* const suite,
-		FILE const* const stream) {
-	switch (suite->harness) {
-	case CHEAT_UNSAFE:
-	case CHEAT_DANGEROUS:
-		return true;
-	case CHEAT_SAFE:
-		return stream == stdout || stream == stderr;
-	default:
-		cheat_death("invalid harness", suite->harness);
-	}
-}
-
 /*
 Suppresses a signal and
  returns to a recovery point.
 */
 __attribute__ ((__noreturn__))
 static void cheat_handle_signal(int const number) {
-	longjmp(cheat_suite.environment, number);
+	enum cheat_outcome outcome = CHEAT_CRASHED;
+
+	if (number == SIGTERM)
+		outcome = CHEAT_EXITED;
+
+	longjmp(cheat_suite.environment, cheat_encode_outcome(outcome));
 }
 
 /*
@@ -2545,13 +2566,25 @@ Some libraries and system calls can still exit or print things, but
 #ifndef CHEAT_NO_WRAP
 
 __attribute__ ((__unused__))
+static void CHEAT_UNWRAP(abort)(void) {
+	abort();
+}
+
+__attribute__ ((__unused__))
+static void CHEAT_WRAP(abort)(void) {
+	cheat_exit(&cheat_suite, CHEAT_CRASHED);
+}
+
+#define abort CHEAT_WRAP(abort)
+
+__attribute__ ((__unused__))
 static void CHEAT_UNWRAP(exit)(int const status) {
 	exit(status);
 }
 
 __attribute__ ((__unused__))
 static void CHEAT_WRAP(exit)(int const status) {
-	cheat_exit(&cheat_suite, exit);
+	cheat_exit(&cheat_suite, CHEAT_EXITED);
 }
 
 #define exit CHEAT_WRAP(exit)
@@ -2565,7 +2598,7 @@ static void CHEAT_UNWRAP(_Exit)(int const status) {
 
 __attribute__ ((__unused__))
 static void CHEAT_WRAP(_Exit)(int const status) {
-	cheat_exit(&cheat_suite, _Exit);
+	cheat_exit(&cheat_suite, CHEAT_EXITED);
 }
 
 #define _exit CHEAT_WRAP(_Exit)
@@ -2581,7 +2614,7 @@ static void CHEAT_UNWRAP(_exit)(int const status) {
 
 __attribute__ ((__unused__))
 static void CHEAT_WRAP(_exit)(int const status) {
-	cheat_exit(&cheat_suite, _exit);
+	cheat_exit(&cheat_suite, CHEAT_EXITED);
 }
 
 #define _Exit CHEAT_WRAP(_exit)

@@ -30,7 +30,3 @@ CHEAT_TEST(arithmetic_crash,
 CHEAT_TEST(invocation_crash,
 	((void (*)(void) )NULL)();
 )
-
-CHEAT_TEST(assignment_crash,
-	*(unsigned char* )NULL = 0;
-)

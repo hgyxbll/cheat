@@ -33,20 +33,16 @@ CHEAT_DECLARE(
 )
 
 CHEAT_TEST(physics_still_work,
-	double x0;
-	double y0;
-	size_t n;
-	double xn;
+	double x0 = 1;
+	double y0 = 2;
+	size_t n = 128;
+	double xn = 3;
 	double dx;
 	double y;
 	double s;
 	size_t i;
 	double x;
 
-	x0 = 1;
-	y0 = 2;
-	n = 128;
-	xn = 3;
 	dx = xn - x0;
 	y = y0;
 	s = dx / (double )n;
