@@ -901,7 +901,7 @@ static void cheat_register_handler(cheat_handler const handler) {
 }
 
 /*
-Terminates a test or
+Stops a test or
  terminates the program in case of a failure.
 */
 __attribute__ ((__nonnull__))
@@ -920,7 +920,7 @@ static void cheat_exit(struct cheat_suite* const suite,
 }
 
 /*
-Prints the messages in the messages list of a test suite or
+Prints the contents of a list or
  terminates the program in case of a failure.
 */
 __attribute__ ((__io__, __nonnull__))
@@ -1216,7 +1216,7 @@ static void cheat_print_separator(struct cheat_suite const* const suite) {
 }
 
 /*
-Prints a summary of all tests or
+Prints a summary of tests or
  terminates the program in case of a failure.
 */
 __attribute__ ((__io__, __nonnull__))
@@ -1376,7 +1376,8 @@ static void cheat_print_summary(struct cheat_suite const* const suite) {
 }
 
 /*
-Prints an error message.
+Prints an error message or
+ terminates the program in case of a failure.
 */
 __attribute__ ((__io__, __nonnull__))
 static void cheat_print_failure(struct cheat_suite* const suite,
@@ -1447,8 +1448,8 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 }
 
 /*
-Checks a single assertion and
- prints an error message if it fails.
+Checks a single assertion and prints an error message if it fails or
+ terminates the program in case of a failure.
 */
 __attribute__ ((__io__, __nonnull__))
 static void cheat_check(struct cheat_suite* const suite,
@@ -1462,7 +1463,8 @@ static void cheat_check(struct cheat_suite* const suite,
 }
 
 /*
-Runs all utility procedures of a certain type.
+Runs all utility procedures of a certain type or
+ terminates the program in case of a failure.
 */
 __attribute__ ((__io__))
 static void cheat_run_utilities(struct cheat_suite* const suite,
@@ -1489,8 +1491,8 @@ static void cheat_run_test(struct cheat_unit const* const unit) {
 }
 
 /*
-Runs a test from
- a test suite.
+Runs a test from a test suite or
+ terminates the program in case of a failure.
 */
 __attribute__ ((__io__, __nonnull__))
 static void cheat_run_coupled_test(struct cheat_suite* const suite,
@@ -1501,13 +1503,16 @@ static void cheat_run_coupled_test(struct cheat_suite* const suite,
 }
 
 #ifdef CHEAT_WINDOWED
+
 #define CHEAT_PIPE "\\\\.\\pipe\\cheat"
+
 #define CHEAT_OPTION "-__fork"
+
 #endif
 
 /*
-Creates a subprocess and
- runs a test in it.
+Creates a subprocess and runs a test in it or
+ terminates the program in case of a failure.
 */
 __attribute__ ((__io__, __nonnull__))
 static void cheat_run_isolated_test(struct cheat_suite* const suite,
@@ -2031,7 +2036,8 @@ static void cheat_parse(struct cheat_suite* const suite) {
 }
 
 /*
-Prepares the environment for running tests.
+Prepares the environment for running tests or
+ terminates the program in case of a failure.
 */
 static void cheat_prepare(void) {
 
@@ -2055,7 +2061,8 @@ static void cheat_prepare(void) {
 	 processes wait for each other and
 	 the return values read() and write() are always checked.
 	*/
-	signal(SIGPIPE, SIG_IGN);
+	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR)
+		cheat_death("failed to add a handler for SIGPIPE", errno);
 
 #endif
 #endif
