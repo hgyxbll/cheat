@@ -432,10 +432,9 @@ Valid specifiers start with '%' and are not immediately followed by '%' or '\0'.
 */
 __attribute__ ((__nonnull__, __pure__, __warn_unused_result__))
 static size_t cheat_format_specifiers(char const* const format) {
-	size_t count;
 	size_t index;
+	size_t count = 0;
 
-	count = 0;
 	for (index = 0;
 			format[index] != '\0';
 			++index)
@@ -455,11 +454,10 @@ Safely allocates memory for a block and returns a pointer to the it or
 __attribute__ ((__malloc__, __warn_unused_result__))
 static void* cheat_allocate_total(size_t const count, ...) {
 	va_list list;
-	size_t size;
 	size_t index;
+	size_t size = 0;
 
 	va_start(list, count);
-	size = 0;
 	for (index = 0;
 			index < count;
 			++index) {
@@ -531,28 +529,26 @@ static char* cheat_allocate_truncated(char const* const literal,
 }
 
 /*
-Finds the length of a string with ISO/IEC 6429 escape sequences stripped out,
- applies a copy procedure to the remaining parts and returns the copied length.
+Strips out ISO/IEC 6429 escape sequences from a string and
+ returns its new length.
 */
-__attribute__ ((__nonnull__ (1, 2)))
-static size_t cheat_apply_stripped(char const* const source,
-		cheat_copier const copier, char* const destination) {
-	size_t out;
+__attribute__ ((__nonnull__))
+static size_t cheat_strip(char* const variable) {
 	size_t in;
+	size_t out = 0;
 
-	out = 0;
 	for (in = 0;
-			source[in] != '\0';
+			variable[in] != '\0';
 			++in) {
-		if (source[in] == '\033') {
-			if (source[in + 1] == '[') {
+		if (variable[in] == '\033') {
+			if (variable[in + 1] == '[') {
 				size_t off;
 
 				for (off = 2;
-						source[in + off] < '@' || source[in + off] > '~';
+						variable[in + off] < '@' || variable[in + off] > '~';
 						++off) {
-					if (source[in + off] == '\0') {
-						copier(&destination[out], &source[in], off);
+					if (variable[in + off] == '\0') {
+						memcpy(&variable[out], &variable[in], off);
 						out += off;
 
 						break;
@@ -561,53 +557,18 @@ static size_t cheat_apply_stripped(char const* const source,
 				in += off;
 
 				continue;
-			} else if (source[in + 1] >= '@' && source[in + 1] <= '_') {
+			} else if (variable[in + 1] >= '@' && variable[in + 1] <= '_') {
 				++in;
 
 				continue;
 			}
 		}
-		copier(&destination[out], &source[in], 1);
+		variable[out] = variable[in];
 		++out;
 	}
-	copier(&destination[out], &source[in], 1);
+	variable[out] = variable[in];
+
 	return out;
-}
-
-/*
-Pretends to copy a character array.
-*/
-__attribute__ ((__const__, __nonnull__))
-static void cheat_copy_nothing(char* const destination,
-		char const* const source, size_t const size) {}
-
-/*
-Copies a character array.
-*/
-__attribute__ ((__nonnull__))
-static void cheat_copy_disjoint(char* const destination,
-		char const* const source, size_t const size) {
-	(void )memcpy(destination, source, size);
-}
-
-/*
-Allocates a string with ISO/IEC 6429 escape sequences stripped out or
- returns NULL and sets errno in case of a failure.
-*/
-__attribute__ ((__malloc__, __nonnull__, __warn_unused_result__))
-static char* cheat_allocate_stripped(char const* const literal) {
-	size_t length;
-	char* result;
-
-	length = cheat_apply_stripped(literal, cheat_copy_nothing, NULL);
-
-	result = CHEAT_CAST(char*) malloc(length + 1);
-	if (result == NULL)
-		return NULL;
-
-	(void )cheat_apply_stripped(literal, cheat_copy_disjoint, result);
-
-	return result;
 }
 
 /*
@@ -921,23 +882,19 @@ static void cheat_print_list(
 				1, list->items[index].size, stdout);
 }
 
-/* TODO This is too much; just waste some memory instead. */
-
 /*
 Prints a summary of the usage or
  terminates the program in case of a failure.
 */
 __attribute__ ((__io__, __nonnull__))
 static void cheat_print_usage(struct cheat_suite const* const suite) {
-	static char const* const usage_string = CHEAT_BOLD "[option]"
-		CHEAT_RESET " "
-		CHEAT_BOLD "[another option]"
-		CHEAT_RESET " "
-		CHEAT_BOLD "[...]"
-		CHEAT_RESET " "
-		CHEAT_BOLD "[test]"
-		CHEAT_RESET;
-	static char const* const option_strings[] = {
+	bool strip = false;
+	bool print_usage = false;
+	bool print_options = false;
+	bool print_labels = false;
+	char usage_format[] = CHEAT_BOLD "%s"
+		CHEAT_RESET " [option] [another option] [...] [test]";
+	char option_strings[][80] = { /* This length is a coincidence. */
 		CHEAT_BOLD "-c"
 			CHEAT_RESET "  "
 			CHEAT_BOLD "--colorful"
@@ -981,7 +938,7 @@ static void cheat_print_usage(struct cheat_suite const* const suite) {
 		CHEAT_BOLD "-u"
 			CHEAT_RESET "  "
 			CHEAT_BOLD "--unsafe"
-			CHEAT_RESET "     Let crashing tests bring down the whole suite",
+			CHEAT_RESET "     Let crashing tests bring down the test suite",
 		CHEAT_BOLD "-v"
 			CHEAT_RESET "  "
 			CHEAT_BOLD "--version"
@@ -990,91 +947,52 @@ static void cheat_print_usage(struct cheat_suite const* const suite) {
 			CHEAT_RESET "  "
 			CHEAT_BOLD "--quiet"
 			CHEAT_RESET "      Do not capture standard streams",
-		NULL
+		""
 	};
-
-	bool print_usage;
-	bool print_options;
-	bool print_labels;
-	bool strip;
 
 	switch (suite->style) {
 	case CHEAT_PLAIN:
-		print_usage = true;
-		print_options = true;
-		print_labels = true;
 		strip = true;
-		break;
 	case CHEAT_COLORFUL:
 		print_usage = true;
 		print_options = true;
 		print_labels = true;
-		strip = false;
 		break;
 	case CHEAT_MINIMAL:
-		print_usage = true;
-		print_options = false;
-		print_labels = false;
 		strip = true;
+		print_usage = true;
 		break;
 	default:
 		cheat_death("invalid style", suite->style);
 	}
 
 	if (print_usage) {
-		char* stripped_string;
-
-		if (strip) {
-			stripped_string = cheat_allocate_stripped(usage_string);
-			if (stripped_string == NULL)
-				cheat_death("failed to allocate memory", errno);
-		}
+		if (strip)
+			cheat_strip(usage_format);
 
 		if (print_labels)
 			(void )fputs("Usage: ", stdout);
-		(void )fputs(suite->program, stdout);
-		(void )fputc(' ', stdout);
-		if (strip)
-			(void )fputs(stripped_string, stdout);
-		else
-			(void )fputs(usage_string, stdout);
+		(void )cheat_print(usage_format, stdout, 1, suite->program);
 		(void )fputc('\n', stdout);
-
-		if (strip)
-			free(stripped_string);
 	}
 
 	if (print_options) {
-		bool first;
 		size_t index;
 
-		first = true;
 		for (index = 0;
-				option_strings[index] != NULL;
+				option_strings[index][0] != '\0';
 				++index) {
-			char* stripped_string;
-
-			if (strip) {
-				stripped_string = cheat_allocate_stripped(option_strings[index]);
-				if (stripped_string == NULL)
-					cheat_death("failed to allocate memory", errno);
-			}
+			if (strip)
+				cheat_strip(option_strings[index]);
 
 			if (print_labels) {
-				if (first) {
+				if (index == 0)
 					(void )fputs("Options: ", stdout);
-					first = false;
-				} else
+				else
 					(void )fputs("         ", stdout);
 			}
-			if (strip)
-				(void )fputs(stripped_string, stdout);
-			else
-				(void )fputs(option_strings[index], stdout);
+			(void )fputs(option_strings[index], stdout);
 			(void )fputc('\n', stdout);
-
-			if (strip)
-				free(stripped_string);
 		}
 	}
 }
@@ -1085,69 +1003,44 @@ Prints a list of the tests or
 */
 __attribute__ ((__io__, __nonnull__))
 static void cheat_print_tests(struct cheat_suite const* const suite) {
-	static char const* const name_format = CHEAT_BOLD "%s"
+	bool strip = false;
+	bool print_labels = false;
+	size_t index;
+	char name_format[] = CHEAT_BOLD "%s"
 		CHEAT_RESET;
-
-	bool print_tests;
-	bool print_labels;
-	bool strip;
+	bool first = true;
 
 	switch (suite->style) {
 	case CHEAT_PLAIN:
-		print_tests = true;
-		print_labels = true;
 		strip = true;
-		break;
 	case CHEAT_COLORFUL:
-		print_tests = true;
 		print_labels = true;
-		strip = false;
 		break;
 	case CHEAT_MINIMAL:
-		print_tests = true;
-		print_labels = false;
 		strip = true;
 		break;
 	default:
 		cheat_death("invalid style", suite->style);
 	}
 
-	if (print_tests) {
-		bool first;
-		size_t index;
+	for (index = 0;
+			suite->units[index].type != CHEAT_TERMINATOR;
+			++index) {
+		if (suite->units[index].type != CHEAT_TESTER)
+			continue;
 
-		first = true;
-		for (index = 0;
-				suite->units[index].type != CHEAT_TERMINATOR;
-				++index) {
-			char* stripped_format;
+		if (strip)
+			cheat_strip(name_format);
 
-			if (strip) {
-				stripped_format = cheat_allocate_stripped(name_format);
-				if (stripped_format == NULL)
-					cheat_death("failed to allocate memory", errno);
-			}
-
-			if (suite->units[index].type == CHEAT_TESTER) {
-				if (print_labels) {
-					if (first) {
-						(void )fputs("Tests: ", stdout);
-						first = false;
-					} else
-						(void )fputs("       ", stdout);
-				}
-				if (strip)
-					(void )cheat_print(stripped_format, stdout,
-							1, suite->units[index].name);
-				else
-					(void )cheat_print(name_format, stdout,
-							1, suite->units[index].name);
-				(void )fputc('\n', stdout);
-			}
-
-			if (strip)
-				free(stripped_format);
+		if (print_labels) {
+			if (first) {
+				(void )fputs("Tests: ", stdout);
+				first = false;
+			} else
+				(void )fputs("       ", stdout);
 		}
+		(void )cheat_print(name_format, stdout, 1, suite->units[index].name);
+		(void )fputc('\n', stdout);
 	}
 }
 
@@ -1167,83 +1060,68 @@ Prints the outcome of a single test or
 */
 __attribute__ ((__io__, __nonnull__))
 static void cheat_print_outcome(struct cheat_suite const* const suite) {
-	static char const* const successful_string = CHEAT_BACKGROUND_GREEN "."
+	bool strip = false;
+	bool print_outcome = false;
+	char successful_string[] = CHEAT_BACKGROUND_GREEN "."
 		CHEAT_RESET;
-	static char const* const failed_string = CHEAT_BACKGROUND_RED ":"
+	char failed_string[] = CHEAT_BACKGROUND_RED ":"
 		CHEAT_RESET;
-	static char const* const exited_string = CHEAT_BACKGROUND_RED "!"
+	char exited_string[] = CHEAT_BACKGROUND_RED "!"
 		CHEAT_RESET;
-	static char const* const crashed_string = CHEAT_BACKGROUND_RED "!"
+	char crashed_string[] = CHEAT_BACKGROUND_RED "!"
 		CHEAT_RESET;
-	static char const* const timed_out_string = CHEAT_BACKGROUND_YELLOW "!"
+	char timed_out_string[] = CHEAT_BACKGROUND_YELLOW "!"
 		CHEAT_RESET;
-	static char const* const ignored_string = CHEAT_BACKGROUND_YELLOW "?"
+	char ignored_string[] = CHEAT_BACKGROUND_YELLOW "?"
 		CHEAT_RESET;
-	static char const* const skipped_string = "";
-
-	bool print_progress;
-	bool strip;
+	char skipped_string[] = "";
 
 	switch (suite->style) {
 	case CHEAT_PLAIN:
-		print_progress = true;
 		strip = true;
-		break;
 	case CHEAT_COLORFUL:
-		print_progress = true;
-		strip = false;
+		print_outcome = true;
 		break;
 	case CHEAT_MINIMAL:
-		print_progress = false;
 		break;
 	default:
 		cheat_death("invalid style", suite->style);
 	}
 
-	if (print_progress) {
-		char const* progress_string;
-		char* stripped_string;
+	if (print_outcome) {
+		char* outcome_string;
 
 		switch (suite->outcome) {
 		case CHEAT_SUCCESSFUL:
-			progress_string = successful_string;
+			outcome_string = successful_string;
 			break;
 		case CHEAT_FAILED:
-			progress_string = failed_string;
+			outcome_string = failed_string;
 			break;
 		case CHEAT_EXITED:
-			progress_string = exited_string;
+			outcome_string = exited_string;
 			break;
 		case CHEAT_CRASHED:
-			progress_string = crashed_string;
+			outcome_string = crashed_string;
 			break;
 		case CHEAT_TIMED_OUT:
-			progress_string = timed_out_string;
+			outcome_string = timed_out_string;
 			break;
 		case CHEAT_IGNORED:
-			progress_string = ignored_string;
+			outcome_string = ignored_string;
 			break;
 		case CHEAT_SKIPPED:
-			progress_string = skipped_string;
+			outcome_string = skipped_string;
 			break;
 		default:
 			cheat_death("invalid outcome", suite->outcome);
 		}
 
-		if (strip) {
-			stripped_string = cheat_allocate_stripped(progress_string);
-			if (stripped_string == NULL)
-				cheat_death("failed to allocate memory", errno);
-		}
-
 		if (strip)
-			(void )fputs(stripped_string, stdout);
-		else
-			(void )fputs(progress_string, stdout);
+			cheat_strip(outcome_string);
+
+		(void )fputs(outcome_string, stdout);
 		(void )fflush(stdout);
-
-		if (strip)
-			free(stripped_string);
 	}
 }
 
@@ -1253,22 +1131,22 @@ Prints a separator or
 */
 __attribute__ ((__io__, __nonnull__))
 static void cheat_print_separator(struct cheat_suite const* const suite) {
-	static char const* const separator_string = CHEAT_FOREGROUND_GRAY "---"
+	bool strip = false;
+	bool print_separator = false;
+	char separator_string[] = CHEAT_FOREGROUND_GRAY "---"
 		CHEAT_RESET;
-
-	bool print_separator;
-	bool strip;
 
 	switch (suite->style) {
 	case CHEAT_PLAIN:
-		print_separator = true;
 		strip = true;
+		print_separator = true;
 		break;
 	case CHEAT_COLORFUL:
-		print_separator = true;
 		strip = false;
+		print_separator = true;
 		break;
 	case CHEAT_MINIMAL:
+		strip = true;
 		print_separator = false;
 		break;
 	default:
@@ -1276,22 +1154,11 @@ static void cheat_print_separator(struct cheat_suite const* const suite) {
 	}
 
 	if (print_separator) {
-		char* stripped_string;
-
-		if (strip) {
-			stripped_string = cheat_allocate_stripped(separator_string);
-			if (stripped_string == NULL)
-				cheat_death("failed to allocate memory", errno);
-		}
-
 		if (strip)
-			(void )fputs(stripped_string, stdout);
-		else
-			(void )fputs(separator_string, stdout);
+			cheat_strip(separator_string);
+
+		(void )fputs(separator_string, stdout);
 		(void )fputc('\n', stdout);
-
-		if (strip)
-			free(stripped_string);
 	}
 }
 
@@ -1301,46 +1168,73 @@ Prints a summary of all tests or
 */
 __attribute__ ((__io__, __nonnull__))
 static void cheat_print_summary(struct cheat_suite const* const suite) {
-	static char const* const separator_string = CHEAT_FOREGROUND_GRAY "---"
-		CHEAT_RESET;
-	static char const* const long_successful_format = CHEAT_FOREGROUND_GREEN
+	bool strip = false;
+	bool regular = false;
+	bool print_outcomes = false;
+	bool print_messages = false;
+	bool print_outputs = false;
+	bool print_errors = false;
+	bool print_summary = false;
+	bool print_conclusion = false;
+	char long_successful_format[] = CHEAT_FOREGROUND_GREEN
 		CHEAT_SIZE_FORMAT " successful"
 		CHEAT_RESET;
-	static char const* const long_and_string = " and ";
-	static char const* const long_failed_format = CHEAT_FOREGROUND_RED
+	char long_and_string[] = " and ";
+	char long_failed_format[] = CHEAT_FOREGROUND_RED
 		CHEAT_SIZE_FORMAT " failed"
 		CHEAT_RESET;
-	static char const* const long_of_string = " of ";
-	static char const* const long_run_format = CHEAT_FOREGROUND_YELLOW
+	char long_of_string[] = " of ";
+	char long_run_format[] = CHEAT_FOREGROUND_YELLOW
 		CHEAT_SIZE_FORMAT " run"
 		CHEAT_RESET;
-	static char const* const success_string = CHEAT_FOREGROUND_GREEN "SUCCESS"
+	char success_string[] = CHEAT_FOREGROUND_GREEN "SUCCESS"
 		CHEAT_RESET;
-	static char const* const failure_string = CHEAT_FOREGROUND_RED "FAILURE"
+	char failure_string[] = CHEAT_FOREGROUND_RED "FAILURE"
 		CHEAT_RESET;
-	static char const* const short_format = CHEAT_SIZE_FORMAT;
-	static char const* const short_string = " ";
-
-	bool print_progress;
-	bool print_messages;
-	bool print_outputs;
-	bool print_errors;
-	bool print_summary;
-	bool print_conclusion;
-	char const* successful_format;
-	char const* and_string;
-	char const* failed_format;
-	char const* of_string;
-	char const* run_format;
-	bool regular;
-	bool strip;
-	bool first;
+	char short_format[] = CHEAT_SIZE_FORMAT;
+	char short_string[] = " ";
+	char* successful_format;
+	char* and_string;
+	char* failed_format;
+	char* of_string;
+	char* run_format;
 	bool any_successes;
 	bool any_failures;
 	bool any_run;
 	bool any_messages;
 	bool any_outputs;
 	bool any_errors;
+	bool separate = false;
+
+	switch (suite->style) {
+	case CHEAT_PLAIN:
+		strip = true;
+	case CHEAT_COLORFUL:
+		print_outcomes = true;
+		print_messages = true;
+		print_outputs = true;
+		print_errors = true;
+		print_summary = true;
+		print_conclusion = true;
+		successful_format = long_successful_format;
+		and_string = long_and_string;
+		failed_format = long_failed_format;
+		of_string = long_of_string;
+		run_format = long_run_format;
+		break;
+	case CHEAT_MINIMAL:
+		strip = true;
+		regular = true;
+		print_summary = true;
+		successful_format = short_format;
+		and_string = short_string;
+		failed_format = short_format;
+		of_string = short_string;
+		run_format = short_format;
+		break;
+	default:
+		cheat_death("invalid style", suite->style);
+	}
 
 	any_successes = suite->tests.successful != 0;
 	any_failures = suite->tests.failed != 0;
@@ -1349,102 +1243,83 @@ static void cheat_print_summary(struct cheat_suite const* const suite) {
 	any_outputs = suite->outputs.count != 0;
 	any_errors = suite->errors.count != 0;
 
-	switch (suite->style) {
-	case CHEAT_PLAIN:
-		print_progress = true;
-		print_messages = true;
-		print_outputs = true;
-		print_errors = true;
-		print_summary = true;
-		print_conclusion = true;
-		successful_format = long_successful_format;
-		and_string = long_and_string;
-		failed_format = long_failed_format;
-		of_string = long_of_string;
-		run_format = long_run_format;
-		regular = false;
-		strip = true;
-		break;
-	case CHEAT_COLORFUL:
-		print_progress = true;
-		print_messages = true;
-		print_outputs = true;
-		print_errors = true;
-		print_summary = true;
-		print_conclusion = true;
-		successful_format = long_successful_format;
-		and_string = long_and_string;
-		failed_format = long_failed_format;
-		of_string = long_of_string;
-		run_format = long_run_format;
-		regular = false;
-		strip = false;
-		break;
-	case CHEAT_MINIMAL:
-		print_progress = false;
-		print_messages = false;
-		print_outputs = false;
-		print_errors = false;
-		print_summary = true;
-		print_conclusion = false;
-		successful_format = short_format;
-		and_string = short_string;
-		failed_format = short_format;
-		of_string = short_string;
-		run_format = short_format;
-		regular = true;
-		break;
-	default:
-		cheat_death("invalid style", suite->style);
-	}
+	if (print_outcomes && any_run) {
+		separate = true;
 
-	first = true;
-	if (print_progress && any_run) {
 		(void )fputc('\n', stdout);
-		first = false;
 	}
 	/* TODO Sweet copy and paste. */
 	if (print_messages && any_messages) {
-		if (!first)
+		if (separate)
 			cheat_print_separator(suite);
+		separate = true;
+
 		cheat_print_list(&suite->messages);
-		first = false;
 	}
 	if (print_outputs && any_outputs && !suite->quiet) {
-		if (!first)
+		if (separate)
 			cheat_print_separator(suite);
+		separate = true;
+
 		cheat_print_list(&suite->outputs);
-		first = false;
 	}
 	/* TODO Do not capture with cheat_suite.quiet. */
 	if (print_errors && any_errors && !suite->quiet) {
-		if (!first)
+		if (separate)
 			cheat_print_separator(suite);
+		separate = true;
+
 		cheat_print_list(&suite->errors);
-		first = false;
 	}
 	if (print_summary) {
-		if (!first)
+		if (separate)
 			cheat_print_separator(suite);
-		if (regular || any_successes)
+
+		if (regular || any_successes) {
+			if (strip)
+				cheat_strip(successful_format);
+
 			(void )cheat_print(successful_format, stdout,
 					1, CHEAT_SIZE_TYPE(suite->tests.successful));
-		if (regular || (any_successes && any_failures))
+		}
+		if (regular || (any_successes && any_failures)) {
+			if (strip)
+				cheat_strip(and_string);
+
 			(void )fputs(and_string, stdout);
-		if (regular || any_failures)
+		}
+		if (regular || any_failures) {
+			if (strip)
+				cheat_strip(failed_format);
+
 			(void )cheat_print(failed_format, stdout,
 					1, CHEAT_SIZE_TYPE(suite->tests.failed));
-		if (regular || (any_successes || any_failures))
+		}
+		if (regular || (any_successes || any_failures)) {
+			if (strip)
+				cheat_strip(of_string);
+
 			(void )fputs(of_string, stdout);
+		}
+		if (strip)
+			cheat_strip(run_format);
+
 		(void )cheat_print(run_format, stdout,
 				1, CHEAT_SIZE_TYPE(suite->tests.run));
 		(void )fputc('\n', stdout);
 	}
 	if (print_conclusion) {
-		if (!any_failures)
+		if (!any_failures) {
+			if (strip)
+				cheat_strip(failure_string);
+
 			(void )fputs(failure_string, stdout);
-		else
+		} else {
+			if (strip)
+				cheat_strip(success_string);
+
 			(void )fputs(success_string, stdout);
+		}
 		(void )fputc('\n', stdout);
 	}
 }
@@ -1456,70 +1331,67 @@ __attribute__ ((__io__, __nonnull__))
 static void cheat_print_failure(struct cheat_suite* const suite,
 		char const* const expression,
 		char const* const file, size_t const line) {
-	static char const* const assertion_format = CHEAT_BOLD "%s:"
-			CHEAT_SIZE_FORMAT ":"
-			CHEAT_RESET " assertion in '"
-			CHEAT_BOLD "%s"
-			CHEAT_RESET "' failed: '"
-			CHEAT_BOLD "%s"
-			CHEAT_RESET "'\n";
-
-	bool print_assertion;
-	bool strip;
+	bool strip = false;
+	bool print_assertion = false;
+	char assertion_format[] = CHEAT_BOLD "%s:"
+		CHEAT_SIZE_FORMAT ":"
+		CHEAT_RESET " assertion in '"
+		CHEAT_BOLD "%s"
+		CHEAT_RESET "' failed: '"
+		CHEAT_BOLD "%s"
+		CHEAT_RESET "'\n"; /* Mind the line break. */
 
 	switch (suite->style) {
 	case CHEAT_PLAIN:
-		print_assertion = true;
 		strip = true;
-		break;
 	case CHEAT_COLORFUL:
 		print_assertion = true;
-		strip = false;
 		break;
 	case CHEAT_MINIMAL:
-		print_assertion = false;
 		break;
 	default:
 		cheat_death("invalid style", suite->style);
 	}
 
-	/* TODO Strip. */
-
 	if (print_assertion) {
-		char* assertion;
-		char* buffer;
+		char* truncation;
 
-		assertion = cheat_allocate_truncated(expression,
+		truncation = cheat_allocate_truncated(expression,
 				suite->assertion_length, "...");
-		if (assertion == NULL)
+		if (truncation == NULL)
 			cheat_death("failed to allocate memory", errno);
 
+		if (strip)
+			cheat_strip(assertion_format);
+
 		switch (suite->harness) {
+			char* buffer;
+
 		case CHEAT_UNSAFE:
 		case CHEAT_DANGEROUS:
-			buffer = CHEAT_CAST(char*) cheat_allocate_total(5,
+			buffer = CHEAT_CAST(char*) cheat_allocate_total(6,
 					strlen(assertion_format), strlen(file), CHEAT_LENGTH(line),
-					strlen(suite->test_name), strlen(assertion));
+					strlen(suite->test_name), strlen(truncation), 1);
 			if (buffer == NULL)
 				cheat_death("failed to allocate memory", errno);
 
-			(void )cheat_print_string(assertion_format, buffer,
+			if (cheat_print_string(assertion_format, buffer,
 					4, file, CHEAT_SIZE_TYPE(line),
-					suite->test_name, assertion);
-			cheat_append_array(&suite->messages, buffer,
-					strlen(buffer));
+					suite->test_name, truncation) < 0)
+				cheat_death("failed to build a string", errno);
+			cheat_append_array(&suite->messages, buffer, strlen(buffer));
 
 			free(buffer);
 			break;
 		case CHEAT_SAFE:
 			(void )cheat_print(assertion_format, suite->message_stream,
-					4, file, line, suite->test_name, assertion);
+					4, file, line, suite->test_name, truncation);
 			break;
 		default:
 			cheat_death("invalid harness", suite->harness);
 		}
 
-		free(assertion);
+		free(truncation);
 	}
 }
 
@@ -1626,7 +1498,8 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 			strlen(CHEAT_PREFIX), CHEAT_LENGTH(pid), 1);
 	if (name == NULL)
 		cheat_death("failed to allocate memory", errno);
-	(void )cheat_print_string("%s%d", name, 2, CHEAT_PREFIX, 0 /* pid */);
+	if (cheat_print_string("%s%d", name, 2, CHEAT_PREFIX, 0 /* pid */) < 0)
+		cheat_death("failed to build a string", errno);
 
 	/*
 	message_pipe = CreateNamedPipe(name,
@@ -1900,40 +1773,25 @@ Parses the arguments of a test suite and
 */
 __attribute__ ((__io__, __nonnull__))
 static void cheat_parse(struct cheat_suite* const suite) {
-	bool colorful;
-	bool dangerous;
-	bool eternal;
-	bool help;
-	bool list;
-	bool minimal;
-	bool noisy;
-	bool plain;
-	bool safe;
-	bool timed;
-	bool unsafe;
-	bool version;
-	bool quiet;
-	size_t names;
-	char const* name;
-	bool test;
-	bool options;
 	size_t index;
+	bool options = true;
+	bool colorful = false;
+	bool dangerous = false;
+	bool eternal = false;
+	bool help = false;
+	bool list = false;
+	bool minimal = false;
+	bool noisy = false;
+	bool plain = false;
+	bool safe = false;
+	bool timed = false;
+	bool unsafe = false;
+	bool version = false;
+	bool quiet = false;
+	bool test = false;
+	size_t names = 0;
+	char const* name;
 
-	colorful = false;
-	dangerous = false;
-	eternal = false;
-	help = false;
-	list = false;
-	minimal = false;
-	noisy = false;
-	plain = false;
-	safe = false;
-	timed = false;
-	unsafe = false;
-	version = false;
-	quiet = false;
-	names = 0;
-	options = true;
 	for (index = 0;
 			index < suite->arguments.count;
 			++index) {
@@ -2044,7 +1902,7 @@ static void cheat_parse(struct cheat_suite* const suite) {
 			&& !(noisy && quiet)
 			&& !(safe && unsafe)
 			&& !(eternal && timed))
-		if (test) {
+		if (test) { /* TODO Think about the necessity of this thing. */
 			struct cheat_unit const* unit;
 
 			unit = cheat_find(suite->units, name);
@@ -2544,6 +2402,8 @@ This pass defines and wraps up the previously listed procedures.
 The third pass continues past the end of this file, but
  the definitions for it end here.
 */
+
+/* TODO Something. */
 
 /*
 Terminates a subprocess or
