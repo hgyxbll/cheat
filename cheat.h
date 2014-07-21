@@ -45,6 +45,10 @@ Identifiers starting with CHEAT_ and cheat_ are reserved for internal use and
 #endif
 #endif
 
+#if _POSIX_C_SOURCE >= 200112L
+#define CHEAT_VERY_POSIXLY
+#endif
+
 #ifdef __cplusplus
 #define CHEAT_POSTMODERN
 #define CHEAT_BOOLEAN
@@ -104,10 +108,14 @@ All nested conditions use
 #include <windows.h> /* spaghetti */
 #else
 #ifdef CHEAT_POSIXLY
-#include <sys/time.h> /* fd_set */
 #include <sys/types.h> /* pid_t, ssize_t */
 #include <sys/wait.h>
 #include <unistd.h> /* STDERR_FILENO, STDOUT_FILENO */
+#ifdef CHEAT_VERY_POSIXLY
+#include <sys/select.h> /* fd_set */
+#else
+#include <sys/time.h> /* fd_set */
+#endif
 #endif
 #endif
 
@@ -472,7 +480,6 @@ static void* cheat_allocate_total(size_t const count, ...) {
 		size += argument;
 	}
 	va_end(list);
-
 	return malloc(size);
 }
 
@@ -2527,49 +2534,6 @@ Some libraries and system calls can still exit or print things, but
 */
 
 __attribute__ ((__unused__))
-static size_t cheat_print_length(char const* const format, va_list list) {
-
-#ifdef CHEAT_WINDOWED
-
-		FILE* file;
-		int result;
-
-		fopen_s(&file, "NUL", "w");
-		if (file == NULL)
-			return 0;
-		result = vfprintf(file, format, list);
-		(void )fclose(file);
-		return (size_t )result;
-
-#else
-#ifdef CHEAT_MODERN
-
-		return (size_t )vsnprintf(NULL, 0, format, list);
-
-#else
-#ifdef CHEAT_POSIXLY
-
-		FILE* file;
-		int result;
-
-		file = fopen("/dev/null", "w");
-		if (file == NULL)
-			return 0;
-		result = vfprintf(file, format, list);
-		(void )fclose(file);
-		return (size_t )result;
-
-#else
-
-	#error "a null device is not available"
-
-#endif
-#endif
-#endif
-
-}
-
-__attribute__ ((__unused__))
 static void CHEAT_WRAP(exit)(int const status) {
 	cheat_exit(&cheat_suite, exit);
 }
@@ -2598,33 +2562,52 @@ static void CHEAT_WRAP(_exit)(int const status) {
 
 #endif
 
+#ifdef CHEAT_MODERN
+
+__attribute__ ((__unused__))
+static size_t cheat_printed_length(char const* const format, va_list list) {
+	va_list another_list;
+
+	va_copy(another_list, list); /* This is a big compatibility bottleneck. */
+	return (size_t )vsnprintf(NULL, 0, format, another_list);
+
+}
+
+#endif
+
 __attribute__ ((__unused__))
 static int CHEAT_WRAP(vfprintf)(FILE* const stream,
 		char const* const format, va_list list) {
-	if (cheat_suite.harness != CHEAT_SAFE
-			&& (stream == stdout || stream == stderr)) {
-		va_list vackup;
+	if (cheat_hide(&cheat_suite, stream)) {
+
+#ifdef CHEAT_MODERN
+
 		size_t length;
 		char* buffer;
 		int result;
 
-		memcpy(vackup, list, sizeof list); /* Uh oh! */
-		length = cheat_print_length(format, list);
-		memcpy(list, vackup, sizeof list);
+		length = cheat_printed_length(format, list);
 
 		buffer = CHEAT_CAST(char*) malloc(length + 1);
 		if (buffer == NULL)
-			cheat_death("failed to allocate memory", errno);
+			return -1;
 
 		result = vsprintf(buffer, format, list);
 		if (stream == stdout)
 			cheat_append_array(&cheat_suite.outputs, buffer, length);
-		else if (stream == stderr)
+		else
 			cheat_append_array(&cheat_suite.errors, buffer, length);
 
 		free(buffer);
 
 		return result;
+
+#else
+
+		return -1;
+
+#endif
+
 	}
 
 	return vfprintf(stream, format, list);
@@ -2668,14 +2651,28 @@ static int CHEAT_WRAP(printf)(char const* const format, ...) {
 
 __attribute__ ((__unused__))
 static int CHEAT_WRAP(fputs)(char const* const message, FILE* const stream) {
-	return CHEAT_WRAP(fprintf)(stream, "%s", message);
+	int result;
+
+	result = CHEAT_WRAP(fprintf)(stream, "%s", message);
+
+	if (result < 0)
+		return EOF;
+
+	return 0;
 }
 
 #define fputs CHEAT_WRAP(fputs)
 
 __attribute__ ((__unused__))
 static int CHEAT_WRAP(fputc)(int const character, FILE* const stream) {
-	return CHEAT_WRAP(fprintf)(stream, "%c", character);
+	int result;
+
+	result = CHEAT_WRAP(fprintf)(stream, "%c", character);
+
+	if (result < 0)
+		return EOF;
+
+	return (int )(unsigned char )result;
 }
 
 #define fputc CHEAT_WRAP(fputc)
@@ -2713,12 +2710,28 @@ static int CHEAT_WRAP(puts)(char const* const message) {
 #define puts CHEAT_WRAP(puts)
 
 __attribute__ ((__unused__))
-static size_t CHEAT_WRAP(fwrite)(void const* const pointer,
+static size_t CHEAT_WRAP(fwrite)(void const* const buffer,
 		size_t const size, size_t const count, FILE* const stream) {
-	if (cheat_hide(&cheat_suite, stream))
+	if (cheat_hide(&cheat_suite, stream)) {
+
+#ifdef CHEAT_MODERN
+
+		if (stream == stdout)
+			cheat_append_array(&cheat_suite.outputs, buffer, size * count);
+		else
+			cheat_append_array(&cheat_suite.errors, buffer, size * count);
+
 		return count;
 
-	return fwrite(pointer, size, count, stream);
+#else
+
+		return 0; /* This is consistent with CHEAT_WRAP(vfprintf)(). */
+
+#endif
+
+	}
+
+	return fwrite(buffer, size, count, stream);
 }
 
 #define fwrite CHEAT_WRAP(fwrite)
@@ -2735,8 +2748,19 @@ static int CHEAT_WRAP(fflush)(FILE* const stream) {
 
 __attribute__ ((__unused__))
 static void CHEAT_WRAP(perror)(char const* const message) {
-	if (cheat_hide(&cheat_suite, stderr))
+	if (cheat_hide(&cheat_suite, stderr)) {
+
+#ifdef CHEAT_MODERN
+#ifdef CHEAT_VERY_POSIXLY
+		CHEAT_WRAP(fprintf)(stderr, "%s: %s", message, strerror(errno));
+#else
+		CHEAT_WRAP(fprintf)(stderr, "%s: Failure", message);
+#endif
+#endif
+
 		return;
+
+	}
 
 	perror(message);
 }
@@ -2751,8 +2775,16 @@ static ssize_t CHEAT_WRAP(write)(int const fd,
 	FILE* stream;
 
 	stream = fdopen(fd, "w");
-	if (stream != NULL && cheat_hide(&cheat_suite, stream))
-		return (ssize_t )size;
+	if (stream != NULL && cheat_hide(&cheat_suite, stream)) {
+		size_t result;
+
+		result = CHEAT_WRAP(fwrite)(buffer, 1, size, stream);
+
+		if (result == 0)
+			return -1;
+
+		return (ssize_t )result;
+	}
 
 	return write(fd, buffer, size);
 }

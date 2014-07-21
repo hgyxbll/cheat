@@ -26,7 +26,7 @@ CHEAT_DECLARE(
 
 		if (x < y)
 			d = y - x;
-		else /* Turbo C would parse this wrong without this comment. */
+		else /* Turbo C could not parse this without this comment. */
 			d = x - y;
 		return d <= e;
 	}
@@ -126,7 +126,13 @@ CHEAT_TEST(story,
 	(void )puts("Once upon a time I ran a test.");
 )
 
-CHEAT_TEST(nothing_is_right, {})
+CHEAT_TEST(streams_get_captured,
+	if (fopen(".PHONY", "r") == NULL) {
+		(void )fwrite(", reporting \"", 1, 13, stderr);
+		perror("fopen");
+		(void )fputc('"', stderr);
+	}
+)
 
 CHEAT_TEST(crash,
 	(void )fputs(" and crashing.\n", stderr);
