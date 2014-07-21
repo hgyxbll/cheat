@@ -1371,13 +1371,13 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 		case CHEAT_DANGEROUS:
 			buffer = CHEAT_CAST(char*) cheat_allocate_total(6,
 					strlen(assertion_format), strlen(file), CHEAT_LENGTH(line),
-					strlen(suite->test_name), strlen(truncation), 1);
+					strlen(suite->test_name), strlen(truncation), (size_t )1);
 			if (buffer == NULL)
 				cheat_death("failed to allocate memory", errno);
 
 			if (cheat_print_string(assertion_format, buffer,
-					4, file, CHEAT_SIZE_TYPE(line),
-					suite->test_name, truncation) < 0)
+						4, file, CHEAT_SIZE_TYPE(line),
+						suite->test_name, truncation) < 0)
 				cheat_death("failed to build a string", errno);
 			cheat_append_array(&suite->messages, buffer, strlen(buffer));
 
@@ -1450,7 +1450,7 @@ static void cheat_run_coupled_test(struct cheat_suite* const suite,
 }
 
 #ifdef CHEAT_WINDOWED
-#define CHEAT_PREFIX "\\\\.\\pipe\\cheat"
+#define CHEAT_PIPE "\\\\.\\pipe\\cheat"
 #endif
 
 /*
@@ -1463,7 +1463,6 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 
 #ifdef CHEAT_WINDOWED
 
-	DWORD pid;
 	LPTSTR name;
 	HANDLE message_pipe;
 	HANDLE output_reader;
@@ -1492,13 +1491,12 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 	security.lpSecurityDescriptor = NULL;
 	security.bInheritHandle = TRUE;
 
-	pid = GetCurrentProcessId();
-
-	name = CHEAT_CAST(LPTSTR) cheat_allocate_total(2,
-			strlen(CHEAT_PREFIX), CHEAT_LENGTH(pid), 1);
+	name = CHEAT_CAST(LPTSTR) cheat_allocate_total(3,
+			strlen(CHEAT_PIPE), CHEAT_LENGTH(process.dwProcessId), (size_t )1);
 	if (name == NULL)
 		cheat_death("failed to allocate memory", errno);
-	if (cheat_print_string("%s%d", name, 2, CHEAT_PREFIX, 0 /* pid */) < 0)
+	if (cheat_print_string("%s%d", name,
+				2, CHEAT_PIPE, process.dwProcessId) < 0)
 		cheat_death("failed to build a string", errno);
 
 	/*
@@ -1534,6 +1532,7 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 	command = cheat_allocate_total(2, command_length + 1, name_length + 1);
 	if (command == NULL)
 		cheat_death("failed to allocate memory", errno);
+
 	memcpy(command, GetCommandLine(), command_length);
 	command[command_length] = ' ';
 	memcpy(&command[command_length + 1], test->name, name_length + 1);
@@ -1841,6 +1840,11 @@ static void cheat_parse(struct cheat_suite* const suite) {
 			else if (strcmp(argument, "-q") == 0
 					|| strcmp(argument, "--quiet") == 0)
 				quiet = true;
+#ifdef CHEAT_WINDOWED
+			else if (strcmp(argument, "-w") == 0
+					|| strcmp(argument, "--windows") == 0)
+				; /* TODO Consider this. */
+#endif
 			else
 				cheat_death("invalid option", index);
 		} else {
@@ -1901,7 +1905,8 @@ static void cheat_parse(struct cheat_suite* const suite) {
 			&& !(dangerous && unsafe)
 			&& !(noisy && quiet)
 			&& !(safe && unsafe)
-			&& !(eternal && timed))
+			&& !(eternal && timed)
+			&& !(timed && (dangerous || unsafe)))
 		if (test) { /* TODO Think about the necessity of this thing. */
 			struct cheat_unit const* unit;
 
@@ -2468,11 +2473,31 @@ int main(int const count, char** const arguments) {
 #ifdef CHEAT_WINDOWED
 	cheat_suite.timed = true;
 	cheat_suite.harness = CHEAT_SAFE;
-	cheat_suite.message_stream = CreateFile(CHEAT_PREFIX "0" /* pid */,
-			GENERIC_WRITE, 0, NULL,
-			OPEN_EXISTING, 0, NULL);
-	if (cheat_suite.message_stream == INVALID_HANDLE_VALUE)
-		cheat_suite.message_stream = stdout;
+	{
+		DWORD pid;
+		LPTSTR name;
+
+		pid = GetCurrentProcessId();
+
+		name = CHEAT_CAST(LPTSTR) cheat_allocate_total(3,
+				strlen(CHEAT_PIPE), CHEAT_LENGTH(pid), (size_t )1);
+		if (name == NULL)
+			cheat_death("failed to allocate memory", errno);
+
+		if (cheat_print_string("%s%d", name,
+					2, CHEAT_PIPE, pid) < 0)
+			cheat_death("failed to build a string", errno);
+
+		if (!WaitNamedPipe(name, NMPWAIT_WAIT_FOREVER))
+			cheat_death("failed to wait for a named pipe", GetLastError());
+
+		cheat_suite.message_stream = CreateFile(name, GENERIC_WRITE, 0, NULL,
+				OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+		if (cheat_suite.message_stream == INVALID_HANDLE_VALUE)
+			cheat_suite.message_stream = stdout;
+
+		free(name);
+	}
 #else
 #ifdef CHEAT_POSIXLY
 	cheat_suite.timed = true;
@@ -2501,7 +2526,48 @@ Some libraries and system calls can still exit or print things, but
  that is a problem for the user to solve.
 */
 
-#ifdef FUCK /* This breaks everything; do not define it. */
+__attribute__ ((__unused__))
+static size_t cheat_print_length(char const* const format, va_list list) {
+
+#ifdef CHEAT_WINDOWED
+
+		FILE* file;
+		int result;
+
+		fopen_s(&file, "NUL", "w");
+		if (file == NULL)
+			return 0;
+		result = vfprintf(file, format, list);
+		(void )fclose(file);
+		return (size_t )result;
+
+#else
+#ifdef CHEAT_MODERN
+
+		return (size_t )vsnprintf(NULL, 0, format, list);
+
+#else
+#ifdef CHEAT_POSIXLY
+
+		FILE* file;
+		int result;
+
+		file = fopen("/dev/null", "w");
+		if (file == NULL)
+			return 0;
+		result = vfprintf(file, format, list);
+		(void )fclose(file);
+		return (size_t )result;
+
+#else
+
+	#error "a null device is not available"
+
+#endif
+#endif
+#endif
+
+}
 
 __attribute__ ((__unused__))
 static void CHEAT_WRAP(exit)(int const status) {
@@ -2535,46 +2601,30 @@ static void CHEAT_WRAP(_exit)(int const status) {
 __attribute__ ((__unused__))
 static int CHEAT_WRAP(vfprintf)(FILE* const stream,
 		char const* const format, va_list list) {
-	if (cheat_hide(&cheat_suite, stream)) {
-
-#ifdef CHEAT_WINDOWED
-
-		FILE* file;
+	if (cheat_suite.harness != CHEAT_SAFE
+			&& (stream == stdout || stream == stderr)) {
+		va_list vackup;
+		size_t length;
+		char* buffer;
 		int result;
 
-		fopen_s(&file, "NUL", "w");
-		if (file == NULL)
-			return 1;
-		result = vfprintf(file, format, list);
-		(void )fclose(file);
+		memcpy(vackup, list, sizeof list); /* Uh oh! */
+		length = cheat_print_length(format, list);
+		memcpy(list, vackup, sizeof list);
+
+		buffer = CHEAT_CAST(char*) malloc(length + 1);
+		if (buffer == NULL)
+			cheat_death("failed to allocate memory", errno);
+
+		result = vsprintf(buffer, format, list);
+		if (stream == stdout)
+			cheat_append_array(&cheat_suite.outputs, buffer, length);
+		else if (stream == stderr)
+			cheat_append_array(&cheat_suite.errors, buffer, length);
+
+		free(buffer);
+
 		return result;
-
-#else
-#ifdef CHEAT_MODERN
-
-		return vsnprintf(NULL, 0, format, list);
-
-#else
-#ifdef CHEAT_POSIXLY
-
-		FILE* file;
-		int result;
-
-		file = fopen("/dev/null", "w");
-		if (file == NULL)
-			return 1;
-		result = vfprintf(file, format, list);
-		(void )fclose(file);
-		return result;
-
-#else
-
-		return 1; /* Pretend to write one byte in case of a failure. */
-
-#endif
-#endif
-#endif
-
 	}
 
 	return vfprintf(stream, format, list);
@@ -2618,20 +2668,14 @@ static int CHEAT_WRAP(printf)(char const* const format, ...) {
 
 __attribute__ ((__unused__))
 static int CHEAT_WRAP(fputs)(char const* const message, FILE* const stream) {
-	if (cheat_hide(&cheat_suite, stream))
-		return 0;
-
-	return fputs(message, stream);
+	return CHEAT_WRAP(fprintf)(stream, "%s", message);
 }
 
 #define fputs CHEAT_WRAP(fputs)
 
 __attribute__ ((__unused__))
 static int CHEAT_WRAP(fputc)(int const character, FILE* const stream) {
-	if (cheat_hide(&cheat_suite, stream))
-		return (int )(unsigned char )character;
-
-	return fputc(character, stream);
+	return CHEAT_WRAP(fprintf)(stream, "%c", character);
 }
 
 #define fputc CHEAT_WRAP(fputc)
@@ -2714,8 +2758,6 @@ static ssize_t CHEAT_WRAP(write)(int const fd,
 }
 
 #define write CHEAT_WRAP(write)
-
-#endif
 
 #endif
 
