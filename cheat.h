@@ -271,7 +271,7 @@ The error number is context sensitive and
 				__FILE__, __LINE__, message, (unsigned int )number); \
 		exit(EXIT_FAILURE); \
 	CHEAT_END /* Using cheat_print(), cheat_exit() and
-		cheat_suite.quiet is intentionally avoided here. */
+		cheat_suite is intentionally avoided here. */
 
 /*
 These could be defined as function types instead of function pointer types, but
@@ -309,6 +309,11 @@ struct cheat_string_array {
 struct cheat_character_array {
 	size_t size;
 	char* elements;
+};
+struct cheat_string_list {
+	size_t count;
+	size_t capacity;
+	char** items;
 };
 struct cheat_character_array_list {
 	size_t count;
@@ -617,9 +622,13 @@ static int cheat_print(char const* const format, FILE* const stream,
 }
 
 /*
+This procedure does not have
+  __attribute__ ((__io__))
+ even though it uses cheat_death(), because it is reserved for failures.
+*/
+/*
 Converts an outcome into an exit status.
 */
-__attribute__ ((__const__))
 static int cheat_encode_outcome(enum cheat_outcome const outcome) {
 	switch (outcome) {
 	case CHEAT_SUCCESSFUL:
@@ -689,6 +698,26 @@ static struct cheat_unit const* cheat_find(struct cheat_unit const* const units,
 }
 
 /*
+Initializes an undefined array of strings.
+*/
+__attribute__ ((__nonnull__))
+static void cheat_initialize_string_array(
+		struct cheat_string_array* const array) {
+	array->count = 0;
+	array->elements = NULL;
+}
+
+/*
+Initializes an undefined list of strings.
+*/
+__attribute__ ((__nonnull__))
+static void cheat_initialize_string_list(struct cheat_string_list* const list) {
+	list->count = 0;
+	list->capacity = 0;
+	list->items = NULL;
+}
+
+/*
 Initializes an undefined list of character arrays.
 */
 __attribute__ ((__nonnull__))
@@ -697,15 +726,6 @@ static void cheat_initialize_list(
 	list->count = 0;
 	list->capacity = 0;
 	list->items = NULL;
-}
-
-/*
-Initializes an undefined array of strings.
-*/
-__attribute__ ((__nonnull__))
-static void cheat_initialize_array(struct cheat_string_array* const array) {
-	array->count = 0;
-	array->elements = NULL;
 }
 
 /*
@@ -731,7 +751,7 @@ static void cheat_initialize(struct cheat_suite* const suite) {
 	/* Do not touch suite->handler. */
 
 	suite->program = NULL;
-	cheat_initialize_array(&suite->arguments);
+	cheat_initialize_string_array(&suite->arguments);
 
 	suite->timed = false;
 
@@ -753,6 +773,17 @@ static void cheat_initialize(struct cheat_suite* const suite) {
 	cheat_initialize_list(&suite->errors);
 
 	/* Do not touch suite->environment either. */
+}
+
+/*
+Clears a list of strings.
+*/
+__attribute__ ((__nonnull__))
+static void cheat_clear_string_list(struct cheat_string_list* const list) {
+	list->count = 0;
+	list->capacity = 0;
+	free(list->items);
+	list->items = NULL;
 }
 
 /*
@@ -779,11 +810,46 @@ static void cheat_clear_lists(struct cheat_suite* const suite) {
 }
 
 /*
+Adds a string to the end of a list or
+ terminates the program in case of a failure.
+*/
+__attribute__ ((__nonnull__ (1)))
+static void cheat_append_string_list(struct cheat_string_list* const list,
+		char* const item) {
+	size_t count;
+
+	if (list->count == SIZE_MAX)
+		cheat_death("too many items", list->count);
+	count = list->count + 1;
+
+	if (list->count == list->capacity) {
+		size_t capacity;
+		char** items;
+
+		capacity = cheat_expand(list->capacity);
+		if (capacity == list->capacity)
+			cheat_death("item capacity exceeded", list->capacity);
+
+		items = CHEAT_CAST(char**)
+			cheat_reallocate_array(list->items,
+				capacity, sizeof *list->items);
+		if (items == NULL)
+			cheat_death("failed to allocate more memory", errno);
+
+		list->capacity = capacity;
+		list->items = items;
+	}
+
+	list->items[list->count] = item;
+	list->count = count;
+}
+
+/*
 Copies a message form a character array to the end of a list or
  terminates the program in case of a failure.
 */
 __attribute__ ((__nonnull__ (1)))
-static void cheat_append_array(struct cheat_character_array_list* const list,
+static void cheat_append_list(struct cheat_character_array_list* const list,
 		char const* const buffer, size_t const size) {
 	size_t count;
 	char* elements;
@@ -836,7 +902,7 @@ static bool cheat_capture(struct cheat_suite const* const suite,
 Checks whether a stream should be hidden or
  terminates the program in case of a failure.
 */
-__attribute__ ((__unused__, __warn_unused_result__))
+__attribute__ ((__nonnull__ (1), __unused__, __warn_unused_result__))
 static bool cheat_hide(struct cheat_suite const* const suite,
 		FILE const* const stream) {
 	switch (suite->harness) {
@@ -907,6 +973,7 @@ static void cheat_exit(struct cheat_suite* const suite,
 		int const status) {
 	switch (suite->harness) {
 	case CHEAT_UNSAFE:
+		suite->outcome = CHEAT_EXITED;
 		break;
 	case CHEAT_DANGEROUS:
 		longjmp(suite->environment, CHEAT_EXITED);
@@ -1430,7 +1497,7 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 						4, file, (CHEAT_SIZE_TYPE )line,
 						suite->test_name, truncation) < 0)
 				cheat_death("failed to build a string", errno);
-			cheat_append_array(&suite->messages, buffer, strlen(buffer));
+			cheat_append_list(&suite->messages, buffer, strlen(buffer));
 
 			free(buffer);
 			break;
@@ -1447,6 +1514,27 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 }
 
 /*
+Figures out whether further checks should be carried out or
+ terminates the program in case of a failure.
+*/
+__attribute__ ((__warn_unused_result__))
+static bool cheat_further(enum cheat_outcome const outcome) {
+	switch (outcome) {
+	case CHEAT_SUCCESSFUL:
+	case CHEAT_FAILED:
+		return true;
+	case CHEAT_EXITED:
+	case CHEAT_CRASHED:
+	case CHEAT_TIMED_OUT:
+		return false;
+	case CHEAT_IGNORED:
+	case CHEAT_SKIPPED:
+	default:
+		cheat_death("invalid outcome", outcome);
+	}
+}
+
+/*
 Checks a single assertion and prints an error message if it fails or
  terminates the program in case of a failure.
 */
@@ -1454,7 +1542,7 @@ __attribute__ ((__io__, __nonnull__))
 static void cheat_check(struct cheat_suite* const suite,
 		bool const result, char const* const expression,
 		char const* const file, size_t const line) {
-	if (!result) {
+	if (cheat_further(suite->outcome) && !result) {
 		suite->outcome = CHEAT_FAILED;
 
 		cheat_print_failure(suite, expression, file, line);
@@ -1503,9 +1591,9 @@ static void cheat_run_coupled_test(struct cheat_suite* const suite,
 
 #ifdef CHEAT_WINDOWED
 
-#define CHEAT_PIPE "\\\\.\\pipe\\cheat"
+#define CHEAT_PIPE "\\\\.\\pipe\\cheat" /* This is the pipe name prefix. */
 
-#define CHEAT_OPTION "-__fork"
+#define CHEAT_OPTION "-__hidden" /* This is the option to indicate isolation. */
 
 #endif
 
@@ -1514,7 +1602,7 @@ Creates a subprocess and runs a test in it or
  terminates the program in case of a failure.
 */
 __attribute__ ((__io__, __nonnull__))
-static void cheat_run_isolated_test(struct cheat_suite* const suite,
+static void cheat_isolate_test(struct cheat_suite* const suite,
 		struct cheat_unit const* const test) {
 
 #ifdef CHEAT_WINDOWED
@@ -1640,7 +1728,7 @@ hell:
 		if (size == 0)
 			break;
 
-		cheat_append_array(&suite->outputs, buffer, (size_t )size);
+		cheat_append_list(&suite->outputs, buffer, (size_t )size);
 	} while (TRUE);
 
 	/*
@@ -1791,8 +1879,7 @@ hell:
 			if (size == 0)
 				channels[index].active = false;
 			else
-				cheat_append_array(channels[index].list,
-						buffer, (size_t )size);
+				cheat_append_list(channels[index].list, buffer, (size_t )size);
 		}
 	} while (true);
 
@@ -1828,46 +1915,91 @@ hell:
 }
 
 /*
-Runs a test suite or
+Runs a single test from a test suite and prints its outcome or
  terminates the program in case of a failure.
 */
 __attribute__ ((__io__, __nonnull__))
-static void cheat_run_suite(struct cheat_suite* const suite) {
+static void cheat_run_specific(struct cheat_suite* const suite,
+		struct cheat_unit const* const unit) {
+	switch (suite->harness) {
+		int status;
+
+	case CHEAT_SAFE:
+		cheat_isolate_test(suite, unit);
+		break;
+	case CHEAT_DANGEROUS:
+		status = setjmp(suite->environment);
+		if (status == 0)
+			cheat_run_coupled_test(suite, unit);
+		else
+			suite->outcome = cheat_decode_status(status);
+		break;
+	case CHEAT_UNSAFE:
+		cheat_run_coupled_test(suite, unit);
+		break;
+	default:
+		cheat_death("invalid harness", suite->harness);
+	}
+
+	cheat_handle_outcome(suite);
+
+	cheat_print_outcome(suite);
+}
+
+/*
+Runs every test from a test suite and prints their outcomes or
+ terminates the program in case of a failure.
+*/
+__attribute__ ((__io__, __nonnull__))
+static void cheat_run_all(struct cheat_suite* const suite) {
 	size_t index;
 
 	for (index = 0;
 			suite->units[index].type != CHEAT_TERMINATOR;
 			++index) {
-		struct cheat_unit const* unit;
-
-		unit = &suite->units[index];
-		if (unit->type != CHEAT_TESTER)
+		if (suite->units[index].type != CHEAT_TESTER)
 			continue;
 
-		switch (suite->harness) {
-			int status;
-
-		case CHEAT_SAFE:
-			cheat_run_isolated_test(suite, unit);
-			break;
-		case CHEAT_DANGEROUS:
-			status = setjmp(suite->environment);
-			if (status == 0)
-				cheat_run_coupled_test(suite, unit);
-			else
-				suite->outcome = cheat_decode_status(status);
-			break;
-		case CHEAT_UNSAFE:
-			cheat_run_coupled_test(suite, unit);
-			break;
-		default:
-			cheat_death("invalid harness", suite->harness);
-		}
-
-		cheat_handle_outcome(suite);
-
-		cheat_print_outcome(suite);
+		cheat_run_specific(suite, &suite->units[index]);
 	}
+}
+
+/*
+Runs some tests from a test suite and prints their outcomes or
+ terminates the program in case of a failure.
+*/
+__attribute__ ((__io__, __nonnull__))
+static void cheat_run_some(struct cheat_suite* const suite,
+		struct cheat_string_list const* const names) {
+	size_t index;
+
+	for (index = 0;
+			index < names->count;
+			++index) {
+		struct cheat_unit const* unit;
+
+		unit = cheat_find(suite->units, names->items[index]);
+		if (unit == NULL)
+			cheat_death("test not found", 0);
+
+		cheat_run_specific(suite, unit);
+	}
+}
+
+/*
+Runs a test suite and prints a summary or
+ terminates the program in case of a failure.
+*/
+__attribute__ ((__io__, __nonnull__))
+static void cheat_run_suite(struct cheat_suite* const suite,
+		struct cheat_string_list const* const names) {
+	if (suite->harness == CHEAT_DANGEROUS)
+		cheat_register_handler(suite->handler);
+
+	if (names->count == 0)
+		cheat_run_all(suite);
+	else
+		cheat_run_some(suite, names);
 
 	cheat_print_summary(suite);
 }
@@ -1878,6 +2010,7 @@ Parses the arguments of a test suite and delegates work or
 */
 __attribute__ ((__io__, __nonnull__))
 static void cheat_parse(struct cheat_suite* const suite) {
+	struct cheat_string_list names;
 	size_t index;
 	bool options = true;
 	bool colorful = false;
@@ -1893,9 +2026,9 @@ static void cheat_parse(struct cheat_suite* const suite) {
 	bool unsafe = false;
 	bool version = false;
 	bool quiet = false;
-	bool test = false;
-	size_t names = 0;
-	char const* name; /* TODO Gather names. */
+	bool hidden = false;
+
+	cheat_initialize_string_list(&names);
 
 	for (index = 0;
 			index < suite->arguments.count;
@@ -1948,25 +2081,12 @@ static void cheat_parse(struct cheat_suite* const suite) {
 				quiet = true;
 #ifdef CHEAT_WINDOWED
 			else if (strcmp(argument, CHEAT_OPTION) == 0)
-				; /* TODO Emulate fork() here. */
+				hidden = true;
 #endif
 			else
 				cheat_death("invalid option", index);
-		} else {
-			++names;
-			name = argument;
-		}
-	}
-
-	switch (names) {
-	case 0:
-		test = false;
-		break;
-	case 1:
-		test = true;
-		break;
-	default:
-		cheat_death("too many test options", names);
+		} else
+			cheat_append_string_list(&names, argument);
 	}
 
 	if (colorful)
@@ -2012,26 +2132,25 @@ static void cheat_parse(struct cheat_suite* const suite) {
 			&& !(safe && unsafe)
 			&& !(eternal && timed)
 			&& !(timed && (dangerous || unsafe)))
-		if (test) { /* TODO Merge this below and allow any amount of names. */
+		if (hidden) { /* TODO Something about this. */
 			struct cheat_unit const* unit;
 
-			unit = cheat_find(suite->units, name);
+			if (names.count == 0)
+				cheat_death("test not specified", 0);
+
+			unit = cheat_find(suite->units, names.items[0]);
 			if (unit == NULL)
 				cheat_death("test not found", 0);
 
 			cheat_run_coupled_test(suite, unit);
 
-			/* cheat_run_picked_suite(suite, names); */
-
 			exit(cheat_encode_outcome(suite->outcome));
-		} else {
-			if (suite->harness == CHEAT_DANGEROUS)
-				cheat_register_handler(suite->handler);
-
-			cheat_run_suite(suite);
-		}
+		} else
+			cheat_run_suite(suite, &names);
 	else
 		cheat_death("invalid combination of options", 0);
+
+	cheat_clear_string_list(&names);
 }
 
 /*
@@ -2415,6 +2534,7 @@ This pass defines and wraps up the previously listed procedures.
 #define CHEAT_IGNORE(name, ...) \
 	static void CHEAT_GET(name)(void) { \
 		cheat_suite.test_name = #name; \
+		cheat_suite.outcome = CHEAT_SUCCESSFUL; \
 		{ \
 			__VA_ARGS__ \
 		} \
@@ -2460,6 +2580,7 @@ This pass defines and wraps up the previously listed procedures.
 #define CHEAT_IGNORE(name, body) \
 	static void CHEAT_GET(name)(void) { \
 		cheat_suite.test_name = #name; \
+		cheat_suite.outcome = CHEAT_SUCCESSFUL; \
 		{ \
 			body \
 		} \
@@ -2678,9 +2799,9 @@ static int CHEAT_WRAP(vfprintf)(FILE* const stream,
 
 			result = vsprintf(buffer, format, list);
 			if (stream == stdout)
-				cheat_append_array(&cheat_suite.outputs, buffer, length);
+				cheat_append_list(&cheat_suite.outputs, buffer, length);
 			else
-				cheat_append_array(&cheat_suite.errors, buffer, length);
+				cheat_append_list(&cheat_suite.errors, buffer, length);
 
 			free(buffer);
 		}
@@ -2862,9 +2983,9 @@ static size_t CHEAT_WRAP(fwrite)(void const* const buffer,
 
 		if (cheat_capture(&cheat_suite, stream)) {
 			if (stream == stdout)
-				cheat_append_array(&cheat_suite.outputs, buffer, size * count);
+				cheat_append_list(&cheat_suite.outputs, buffer, size * count);
 			else
-				cheat_append_array(&cheat_suite.errors, buffer, size * count);
+				cheat_append_list(&cheat_suite.errors, buffer, size * count);
 		}
 
 		return count;

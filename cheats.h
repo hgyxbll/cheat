@@ -60,7 +60,8 @@ This computes an upper bound for the string length of a floating point type.
 	static void cheat_check_##name(struct cheat_suite* const suite, \
 			bool const negate, type const actual, type const expected, \
 			char const* const file, size_t const line) { \
-		if ((actual == expected) != !negate) { \
+		if (cheat_further(suite->outcome) \
+				&& (actual == expected) != !negate) { \
 			char const* comparator; \
 			char* expression; \
 \
@@ -156,7 +157,8 @@ CHEAT_GENERATE_INTEGER(long_unsigned_int, long unsigned int, "%lu")
 			bool const negate, type const tolerance, \
 			type const actual, type const expected, \
 			char const* const file, size_t const line) { \
-		if ((abs(actual - expected) <= tolerance) != !negate) { \
+		if (cheat_further(suite->outcome) \
+				&& (abs(actual - expected) <= tolerance) != !negate) { \
 			char const* comparator; \
 			char* expression; \
 \
@@ -513,7 +515,8 @@ CHEAT_GENERATE_INTEGER(uintptr, uintptr_t, "%" PRIuPTR)
 			bool const negate, type const tolerance, \
 			type complex const actual, type complex const expected, \
 			char const* const file, size_t const line) { \
-		if ((abs(actual - expected) <= tolerance) != !negate) { \
+		if (cheat_further(suite->outcome) \
+				&& (abs(actual - expected) <= tolerance) != !negate) { \
 			char const* comparator; \
 			char* expression; \
 \
@@ -610,7 +613,8 @@ __attribute__ ((__io__, __nonnull__ (1, 5), __unused__))
 static void cheat_check_string(struct cheat_suite* const suite,
 		bool const negate, char const* const actual, char const* const expected,
 		char const* const file, size_t const line) {
-	if ((actual == expected
+	if (cheat_further(suite->outcome)
+			&& (actual == expected
 				|| (actual != NULL && expected != NULL
 					&& strcmp(actual, expected) == 0)) != !negate) {
 		char const* comparator;
