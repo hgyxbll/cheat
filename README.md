@@ -87,7 +87,7 @@ Additionally
 Magical `CHEAT_PASS`, `CHEAT_TIME`, `CHEAT_OFFSET`, `CHEAT_NO_WRAP`,
  `CHEAT_WRAP(name)` and `CHEAT_UNWRAP(name)` also exist.
 
-Some examples are in the `cheat-example.c` file.
+Some examples are in the `example.c` file.
 
 ### Running Tests
 
@@ -157,6 +157,9 @@ They can be given as arguments to specify the tests to run.
 	2 0 2
 	[user@computer project]$ echo returned $?
 	returned 0
+
+Extra procedures like `cheat_assert_string(actual, expected)` and
+ other convenient things are available in `cheats.h`.
 
 ## Compatibility
 

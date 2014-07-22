@@ -21,13 +21,13 @@ goto :eof
 
 :build
 %cc% /nologo %cflags% ^
-	/D__BASE_FILE__="""cheat-example.c""" /Fecheat-example.exe cheat-example.c
+	/D__BASE_FILE__="""example.c""" /Feexample.exe example.c
 goto :eof
 
 :clean
-del cheat-example.exe
+del example.exe
 goto :eof
 
 :test
-cheat-example.exe
+example.exe
 goto :eof

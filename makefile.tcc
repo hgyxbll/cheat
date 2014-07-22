@@ -6,17 +6,17 @@ CFLAGS=$(debug) \
 	-D __STDC_VERSION__=199409L -D _POSIX_C_SOURCE=198809L \
 	-I . # These refer to ISO/IEC 9899:1990/Amd 1:1995 and IEEE Std 1003.1-1988.
 
-build: cheat-example
+build: example
 
 clean:
-	$(RM) cheat-example
+	$(RM) example
 
 test: build
-	./cheat-example -s
-	./cheat-example -d
+	./example -s
+	./example -d
 
-cheat-example: cheat.h cheat-example.c
+example: cheat.h example.c
 	$(CC) $(CFLAGS) \
-		-D "__BASE_FILE__=\"cheat-example.c\"" -o cheat-example cheat-example.c
+		-D "__BASE_FILE__=\"example.c\"" -o example example.c
 
 .PHONY: build clean test

@@ -1,16 +1,16 @@
 CFLAGS=-I .
 
-build: cheat-example
+build: example
 
 clean:
-	$(RM) cheat-example
+	$(RM) example
 
 test: build
-	./cheat-example -s
-	./cheat-example -d
+	./example -s
+	./example -d
 
-cheat-example: cheat.h cheat-example.c
+example: cheat.h example.c
 	$(CC) $(CFLAGS) \
-		-o cheat-example cheat-example.c
+		-o example example.c
 
 .PHONY: build clean test
