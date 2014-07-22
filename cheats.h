@@ -42,6 +42,10 @@ CHEAT_GENERATE_INTEGER(time, time_t, CHEAT_TIME_FORMAT)
 CHEAT_GENERATE_INTEGER(clock, clock_t, CHEAT_CLOCK_FORMAT)
 */
 
+#define cheat_assert_not(expression) \
+	cheat_check(&cheat_suite, !(expression), "!(" #expression ")", \
+			__FILE__, __LINE__)
+
 /*
 This evaluates to the maximum of two constant expressions.
 */
@@ -100,7 +104,8 @@ CHEAT_GENERATE_INTEGER(long_unsigned_int, long unsigned int, "%lu")
 	cheat_check_short_int(&cheat_suite, actual, expected, __FILE__, __LINE__)
 
 #define cheat_assert_short_unsigned_int(actual, expected) \
-	cheat_check_short_unsigned_int(&cheat_suite, actual, expected, __FILE__, __LINE__)
+	cheat_check_short_unsigned_int(&cheat_suite, actual, expected, \
+		__FILE__, __LINE__)
 
 #define cheat_assert_int(actual, expected) \
 	cheat_check_int(&cheat_suite, actual, expected, __FILE__, __LINE__)
@@ -112,7 +117,8 @@ CHEAT_GENERATE_INTEGER(long_unsigned_int, long unsigned int, "%lu")
 	cheat_check_long_int(&cheat_suite, actual, expected, __FILE__, __LINE__)
 
 #define cheat_assert_long_unsigned_int(actual, expected) \
-	cheat_check_long_unsigned_int(&cheat_suite, actual, expected, __FILE__, __LINE__)
+	cheat_check_long_unsigned_int(&cheat_suite, actual, expected, \
+		__FILE__, __LINE__)
 
 #define CHEAT_GENERATE_FLOATING(name, type, abs, specifier) \
 	__attribute__ ((__io__, __nonnull__, __unused__)) \
@@ -150,10 +156,12 @@ CHEAT_GENERATE_INTEGER(long_long_int, long long int, "%lld")
 CHEAT_GENERATE_INTEGER(long_long_unsigned_int, long long unsigned int, "%llu")
 
 #define cheat_assert_long_long_int(actual, expected) \
-	cheat_check_long_long_int(&cheat_suite, actual, expected, __FILE__, __LINE__)
+	cheat_check_long_long_int(&cheat_suite, actual, expected, \
+		__FILE__, __LINE__)
 
 #define cheat_assert_long_long_unsigned_int(actual, expected) \
-	cheat_check_long_long_unsigned_int(&cheat_suite, actual, expected, __FILE__, __LINE__)
+	cheat_check_long_long_unsigned_int(&cheat_suite, actual, expected, \
+		__FILE__, __LINE__)
 
 CHEAT_GENERATE_FLOATING(float, float, fabsf, "%hg")
 CHEAT_GENERATE_FLOATING(long_double, long double, fabsl, "%lg")
@@ -312,13 +320,16 @@ CHEAT_GENERATE_COMPLEX(long_double_complex, long double,
 		cabsl, creall, cimagl, "%lg")
 
 #define cheat_assert_float_complex(actual, expected) \
-	cheat_check_float_complex(&cheat_suite, actual, expected, __FILE__, __LINE__)
+	cheat_check_float_complex(&cheat_suite, actual, expected, \
+		__FILE__, __LINE__)
 
 #define cheat_assert_double_complex(actual, expected) \
-	cheat_check_double_complex(&cheat_suite, actual, expected, __FILE__, __LINE__)
+	cheat_check_double_complex(&cheat_suite, actual, expected, \
+		__FILE__, __LINE__)
 
 #define cheat_assert_long_double_complex(actual, expected) \
-	cheat_check_long_double_complex(&cheat_suite, actual, expected, __FILE__, __LINE__)
+	cheat_check_long_double_complex(&cheat_suite, actual, expected, \
+		__FILE__, __LINE__)
 
 CHEAT_GENERATE_INTEGER(signed_char, signed char, "%hhd")
 CHEAT_GENERATE_INTEGER(unsigned_char, unsigned char, "%hhu")
@@ -334,7 +345,8 @@ CHEAT_GENERATE_INTEGER(unsigned_char, unsigned char, "%hu")
 	cheat_check_signed_char(&cheat_suite, actual, expected, __FILE__, __LINE__)
 
 #define cheat_assert_unsigned_char(actual, expected) \
-	cheat_check_unsigned_char(&cheat_suite, actual, expected, __FILE__, __LINE__)
+	cheat_check_unsigned_char(&cheat_suite, actual, expected, \
+		__FILE__, __LINE__)
 
 __attribute__ ((__io__, __nonnull__, __unused__))
 static void cheat_check_string(struct cheat_suite* const suite,

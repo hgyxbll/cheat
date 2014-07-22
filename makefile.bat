@@ -22,12 +22,15 @@ goto :eof
 :build
 %cc% /nologo %cflags% ^
 	/D__BASE_FILE__="""example.c""" /Feexample.exe example.c
+%cc% /nologo %cflags% ^
+	/D__BASE_FILE__="""examples.c""" /Feexamples.exe examples.c
 goto :eof
 
 :clean
-del example.exe
+del example.exe examples.exe
 goto :eof
 
 :test
 example.exe
+examples.exe
 goto :eof

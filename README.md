@@ -100,8 +100,8 @@ Tests compile into an executable
 	[user@computer project]$ ./tests
 	..:..??..!..
 	---
-	tests.c:91: assertion in 'philosophy_never_worked' failed: 'heap == stack'
-	tests.c:114: assertion in 'important' failed: 'THIS_TEST == IMPORTANT_TEST'
+	tests.c:87: assertion in 'philosophy_never_worked' failed: 'heap == stack'
+	tests.c:110: assertion in 'important' failed: 'THIS_TEST == IMPORTANT_TEST'
 	---
 	8 successful and 2 failed of 12 run
 	FAILURE

@@ -828,7 +828,7 @@ static void cheat_append_array(struct cheat_character_array_list* const list,
 /*
 Checks whether a stream should be captured.
 */
-__attribute__ ((__pure__, __warn_unused_result__))
+__attribute__ ((__pure__, __unused__, __warn_unused_result__))
 static bool cheat_capture(struct cheat_suite const* const suite,
 		FILE const* const stream) {
 	return !suite->quiet && (stream == stdout || stream == stderr);
@@ -838,7 +838,7 @@ static bool cheat_capture(struct cheat_suite const* const suite,
 Checks whether a stream should be hidden or
  terminates the program in case of a failure.
 */
-__attribute__ ((__warn_unused_result__))
+__attribute__ ((__unused__, __warn_unused_result__))
 static bool cheat_hide(struct cheat_suite const* const suite,
 		FILE const* const stream) {
 	switch (suite->harness) {
