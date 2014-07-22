@@ -56,7 +56,7 @@ This computes an upper bound for the string length of a floating point type.
 #endif
 
 #define CHEAT_GENERATE_INTEGER(name, type, specifier) \
-	__attribute__ ((__io__, __nonnull__, __unused__)) \
+	__attribute__ ((__io__, __nonnull__ (1, 5), __unused__)) \
 	static void cheat_check_##name(struct cheat_suite* const suite, \
 			bool const negate, type const actual, type const expected, \
 			char const* const file, size_t const line) { \
@@ -151,10 +151,11 @@ CHEAT_GENERATE_INTEGER(long_unsigned_int, long unsigned int, "%lu")
 		__FILE__, __LINE__)
 
 #define CHEAT_GENERATE_FLOATING(name, type, abs, specifier) \
-	__attribute__ ((__io__, __nonnull__, __unused__)) \
+	__attribute__ ((__io__, __nonnull__ (1, 6), __unused__)) \
 	static void cheat_check_##name(struct cheat_suite* const suite, \
-			bool const negate, type const actual, type const expected, \
-			type const tolerance, char const* const file, size_t const line) { \
+			bool const negate, type const tolerance, \
+			type const actual, type const expected, \
+			char const* const file, size_t const line) { \
 		if ((abs(actual - expected) <= tolerance) != !negate) { \
 			char const* comparator; \
 			char* expression; \
@@ -183,12 +184,12 @@ CHEAT_GENERATE_INTEGER(long_unsigned_int, long unsigned int, "%lu")
 
 CHEAT_GENERATE_FLOATING(double, double, fabs, "%g")
 
-#define cheat_assert_double(actual, expected) \
-	cheat_check_double(&cheat_suite, false, actual, expected, \
+#define cheat_assert_double(actual, expected, tolerance) \
+	cheat_check_double(&cheat_suite, false, tolerance, actual, expected, \
 		__FILE__, __LINE__)
 
-#define cheat_assert_not_double(actual, expected) \
-	cheat_check_double(&cheat_suite, true, actual, expected, \
+#define cheat_assert_not_double(actual, expected, tolerance) \
+	cheat_check_double(&cheat_suite, true, tolerance, actual, expected, \
 		__FILE__, __LINE__)
 
 CHEAT_GENERATE_INTEGER(size, CHEAT_SIZE_TYPE, CHEAT_SIZE_FORMAT)
@@ -507,7 +508,7 @@ CHEAT_GENERATE_INTEGER(uintptr, uintptr_t, "%" PRIuPTR)
 		__FILE__, __LINE__)
 
 #define CHEAT_GENERATE_COMPLEX(name, type, abs, real, imag, specifier) \
-	__attribute__ ((__io__, __nonnull__, __unused__)) \
+	__attribute__ ((__io__, __nonnull__ (1, 6), __unused__)) \
 	static void cheat_check_##name(struct cheat_suite* const suite, \
 			bool const negate, type const tolerance, \
 			type complex const actual, type complex const expected, \
@@ -595,11 +596,23 @@ CHEAT_GENERATE_INTEGER(unsigned_char, unsigned char, "%hu")
 	cheat_check_unsigned_char(&cheat_suite, true, actual, expected, \
 		__FILE__, __LINE__)
 
-__attribute__ ((__io__, __nonnull__, __unused__))
+CHEAT_GENERATE_INTEGER(pointer, void const*, "%p")
+
+#define cheat_assert_pointer(actual, expected) \
+	cheat_check_pointer(&cheat_suite, false, actual, expected, \
+		__FILE__, __LINE__)
+
+#define cheat_assert_not_pointer(actual, expected) \
+	cheat_check_pointer(&cheat_suite, true, actual, expected, \
+		__FILE__, __LINE__)
+
+__attribute__ ((__io__, __nonnull__ (1, 5), __unused__))
 static void cheat_check_string(struct cheat_suite* const suite,
 		bool const negate, char const* const actual, char const* const expected,
 		char const* const file, size_t const line) {
-	if ((actual == expected) != !negate) { /* This is a logical exclusive or. */
+	if ((actual == expected
+				|| (actual != NULL && expected != NULL
+					&& strcmp(actual, expected) == 0)) != !negate) {
 		char const* comparator;
 		char* expression;
 
