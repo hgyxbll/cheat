@@ -260,7 +260,7 @@ This computes an upper bound for the string length of an unsigned integer type.
 		the base 2 logarithm of 10. */
 
 /*
-Prints an error message and terminates the program.
+This prints an error message and terminates the program.
 The error number is context sensitive and
  might only contain the least significant bytes of the actual error code.
 */
@@ -2076,10 +2076,15 @@ This global test suite contains a pointer to the test units instead of
 static struct cheat_suite cheat_suite;
 
 /*
-Adds source information to assertions.
+These add source information to assertions.
 */
+
 #define cheat_assert(expression) \
 	cheat_check(&cheat_suite, expression, #expression, __FILE__, __LINE__)
+
+#define cheat_assert_not(expression) \
+	cheat_check(&cheat_suite, !(expression), "!(" #expression ")", \
+		__FILE__, __LINE__)
 
 /*
 These help the preprocessor place commas.
@@ -2093,7 +2098,7 @@ These help the preprocessor place commas.
 
 /*
 These are automatically generated with the command
-  tcc -run cheat-meta.c 127
+  tcc -run meta.c 127
  or equivalent.
 */
 #define CHEAT_COMMAS_1(x1, x2) x1, x2
