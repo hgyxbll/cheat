@@ -84,7 +84,7 @@ These headers are also
 #include <stdbool.h> /* bool, false, true */
 #else
 typedef int bool;
-#define false 0
+#define false (0)
 #define true (!false)
 #endif
 #endif
@@ -166,7 +166,7 @@ These are needed to print size types correctly.
 #else
 #define CHEAT_SIZE_FORMAT "%lu"
 #define CHEAT_SIZE_TYPE(size) \
-	((unsigned long int )(size))
+	((long unsigned int )(size))
 #endif
 
 /*
@@ -245,7 +245,7 @@ Therefore an
 Isolated tests that take too long to send data are terminated after this time.
 */
 #ifndef CHEAT_TIME
-#define CHEAT_TIME 2000 /* This is in milliseconds. */
+#define CHEAT_TIME (2000) /* This is in milliseconds. */
 #endif
 
 /*
@@ -257,8 +257,8 @@ These make preprocessor directives work like statements.
 /*
 This computes an upper bound for the string length of an unsigned integer type.
 */
-#define CHEAT_LENGTH(type) \
-	(CHAR_BIT * sizeof type / 3 + 1) /* This is derived from
+#define CHEAT_INTEGER_LENGTH(type) \
+	((CHAR_BIT * sizeof type + 1) / 3 + 1) /* This is derived from
 		the base 2 logarithm of 10. */
 
 /*
@@ -584,7 +584,7 @@ Builds a formatted string or
  the format string does not match the expected count.
 */
 __attribute__ ((__format__ (__printf__, 1, 4), __nonnull__ (1)))
-static int cheat_print_string(char const* const format, char* const destination,
+static int cheat_print_string(char* const destination, char const* const format,
 		size_t const count, ...) {
 	va_list list;
 	int result;
@@ -1422,12 +1422,13 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 		case CHEAT_UNSAFE:
 		case CHEAT_DANGEROUS:
 			buffer = CHEAT_CAST(char*) cheat_allocate_total(6,
-					strlen(assertion_format), strlen(file), CHEAT_LENGTH(line),
-					strlen(suite->test_name), strlen(truncation), (size_t )1);
+					strlen(assertion_format), strlen(file),
+					CHEAT_INTEGER_LENGTH(line), strlen(suite->test_name),
+					strlen(truncation), (size_t )1);
 			if (buffer == NULL)
 				cheat_death("failed to allocate memory", errno);
 
-			if (cheat_print_string(assertion_format, buffer,
+			if (cheat_print_string(buffer, assertion_format,
 						4, file, CHEAT_SIZE_TYPE(line),
 						suite->test_name, truncation) < 0)
 				cheat_death("failed to build a string", errno);
@@ -1549,11 +1550,11 @@ static void cheat_run_isolated_test(struct cheat_suite* const suite,
 	security.lpSecurityDescriptor = NULL;
 	security.bInheritHandle = TRUE;
 
-	name = CHEAT_CAST(LPTSTR) cheat_allocate_total(3,
-			strlen(CHEAT_PIPE), CHEAT_LENGTH(process.dwProcessId), (size_t )1);
+	name = CHEAT_CAST(LPTSTR) cheat_allocate_total(3, strlen(CHEAT_PIPE),
+			CHEAT_INTEGER_LENGTH(process.dwProcessId), (size_t )1);
 	if (name == NULL)
 		cheat_death("failed to allocate memory", errno);
-	if (cheat_print_string("%s%d", name,
+	if (cheat_print_string(name, "%s%d",
 				2, CHEAT_PIPE, process.dwProcessId) < 0)
 		cheat_death("failed to build a string", errno);
 
@@ -2531,11 +2532,11 @@ int main(int const count, char** const arguments) {
 		pid = GetCurrentProcessId();
 
 		name = CHEAT_CAST(LPTSTR) cheat_allocate_total(3,
-				strlen(CHEAT_PIPE), CHEAT_LENGTH(pid), (size_t )1);
+				strlen(CHEAT_PIPE), CHEAT_INTEGER_LENGTH(pid), (size_t )1);
 		if (name == NULL)
 			cheat_death("failed to allocate memory", errno);
 
-		if (cheat_print_string("%s%d", name,
+		if (cheat_print_string(name, "%s%d",
 					2, CHEAT_PIPE, pid) < 0)
 			cheat_death("failed to build a string", errno);
 
@@ -2904,9 +2905,9 @@ static void CHEAT_WRAP(perror)(char const* const message) {
 
 #ifdef CHEAT_MODERN
 #ifdef CHEAT_VERY_POSIXLY
-		CHEAT_WRAP(fprintf)(stderr, "%s: %s", message, strerror(errno));
+		CHEAT_WRAP(fprintf)(stderr, "%s: %s\n", message, strerror(errno));
 #else
-		CHEAT_WRAP(fprintf)(stderr, "%s: Failure", message);
+		CHEAT_WRAP(fprintf)(stderr, "%s: Failure\n", message);
 #endif
 #endif
 
