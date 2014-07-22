@@ -24,27 +24,15 @@ The full license can be found in the LICENSE file.
 #endif
 
 /*
+This is needed to print pointer difference types correctly.
+*/
 #ifdef CHEAT_MODERN
 #define CHEAT_POINTER_FORMAT "%td"
-#define CHEAT_POINTER_TYPE(size) \
-	(size)
+#define CHEAT_POINTER_TYPE ptrdiff_t
 #else
 #define CHEAT_POINTER_FORMAT "%ld"
-#define CHEAT_POINTER_TYPE(size) \
-	((long int )(size))
+#define CHEAT_POINTER_TYPE long int
 #endif
-
-etc
-
-CHEAT_GENERATE_INTEGER(size, size_t, CHEAT_SIZE_FORMAT)
-CHEAT_GENERATE_INTEGER(ptrdiff, ptrdiff_t, CHEAT_POINTER_FORMAT)
-CHEAT_GENERATE_INTEGER(time, time_t, CHEAT_TIME_FORMAT)
-CHEAT_GENERATE_INTEGER(clock, clock_t, CHEAT_CLOCK_FORMAT)
-*/
-
-#define cheat_assert_not(expression) \
-	cheat_check(&cheat_suite, !(expression), "!(" #expression ")", \
-			__FILE__, __LINE__)
 
 /*
 This evaluates to the maximum of two constant expressions.
@@ -149,6 +137,15 @@ CHEAT_GENERATE_FLOATING(double, double, fabs, "%g")
 
 #define cheat_assert_double(actual, expected) \
 	cheat_check_double(&cheat_suite, actual, expected, __FILE__, __LINE__)
+
+CHEAT_GENERATE_INTEGER(size, CHEAT_SIZE_TYPE, CHEAT_SIZE_FORMAT)
+CHEAT_GENERATE_INTEGER(ptrdiff, CHEAT_POINTER_TYPE, CHEAT_POINTER_FORMAT)
+
+#define cheat_assert_size(actual, expected) \
+	cheat_check_size(&cheat_suite, actual, expected, __FILE__, __LINE__)
+
+#define cheat_assert_ptrdiff(actual, expected) \
+	cheat_check_ptrdiff(&cheat_suite, actual, expected, __FILE__, __LINE__)
 
 #ifdef CHEAT_MODERN
 

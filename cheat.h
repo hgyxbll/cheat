@@ -161,12 +161,10 @@ These are needed to print size types correctly.
 */
 #ifdef CHEAT_MODERN
 #define CHEAT_SIZE_FORMAT "%zu"
-#define CHEAT_SIZE_TYPE(size) \
-	(size)
+#define CHEAT_SIZE_TYPE size_t
 #else
 #define CHEAT_SIZE_FORMAT "%lu"
-#define CHEAT_SIZE_TYPE(size) \
-	((long unsigned int )(size))
+#define CHEAT_SIZE_TYPE long unsigned int
 #endif
 
 /*
@@ -1331,7 +1329,7 @@ static void cheat_print_summary(struct cheat_suite const* const suite) {
 				cheat_strip(successful_format);
 
 			(void )cheat_print(successful_format, stdout,
-					1, CHEAT_SIZE_TYPE(suite->tests.successful));
+					1, (CHEAT_SIZE_TYPE )suite->tests.successful);
 		}
 		if (regular || (any_successes && any_failures)) {
 			if (strip)
@@ -1344,7 +1342,7 @@ static void cheat_print_summary(struct cheat_suite const* const suite) {
 				cheat_strip(failed_format);
 
 			(void )cheat_print(failed_format, stdout,
-					1, CHEAT_SIZE_TYPE(suite->tests.failed));
+					1, (CHEAT_SIZE_TYPE )suite->tests.failed);
 		}
 		if (regular || (any_successes || any_failures)) {
 			if (strip)
@@ -1356,7 +1354,7 @@ static void cheat_print_summary(struct cheat_suite const* const suite) {
 			cheat_strip(run_format);
 
 		(void )cheat_print(run_format, stdout,
-				1, CHEAT_SIZE_TYPE(suite->tests.run));
+				1, (CHEAT_SIZE_TYPE )suite->tests.run);
 		(void )fputc('\n', stdout);
 	}
 	if (print_conclusion) {
@@ -1429,7 +1427,7 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 				cheat_death("failed to allocate memory", errno);
 
 			if (cheat_print_string(buffer, assertion_format,
-						4, file, CHEAT_SIZE_TYPE(line),
+						4, file, (CHEAT_SIZE_TYPE )line,
 						suite->test_name, truncation) < 0)
 				cheat_death("failed to build a string", errno);
 			cheat_append_array(&suite->messages, buffer, strlen(buffer));
