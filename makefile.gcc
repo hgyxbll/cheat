@@ -1,7 +1,6 @@
 CC=gcc
 warnings=`cat gcc-4_7_0-release` -Wno-error -Wno-system-headers \
-	-Wno-traditional -Wno-traditional-conversion \
-	-Wno-c++-compat \
+	-Wno-c++-compat -Wno-traditional -Wno-traditional-conversion \
 	-Wno-format-nonliteral -Wno-missing-format-attribute -Wno-unused-parameter \
 	-Wno-unsuffixed-float-constants
 debug=$(warnings) -O0 -g
@@ -9,6 +8,7 @@ deploy=-w -O3 -s
 CFLAGS=$(debug) \
 	-ansi -D __STDC_VERSION__=199409L -D _POSIX_C_SOURCE=198809L \
 	-I . # These refer to ISO/IEC 9899:1990/Amd 1:1995 and IEEE Std 1003.1-1988.
+LDLIBS=-lm
 
 build: example examples
 
@@ -25,6 +25,6 @@ example: cheat.h example.c
 
 examples: cheat.h cheats.h examples.c
 	$(CC) $(CFLAGS) \
-		-o examples examples.c
+		-o examples examples.c $(LDLIBS)
 
 .PHONY: build clean test

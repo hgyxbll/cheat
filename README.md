@@ -86,7 +86,8 @@ It is also possible to
 Additionally
  a reference to test can be retrieved with `CHEAT_GET(name)` or
  it can be directly called with `CHEAT_CALL(name)`.
-Magical `CHEAT_PASS`, `CHEAT_TIME`, `CHEAT_OFFSET`, `CHEAT_NO_WRAP`,
+Magical `CHEAT_PASS`, `CHEAT_TIME`, `CHEAT_OFFSET`,
+ `CHEAT_NO_WRAP`, `CHEAT_NO_MAIN`,
  `CHEAT_WRAP(name)` and `CHEAT_UNWRAP(name)` also exist.
 
 Some examples are in the `example.c` file.
@@ -241,3 +242,13 @@ If the compiler works like Microsoft C/C++ (commonly known as `cl.exe`) and
  defines either `__BASE_FILE__` or `__FILE__` wrong, then
  the test suite will be empty as
  long as it is not manually fed to the compiler.
+
+## Screenshots
+
+Everyone likes pretty pictures.
+
+![GCC and Xfce](https://raw.github.com/Tuplanolla/cheat/master/xfce.png)
+
+![C/C++ and Windows XP](https://raw.github.com/Tuplanolla/cheat/master/xp.png)
+
+![Turbo C and DOS](https://raw.github.com/Tuplanolla/cheat/master/dos.png)

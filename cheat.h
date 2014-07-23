@@ -105,9 +105,6 @@ All nested conditions use
   #elif
  since some compilers choke on the shorter form.
 */
-#ifdef CHEAT_WINDOWED
-#include <windows.h> /* spaghetti */
-#else
 #ifdef CHEAT_POSIXLY
 #include <sys/types.h> /* pid_t, ssize_t */
 #include <sys/wait.h>
@@ -117,20 +114,23 @@ All nested conditions use
 #else
 #include <sys/time.h> /* fd_set */
 #endif
+#else
+#ifdef CHEAT_WINDOWED
+#include <windows.h> /* spaghetti */
 #endif
 #endif
 
 /*
 This is used to detect too long string literals.
 */
-#ifdef CHEAT_WINDOWED
-#define CHEAT_LIMIT ((size_t )2047)
+#ifdef CHEAT_POSTMODERN
+#define CHEAT_LIMIT ((size_t )65535)
 #else
 #ifdef CHEAT_MODERN
 #define CHEAT_LIMIT ((size_t )4095)
 #else
-#ifdef CHEAT_POSTMODERN
-#define CHEAT_LIMIT ((size_t )65535)
+#ifdef CHEAT_WINDOWED
+#define CHEAT_LIMIT ((size_t )2047)
 #else
 #define CHEAT_LIMIT ((size_t )509)
 #endif
@@ -377,18 +377,18 @@ struct cheat_suite {
 			a fatal signal (changes for each test). */
 };
 
-#ifdef CHEAT_WINDOWED
-struct cheat_channel {
-	HANDLE reader;
-	HANDLE writer;
-	bool active;
-	struct cheat_character_array_list* list;
-};
-#else
 #ifdef CHEAT_POSIXLY
 struct cheat_channel {
 	int reader;
 	int writer;
+	bool active;
+	struct cheat_character_array_list* list;
+};
+#else
+#ifdef CHEAT_WINDOWED
+struct cheat_channel {
+	HANDLE reader;
+	HANDLE writer;
 	bool active;
 	struct cheat_character_array_list* list;
 };
@@ -1166,7 +1166,7 @@ static void cheat_print_tests(struct cheat_suite const* const suite) {
 Prints the version number string or
  terminates the program in case of a failure.
 */
-__attribute__ ((__io__, __nonnull__))
+__attribute__ ((__io__))
 static void cheat_print_version(void) {
 	(void )fputs("CHEAT 0.0.0", stdout); /* This is always boring. */
 	(void )fputc('\n', stdout);
@@ -1472,6 +1472,7 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 
 	if (print_assertion) {
 		char* truncation;
+		char* buffer;
 
 		truncation = cheat_allocate_truncated(expression,
 				suite->assertion_length, "...");
@@ -1482,8 +1483,6 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 			cheat_strip(assertion_format);
 
 		switch (suite->harness) {
-			char* buffer;
-
 		case CHEAT_UNSAFE:
 		case CHEAT_DANGEROUS:
 			buffer = CHEAT_CAST(char*) cheat_allocate_total(6,
@@ -1593,7 +1592,7 @@ static void cheat_run_coupled_test(struct cheat_suite* const suite,
 
 #define CHEAT_PIPE "\\\\.\\pipe\\cheat" /* This is the pipe name prefix. */
 
-#define CHEAT_OPTION "-__hidden" /* This is the option to indicate isolation. */
+#define CHEAT_OPTION "-__hidden" /* This is the option to indicate hiding. */
 
 #endif
 
@@ -1605,161 +1604,6 @@ __attribute__ ((__io__, __nonnull__))
 static void cheat_isolate_test(struct cheat_suite* const suite,
 		struct cheat_unit const* const test) {
 
-#ifdef CHEAT_WINDOWED
-
-	LPTSTR name;
-	HANDLE message_pipe;
-	HANDLE output_reader;
-	HANDLE output_writer;
-	HANDLE error_reader;
-	HANDLE error_writer;
-	SECURITY_ATTRIBUTES security;
-	STARTUPINFO startup;
-	PROCESS_INFORMATION process;
-	SIZE_T command_length;
-	SIZE_T option_length;
-	SIZE_T name_length;
-	LPTSTR command;
-	DWORD status;
-
-	/*
-	The memory of these structures is zeroed to
-	 avoid compatibility issues if their fields change.
-	*/
-	ZeroMemory(&security, sizeof security);
-	ZeroMemory(&startup, sizeof startup);
-	ZeroMemory(&process, sizeof process);
-
-	security.nLength = sizeof security;
-	security.lpSecurityDescriptor = NULL;
-	security.bInheritHandle = TRUE;
-
-	if (!CreatePipe(&output_reader, &output_writer, &security, 0))
-		cheat_death("failed to create a pipe", GetLastError());
-
-	if (!CreatePipe(&error_reader, &error_writer, &security, 0))
-		cheat_death("failed to create a pipe", GetLastError());
-
-	startup.cb = sizeof startup;
-	startup.lpReserved = NULL;
-	startup.lpDesktop = NULL;
-	startup.lpTitle = NULL;
-	startup.dwFlags = 0; /* STARTF_USESTDHANDLES; */
-	startup.cbReserved2 = 0;
-	startup.lpReserved2 = NULL;
-	startup.hStdInput = NULL;
-	startup.hStdOutput = NULL; /* output_writer; */
-	startup.hStdError = NULL; /* error_writer; */
-
-	command_length = strlen(GetCommandLine());
-	option_length = strlen(CHEAT_OPTION);
-	name_length = strlen(test->name);
-
-	command = cheat_allocate_total(4,
-			command_length, option_length, name_length, (size_t )3);
-	if (command == NULL)
-		cheat_death("failed to allocate memory", errno);
-
-	memcpy(command, GetCommandLine(), command_length);
-	memcpy(&command[command_length], " " CHEAT_OPTION " ", option_length + 2);
-	memcpy(&command[command_length + option_length + 2],
-			test->name, name_length + 1);
-
-	puts("The parent creates a child.");
-	if (!CreateProcess(NULL, command, NULL, NULL,
-				TRUE, NORMAL_PRIORITY_CLASS, NULL, NULL,
-				&startup, &process)) /* There is CommandLineToArgvW(), but
-			nothing like ArgvToCommandLineW() exists, so
-			GetCommandLine() is used even though it is not guaranteed to
-			return the correct result for file paths that
-			lack a file extension, contain spaces or
-			are not entirely built from printable ASCII characters. */
-		cheat_death("failed to create a process", GetLastError());
-
-	free(command);
-
-	name = CHEAT_CAST(LPTSTR) cheat_allocate_total(3, strlen(CHEAT_PIPE),
-			CHEAT_INTEGER_LENGTH(process.dwProcessId), (size_t )1);
-	if (name == NULL)
-		cheat_death("failed to allocate memory", errno);
-
-	if (cheat_print_string(name, "%s%d",
-				2, CHEAT_PIPE, process.dwProcessId) < 0)
-		cheat_death("failed to build a string", errno);
-
-	puts("The parent takes out a pipe.");
-	message_pipe = CreateNamedPipe(name,
-			PIPE_ACCESS_INBOUND | FILE_FLAG_FIRST_PIPE_INSTANCE,
-			PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
-			2, BUFSIZ, BUFSIZ, 1000, NULL);
-	if (message_pipe == INVALID_HANDLE_VALUE)
-		cheat_death("failed to create a named pipe", GetLastError());
-
-	free(name);
-
-	Sleep(100);
-
-	puts("The parent lights the pipe.");
-	if (!ConnectNamedPipe(message_pipe, NULL)
-			&& GetLastError() != ERROR_PIPE_CONNECTED
-			&& GetLastError() != ERROR_PIPE_LISTENING
-			&& GetLastError() != ERROR_NO_DATA)
-		cheat_death("failed to connect a named pipe", GetLastError());
-
-	Sleep(100);
-
-	if (!CloseHandle(output_writer))
-		cheat_death("failed to close the write end of a pipe", GetLastError());
-
-	if (!CloseHandle(error_writer))
-		cheat_death("failed to close the write end of a pipe", GetLastError());
-
-	puts("The parent smokes the pipe.");
-	do {
-		CHAR buffer[BUFSIZ];
-		DWORD size;
-
-		if (!ReadFile(message_pipe, buffer, sizeof buffer, &size, NULL)) {
-			DWORD error;
-
-			error = GetLastError();
-			if (error != ERROR_BROKEN_PIPE)
-				cheat_death("failed to read from a pipe", error);
-			break;
-		}
-		if (size == 0)
-			break;
-
-		cheat_append_list(&suite->outputs, buffer, (size_t )size);
-	} while (TRUE);
-
-	puts("The parent puts out the pipe.");
-	if (!DisconnectNamedPipe(message_pipe))
-		cheat_death("failed to disconnect a named pipe", GetLastError());
-
-	if (!CloseHandle(message_pipe))
-		cheat_death("failed to close a named pipe", GetLastError());
-
-	if (!CloseHandle(output_reader))
-		cheat_death("failed to close the read end of a pipe", GetLastError());
-
-	if (!CloseHandle(error_reader))
-		cheat_death("failed to close the read end of a pipe", GetLastError());
-
-	if (WaitForSingleObject(process.hProcess, INFINITE) == WAIT_FAILED)
-		cheat_death("failed to wait for a process", GetLastError());
-
-	if (!GetExitCodeProcess(process.hProcess, &status))
-		cheat_death("failed to get the exit code of a process", GetLastError());
-
-	if (!CloseHandle(process.hProcess))
-		cheat_death("failed to close a process handle", GetLastError());
-	if (!CloseHandle(process.hThread))
-		cheat_death("failed to close a thread handle", GetLastError());
-
-	suite->outcome = cheat_decode_status(status);
-
-#else
 #ifdef CHEAT_POSIXLY
 
 	pid_t pid;
@@ -1879,7 +1723,7 @@ static void cheat_isolate_test(struct cheat_suite* const suite,
 				cheat_death("failed to read from a pipe", errno);
 			if (size == 0)
 				channels[index].active = false;
-			else
+			else if (!(suite->quiet && (index == 1 || index == 2))) /* Urgh! */
 				cheat_append_list(channels[index].list, buffer, (size_t )size);
 		}
 	} while (true);
@@ -1908,12 +1752,213 @@ static void cheat_isolate_test(struct cheat_suite* const suite,
 
 #else
 
+/*
+Windows makes working with pipes a hassle, so not all streams are captured.
+*/
+
+#ifdef CHEAT_WINDOWED /* TODO Implement pipes. */
+
+	LPTSTR name;
+	HANDLE message_pipe;
+	HANDLE output_reader;
+	HANDLE output_writer;
+	HANDLE error_reader;
+	HANDLE error_writer;
+	SECURITY_ATTRIBUTES security;
+	STARTUPINFO startup;
+	PROCESS_INFORMATION process;
+	SIZE_T command_length;
+	SIZE_T option_length;
+	SIZE_T name_length;
+	LPTSTR command;
+	DWORD status;
+
+	/*
+	The memory of these structures is zeroed to
+	 avoid compatibility issues if their fields change.
+	*/
+	ZeroMemory(&security, sizeof security);
+	ZeroMemory(&startup, sizeof startup);
+	ZeroMemory(&process, sizeof process);
+
+	security.nLength = sizeof security;
+	security.lpSecurityDescriptor = NULL;
+	security.bInheritHandle = TRUE;
+
+	/*
+	if (!CreatePipe(&output_reader, &output_writer, &security, 0))
+		cheat_death("failed to create a pipe", GetLastError());
+	*/
+
+	if (!CreatePipe(&error_reader, &error_writer, &security, 0))
+		cheat_death("failed to create a pipe", GetLastError());
+
+	startup.cb = sizeof startup;
+	startup.lpReserved = NULL;
+	startup.lpDesktop = NULL;
+	startup.lpTitle = NULL;
+	startup.dwFlags = STARTF_USESTDHANDLES;
+	startup.cbReserved2 = 0;
+	startup.lpReserved2 = NULL;
+	startup.hStdInput = NULL;
+	startup.hStdOutput = error_writer; /* output_writer; */
+	startup.hStdError = NULL; /* error_writer; */
+
+	command_length = strlen(GetCommandLine());
+	option_length = strlen(CHEAT_OPTION);
+	name_length = strlen(test->name);
+
+	command = cheat_allocate_total(4,
+			command_length, option_length, name_length, (size_t )3);
+	if (command == NULL)
+		cheat_death("failed to allocate memory", errno);
+
+	memcpy(command, GetCommandLine(), command_length);
+	memcpy(&command[command_length], " " CHEAT_OPTION " ", option_length + 2);
+	memcpy(&command[command_length + option_length + 2],
+			test->name, name_length + 1);
+
+	if (!CreateProcess(NULL, command, NULL, NULL,
+				TRUE, NORMAL_PRIORITY_CLASS, NULL, NULL,
+				&startup, &process)) /* There is CommandLineToArgvW(), but
+			nothing like ArgvToCommandLineW() exists, so
+			GetCommandLine() is used even though it is not guaranteed to
+			return the correct result for file paths that
+			lack a file extension, contain spaces or
+			are not entirely built from printable ASCII characters. */
+		cheat_death("failed to create a process", GetLastError());
+
+	free(command);
+
+	/*
+	name = CHEAT_CAST(LPTSTR) cheat_allocate_total(3, strlen(CHEAT_PIPE),
+			CHEAT_INTEGER_LENGTH(process.dwProcessId), (size_t )1);
+	if (name == NULL)
+		cheat_death("failed to allocate memory", errno);
+
+	if (cheat_print_string(name, "%s%d",
+				2, CHEAT_PIPE, process.dwProcessId) < 0)
+		cheat_death("failed to build a string", errno);
+
+	message_pipe = CreateNamedPipe(name,
+			PIPE_ACCESS_INBOUND | FILE_FLAG_FIRST_PIPE_INSTANCE,
+			PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
+			2, BUFSIZ, BUFSIZ, CHEAT_TIME, NULL);
+	if (message_pipe == INVALID_HANDLE_VALUE)
+		cheat_death("failed to create a named pipe", GetLastError());
+
+	free(name);
+
+	if (!ConnectNamedPipe(message_pipe, NULL)
+			&& GetLastError() != ERROR_PIPE_CONNECTED
+			&& GetLastError() != ERROR_PIPE_LISTENING
+			&& GetLastError() != ERROR_NO_DATA)
+		cheat_death("failed to connect a named pipe", GetLastError());
+
+	if (!CloseHandle(output_writer))
+		cheat_death("failed to close the write end of a pipe", GetLastError());
+	*/
+
+	if (!CloseHandle(error_writer))
+		cheat_death("failed to close the write end of a pipe", GetLastError());
+
+	do {
+		CHAR buffer[BUFSIZ];
+		DWORD size;
+
+		if (!ReadFile(error_reader, buffer, sizeof buffer, &size, NULL)) {
+			DWORD error;
+
+			error = GetLastError();
+			if (error != ERROR_BROKEN_PIPE)
+				cheat_death("failed to read from a pipe", error);
+			break;
+		}
+		if (size == 0)
+			break;
+
+		cheat_append_list(&suite->messages, buffer, (size_t )size);
+	} while (TRUE);
+
+	/*
+	if (!DisconnectNamedPipe(message_pipe))
+		cheat_death("failed to disconnect a named pipe", GetLastError());
+
+	if (!CloseHandle(message_pipe))
+		cheat_death("failed to close a named pipe", GetLastError());
+
+	if (!CloseHandle(output_reader))
+		cheat_death("failed to close the read end of a pipe", GetLastError());
+	*/
+
+	if (!CloseHandle(error_reader))
+		cheat_death("failed to close the read end of a pipe", GetLastError());
+
+	if (WaitForSingleObject(process.hProcess, INFINITE) == WAIT_FAILED)
+		cheat_death("failed to wait for a process", GetLastError());
+
+	if (!GetExitCodeProcess(process.hProcess, &status))
+		cheat_death("failed to get the exit code of a process", GetLastError());
+
+	if (!CloseHandle(process.hProcess))
+		cheat_death("failed to close a process handle", GetLastError());
+	if (!CloseHandle(process.hThread))
+		cheat_death("failed to close a thread handle", GetLastError());
+
+	suite->outcome = cheat_decode_status(status);
+
+#else
+
 	cheat_death("failed to isolate a test", 0);
 
 #endif
 #endif
 
 }
+
+#ifdef CHEAT_WINDOWED /* TODO Implement more pipes. */
+
+/*
+Runs a single test and exits or
+ terminates the program in case of a failure.
+*/
+__attribute__ ((__io__, __nonnull__))
+static void cheat_run_hidden(struct cheat_suite* const suite,
+		char const* const name) {
+	struct cheat_unit const* unit;
+	DWORD pid;
+	LPTSTR pipe;
+
+	unit = cheat_find(suite->units, name);
+	if (unit == NULL)
+		cheat_death("test not found", 0);
+
+	/*
+	pid = GetCurrentProcessId();
+
+	pipe = CHEAT_CAST(LPTSTR) cheat_allocate_total(3,
+			strlen(CHEAT_PIPE), CHEAT_INTEGER_LENGTH(pid), (size_t )1);
+	if (pipe == NULL)
+		cheat_death("failed to allocate memory", errno);
+
+	if (cheat_print_string(pipe, "%s%d", 2, CHEAT_PIPE, pid) < 0)
+		cheat_death("failed to build a string", errno);
+
+	if (!WaitNamedPipe(pipe, CHEAT_TIME))
+		cheat_death("failed to wait for a named pipe", GetLastError());
+
+	cheat_suite.message_stream = CreateFile(pipe, GENERIC_WRITE, 0, NULL,
+			OPEN_EXISTING, 0, NULL);
+	if (cheat_suite.message_stream == INVALID_HANDLE_VALUE)
+		cheat_death("failed to open a named pipe", GetLastError());
+
+	free(pipe);
+	*/
+
+	cheat_run_coupled_test(suite, unit);
+}
+
+#endif
 
 /*
 Runs a single test from a test suite and prints its outcome or
@@ -1922,9 +1967,9 @@ Runs a single test from a test suite and prints its outcome or
 __attribute__ ((__io__, __nonnull__))
 static void cheat_run_specific(struct cheat_suite* const suite,
 		struct cheat_unit const* const unit) {
-	switch (suite->harness) {
-		int status;
+	int status;
 
+	switch (suite->harness) {
 	case CHEAT_SAFE:
 		cheat_isolate_test(suite, unit);
 		break;
@@ -2027,7 +2072,9 @@ static void cheat_parse(struct cheat_suite* const suite) {
 	bool unsafe = false;
 	bool version = false;
 	bool quiet = false;
+#ifdef CHEAT_WINDOWED
 	bool hidden = false;
+#endif
 
 	cheat_initialize_string_list(&names);
 
@@ -2133,21 +2180,23 @@ static void cheat_parse(struct cheat_suite* const suite) {
 			&& !(safe && unsafe)
 			&& !(eternal && timed)
 			&& !(timed && (dangerous || unsafe)))
-		if (hidden) { /* TODO Something about this. */
-			struct cheat_unit const* unit;
-
+#ifdef CHEAT_WINDOWED
+		if (hidden) {
 			if (names.count == 0)
 				cheat_death("test not specified", 0);
 
-			unit = cheat_find(suite->units, names.items[names.count - 1]);
-			if (unit == NULL)
-				cheat_death("test not found", 0);
+			suite->message_stream = stdout;
 
-			cheat_run_coupled_test(suite, unit);
+			cheat_run_hidden(suite, names.items[names.count - 1]);
+
+			cheat_clear_string_list(&names);
 
 			exit(cheat_encode_outcome(suite->outcome));
 		} else
 			cheat_run_suite(suite, &names);
+#else
+		cheat_run_suite(suite, &names);
+#endif
 	else
 		cheat_death("invalid combination of options", 0);
 
@@ -2169,8 +2218,8 @@ static void cheat_prepare(void) {
 	 the executable "has encountered a problem and needs to close" dialog from
 	 popping up and making the test suite wait for user interaction.
 	*/
-	/* mode = SetErrorMode(SEM_NOGPFAULTERRORBOX);
-	SetErrorMode(mode | SEM_NOGPFAULTERRORBOX); */
+	mode = SetErrorMode(SEM_NOGPFAULTERRORBOX);
+	SetErrorMode(mode | SEM_NOGPFAULTERRORBOX);
 
 #else
 #ifdef CHEAT_POSIXLY
@@ -2632,6 +2681,8 @@ static void cheat_handle_signal(int const number) {
 	longjmp(cheat_suite.environment, cheat_encode_outcome(outcome));
 }
 
+#ifndef CHEAT_NO_MAIN /* This can be set externally. */
+
 /*
 Runs tests from the main test suite and
  returns EXIT_SUCCESS in case all tests passed or
@@ -2647,47 +2698,15 @@ int main(int const count, char** const arguments) {
 	cheat_suite.arguments.count = (size_t )(count - 1);
 	cheat_suite.arguments.elements = &arguments[1];
 	cheat_suite.harness = CHEAT_DANGEROUS;
-#ifdef CHEAT_WINDOWED
-	cheat_suite.timed = true;
-	cheat_suite.harness = CHEAT_SAFE;
-	if (count > 2) {
-		DWORD pid;
-		LPTSTR name;
-
-		puts("A child is created.");
-		pid = GetCurrentProcessId();
-
-		name = CHEAT_CAST(LPTSTR) cheat_allocate_total(3,
-				strlen(CHEAT_PIPE), CHEAT_INTEGER_LENGTH(pid), (size_t )1);
-		if (name == NULL)
-			cheat_death("failed to allocate memory", errno);
-
-		if (cheat_print_string(name, "%s%d", 2, CHEAT_PIPE, pid) < 0)
-			cheat_death("failed to build a string", errno);
-
-		Sleep(100);
-
-		puts("The child waits for the pipe.");
-		if (!WaitNamedPipe(name, 1000 /* NMPWAIT_WAIT_FOREVER */))
-			cheat_death("failed to wait for a named pipe", GetLastError());
-
-		puts("The child observes a pipe.");
-		cheat_suite.message_stream = CreateFile(name, GENERIC_WRITE, 0, NULL,
-				OPEN_EXISTING, 0, NULL);
-		if (cheat_suite.message_stream == INVALID_HANDLE_VALUE)
-			cheat_death("failed to open a named pipe", GetLastError());
-
-		Sleep(100);
-
-		puts("The child is free to shove garbage into the pipe.");
-		free(name);
-	}
-#else
 #ifdef CHEAT_POSIXLY
 	cheat_suite.timed = true;
 	cheat_suite.harness = CHEAT_SAFE;
 	if (isatty(STDOUT_FILENO) == 1)
 		cheat_suite.style = CHEAT_COLORFUL;
+#else
+#ifdef CHEAT_WINDOWED
+	cheat_suite.timed = true;
+	cheat_suite.harness = CHEAT_SAFE;
 #endif
 #endif
 
@@ -2699,6 +2718,8 @@ int main(int const count, char** const arguments) {
 	return EXIT_FAILURE;
 }
 
+#endif
+
 /*
 These are a "best effort" attempt to manage process termination
  and stream capturing without process isolation.
@@ -2708,7 +2729,7 @@ Some libraries and system calls can still exit or print things, but
 
 #ifndef CHEAT_NO_WRAP
 
-__attribute__ ((__unused__))
+__attribute__ ((__noreturn__, __unused__))
 static void CHEAT_UNWRAP(abort)(void) {
 	abort();
 }
@@ -2720,7 +2741,7 @@ static void CHEAT_WRAP(abort)(void) {
 
 #define abort CHEAT_WRAP(abort)
 
-__attribute__ ((__unused__))
+__attribute__ ((__noreturn__, __unused__))
 static void CHEAT_UNWRAP(exit)(int const status) {
 	exit(status);
 }
@@ -2734,7 +2755,7 @@ static void CHEAT_WRAP(exit)(int const status) {
 
 #ifdef CHEAT_MODERN
 
-__attribute__ ((__unused__))
+__attribute__ ((__noreturn__, __unused__))
 static void CHEAT_UNWRAP(_Exit)(int const status) {
 	_Exit(status);
 }
@@ -2750,7 +2771,7 @@ static void CHEAT_WRAP(_Exit)(int const status) {
 
 #ifdef CHEAT_POSIXLY
 
-__attribute__ ((__unused__))
+__attribute__ ((__noreturn__, __unused__))
 static void CHEAT_UNWRAP(_exit)(int const status) {
 	_exit(status);
 }

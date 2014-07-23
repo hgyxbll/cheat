@@ -2,7 +2,7 @@
 
 set cc=cl
 set warnings=/W4 ^
-	/wd4127 /wd4701 /wd4702 /wd4996
+	/wd4100 /wd4127 /wd4702 /wd4996
 set debug=%warnings% /Od /Zi
 set deploy=/Ox
 set cflags=%debug% ^

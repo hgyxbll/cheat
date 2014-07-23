@@ -5,6 +5,7 @@ deploy=-w
 CFLAGS=$(debug) \
 	-D __STDC_VERSION__=199409L -D _POSIX_C_SOURCE=198809L \
 	-I . # These refer to ISO/IEC 9899:1990/Amd 1:1995 and IEEE Std 1003.1-1988.
+LDLIBS=-lm
 
 build: example examples
 
@@ -21,6 +22,6 @@ example: cheat.h example.c
 
 examples: cheat.h cheats.h examples.c
 	$(CC) $(CFLAGS) \
-		-D "__BASE_FILE__=\"examples.c\"" -o examples examples.c
+		-D "__BASE_FILE__=\"examples.c\"" -o examples examples.c $(LDLIBS)
 
 .PHONY: build clean test

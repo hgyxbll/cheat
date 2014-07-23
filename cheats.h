@@ -21,7 +21,6 @@ Some assertions make use of fabs() and therefore require compiling with -lm.
 
 #ifdef CHEAT_MODERN
 #include <complex.h>
-#include <float.h> /* DBL_MANT_DIG, DBL_MAX_EXP, DBL_MIN_EXP */
 #include <inttypes.h>
 #include <stdint.h>
 #endif
@@ -46,14 +45,10 @@ This evaluates to the maximum of two constant expressions.
 /*
 This computes an upper bound for the string length of a floating point type.
 */
-#ifdef CHEAT_MODERN
-#define CHEAT_FLOATING_LENGTH(type) \
-	(3 + CHEAT_MAXIMUM(DBL_MANT_DIG - DBL_MIN_EXP, DBL_MAX_EXP))
-#else
 #define CHEAT_FLOATING_LENGTH(type) \
 	(CHEAT_LIMIT) /* This is based on the assumption that
-		the preprocessor can convert floating point numbers into strings. */
-#endif
+		the preprocessor can convert floating point literals into strings;
+		the standard leaves the length unbounded. */
 
 #define CHEAT_GENERATE_INTEGER(name, type, specifier) \
 	__attribute__ ((__io__, __nonnull__ (1, 5), __unused__)) \

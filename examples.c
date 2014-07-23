@@ -15,13 +15,13 @@ CHEAT_DECLARE(
 	static double const a_lot = 1.21e+9;
 )
 
-CHEAT_TEST(assertions_are_unclear,
+CHEAT_TEST(confusing,
 	cheat_assert(times == thirteen);
 	cheat_assert(&equals == (char* )0xdead);
 	cheat_assert(sizeof *yes != sizeof times);
 )
 
-CHEAT_TEST(additional_features_help,
+CHEAT_TEST(obvious,
 	cheat_assert_int(times, thirteen);
 	cheat_assert_pointer(&equals, (char* )0xdead);
 	cheat_assert_not_size(sizeof *yes, sizeof times);
@@ -36,14 +36,14 @@ CHEAT_DECLARE(
 	}
 )
 
-CHEAT_TEST(assertions_require_effort,
+CHEAT_TEST(tedious,
 	double const less = a_lot - thirteen;
 
 	cheat_assert(strcmp(yes, "no") == 0);
 	cheat_assert(f(a_lot - less) <= 1);
 )
 
-CHEAT_TEST(additional_features_save_the_day,
+CHEAT_TEST(effortless,
 	double const less = a_lot - thirteen;
 
 	cheat_assert_string(yes, "no");

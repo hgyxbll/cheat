@@ -1,4 +1,6 @@
-#include <wtypes.h>
+/*
+These are informational simplified prototypes.
+*/
 
 WINBASEAPI
 UINT
