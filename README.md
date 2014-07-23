@@ -46,6 +46,8 @@ In short, copies and derivative works are permitted
 
 ## Usage
 
+This documentation is slightly lacking, but it will improve soon.
+
 ### Installation
 
 The core components are defined in a single header file, so
