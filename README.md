@@ -10,7 +10,7 @@ Only a header file and a statement block is needed.
 
 	CHEAT_TEST(mathematics_still_work,
 		cheat_assert(2 + 2 == 4);
-		cheat_assert(2 + 2 != 5);
+		cheat_assert_not(2 + 2 == 5);
 	)
 
 ## Explanation
@@ -27,7 +27,7 @@ The working principle is best explained by a thought experiment.
 ## History
 
 The project was started on 2012-08-07 and
- is currently in passive development.
+ will be first released on 2014-08-07.
 It was originally written by Guillermo "Tordek" Freschi for
  the entertainment and education of everyone in
  the ISO/IEC 9899 community on Freenode.
@@ -247,8 +247,17 @@ If the compiler works like Microsoft C/C++ (commonly known as `cl.exe`) and
 
 Everyone likes pretty pictures.
 
-![GCC and Xfce](https://raw.github.com/Tuplanolla/cheat/master/xfce.png)
+Here is CHEAT being compiled with the GNU Compiler Collection and
+ running in the Xfce terminal emulator that is provided by a Linux distribution.
 
-![C/C++ and Windows XP](https://raw.github.com/Tuplanolla/cheat/master/xp.png)
+![Screenshot](https://raw.github.com/Tuplanolla/cheat/master/xfce.png)
 
-![Turbo C and DOS](https://raw.github.com/Tuplanolla/cheat/master/dos.png)
+Here is CHEAT being compiled with Microsoft C/C++ and
+ running in the command prompt of Windows XP.
+
+![Another Screenshot](https://raw.github.com/Tuplanolla/cheat/master/xp.png)
+
+Here is CHEAT being compiled with Borland Turbo C and
+ running in the default shell of FreeDOS.
+
+![Yet Another Screenshot](https://raw.github.com/Tuplanolla/cheat/master/dos.png)
