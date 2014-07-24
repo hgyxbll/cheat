@@ -68,7 +68,7 @@ CHEAT_SET_UP(
 
 	stack = "string";
 	size = strlen(stack) + 1;
-	heap = CHEAT_CAST(char*) malloc(size);
+	heap = CHEAT_CAST(char*, malloc(size));
 	memcpy(heap, stack, size);
 )
 

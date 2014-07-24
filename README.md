@@ -261,3 +261,173 @@ Here is CHEAT being compiled with Borland Turbo C and
  run in the default shell of FreeDOS.
 
 ![Yet Another Screenshot](https://raw.github.com/Tuplanolla/cheat/master/dos.png)
+
+## A Reference in the Making
+
+### Execution Things
+
+These are available.
+
+* `-c` `--colorful`
+* `-d` `--dangerous`
+* `-e` `--eternal`
+* `-h` `--help`
+* `-l` `--list`
+* `-m` `--minimal`
+* `-n` `--noisy`
+* `-p` `--plain`
+* `-s` `--safe`
+* `-t` `--timed`
+* `-u` `--unsafe`
+* `-v` `--version`
+* `-q` `--quiet`
+
+### Compilation Things
+
+These form the primary interface.
+
+* `CHEAT_TEST(name, statements)`
+* `CHEAT_DECLARE(declarations)`
+* `CHEAT_SET_UP(statements)`
+* `CHEAT_TEAR_DOWN(statements)`
+* `CHEAT_IGNORE(statements)`
+* `CHEAT_SKIP(statements)`
+
+* `cheat_assert(bool expected)`
+* `cheat_assert_not(bool unexpected)`
+
+These exist for convenience.
+
+* `CHEAT_GET(name)`
+* `CHEAT_CALL(name)`
+
+These allow changing behavior.
+
+* `CHEAT_TIME`
+
+These help work around issues.
+
+* `int CHEAT_OFFSET`
+* `CHEAT_UNWRAP(name)`
+* `CHEAT_NO_WRAP`
+
+This exists for completeness.
+
+* `CHEAT_WRAP(name)`
+
+These are for those who want to do more.
+
+* `size_t CHEAT_PASS`
+* `CHEAT_NO_MAIN`
+
+These exist by accident.
+
+* `CHEAT_BEGIN`
+* `CHEAT_END`
+* `size_t CHEAT_LIMIT`
+* `type CHEAT_CAST(type, expression)`
+
+These are available as extensions (by using `cheats.h` as well).
+
+* `cheat_assert_char(char actual, char expected)`
+* `cheat_assert_not_char(char actual, char unexpected)`
+* `cheat_assert_short_int(short int actual, short int expected)`
+* `cheat_assert_not_short_int(short int actual, short int unexpected)`
+* `cheat_assert_short_unsigned_int(short unsigned int actual, short unsigned int expected)`
+* `cheat_assert_not_short_unsigned_int(short unsigned int actual, short unsigned int unexpected)`
+* `cheat_assert_int(int actual, int expected)`
+* `cheat_assert_not_int(int actual, int unexpected)`
+* `cheat_assert_unsigned_int(unsigned int actual, unsigned int expected)`
+* `cheat_assert_not_unsigned_int(unsigned int actual, unsigned int unexpected)`
+* `cheat_assert_long_int(long int actual, long int expected)`
+* `cheat_assert_not_long_int(long int actual, long int unexpected)`
+* `cheat_assert_long_unsigned_int(long unsigned int actual, long unsigned int expected)`
+* `cheat_assert_not_long_unsigned_int(long unsigned int actual, long unsigned int unexpected)`
+* `cheat_assert_double(double actual, double expected)`
+* `cheat_assert_not_double(double actual, double unexpected)`
+* `cheat_assert_size(size_t actual, size_t expected)`
+* `cheat_assert_not_size(size_t actual, size_t unexpected)`
+* `cheat_assert_ptrdiff(ptrdiff_t actual, ptrdiff_t expected)`
+* `cheat_assert_not_ptrdiff(ptrdiff_t actual, ptrdiff_t unexpected)`
+* `cheat_assert_long_long_int(long long int actual, long long int expected)`
+* `cheat_assert_not_long_long_int(long long int actual, long long int unexpected)`
+* `cheat_assert_long_long_unsigned_int(long long unsigned int actual, long long unsigned int expected)`
+* `cheat_assert_not_long_long_unsigned_int(long long unsigned int actual, long long unsigned int unexpected)`
+* `cheat_assert_float(float actual, float expected)`
+* `cheat_assert_not_float(float actual, float unexpected)`
+* `cheat_assert_long_double(long double actual, long double expected)`
+* `cheat_assert_not_long_double(long double actual, long double unexpected)`
+* `cheat_assert_int8(int8_t actual, int8_t expected)`
+* `cheat_assert_not_int8(int8_t actual, int8_t unexpected)`
+* `cheat_assert_uint8(uint8_t actual, uint8_t expected)`
+* `cheat_assert_not_uint8(uint8_t actual, uint8_t unexpected)`
+* `cheat_assert_int16(int16_t actual, int16_t expected)`
+* `cheat_assert_not_int16(int16_t actual, int16_t unexpected)`
+* `cheat_assert_uint16(uint16_t actual, uint16_t expected)`
+* `cheat_assert_not_uint16(uint16_t actual, uint16_t unexpected)`
+* `cheat_assert_int32(int32_t actual, int32_t expected)`
+* `cheat_assert_not_int32(int32_t actual, int32_t unexpected)`
+* `cheat_assert_uint32(uint32_t actual, uint32_t expected)`
+* `cheat_assert_not_uint32(uint32_t actual, uint32_t unexpected)`
+* `cheat_assert_int64(int64_t actual, int64_t expected)`
+* `cheat_assert_not_int64(int64_t actual, int64_t unexpected)`
+* `cheat_assert_uint64(uint64_t actual, uint64_t expected)`
+* `cheat_assert_not_uint64(uint64_t actual, uint64_t unexpected)`
+* `cheat_assert_int_fast8(int_fast8_t actual, int_fast8_t expected)`
+* `cheat_assert_not_int_fast8(int_fast8_t actual, int_fast8_t unexpected)`
+* `cheat_assert_uint_fast8(uint_fast8_t actual, uint_fast8_t expected)`
+* `cheat_assert_not_uint_fast8(uint_fast8_t actual, uint_fast8_t unexpected)`
+* `cheat_assert_int_fast16(int_fast16_t actual, int_fast16_t expected)`
+* `cheat_assert_not_int_fast16(int_fast16_t actual, int_fast16_t unexpected)`
+* `cheat_assert_uint_fast16(uint_fast16_t actual, uint_fast16_t expected)`
+* `cheat_assert_not_uint_fast16(uint_fast16_t actual, uint_fast16_t unexpected)`
+* `cheat_assert_int_fast32(int_fast32_t actual, int_fast32_t expected)`
+* `cheat_assert_not_int_fast32(int_fast32_t actual, int_fast32_t unexpected)`
+* `cheat_assert_uint_fast32(uint_fast32_t actual, uint_fast32_t expected)`
+* `cheat_assert_not_uint_fast32(uint_fast32_t actual, uint_fast32_t unexpected)`
+* `cheat_assert_int_fast64(int_fast64_t actual, int_fast64_t expected)`
+* `cheat_assert_not_int_fast64(int_fast64_t actual, int_fast64_t unexpected)`
+* `cheat_assert_uint_fast64(uint_fast64_t actual, uint_fast64_t expected)`
+* `cheat_assert_not_uint_fast64(uint_fast64_t actual, uint_fast64_t unexpected)`
+* `cheat_assert_int_least8(int_least8_t actual, int_least8_t expected)`
+* `cheat_assert_not_int_least8(int_least8_t actual, int_least8_t unexpected)`
+* `cheat_assert_uint_least8(uint_least8_t actual, uint_least8_t expected)`
+* `cheat_assert_not_uint_least8(uint_least8_t actual, uint_least8_t unexpected)`
+* `cheat_assert_int_least16(int_least16_t actual, int_least16_t expected)`
+* `cheat_assert_not_int_least16(int_least16_t actual, int_least16_t unexpected)`
+* `cheat_assert_uint_least16(uint_least16_t actual, uint_least16_t expected)`
+* `cheat_assert_not_uint_least16(uint_least16_t actual, uint_least16_t unexpected)`
+* `cheat_assert_int_least32(int_least32_t actual, int_least32_t expected)`
+* `cheat_assert_not_int_least32(int_least32_t actual, int_least32_t unexpected)`
+* `cheat_assert_uint_least32(uint_least32_t actual, uint_least32_t expected)`
+* `cheat_assert_not_uint_least32(uint_least32_t actual, uint_least32_t unexpected)`
+* `cheat_assert_int_least64(int_least64_t actual, int_least64_t expected)`
+* `cheat_assert_not_int_least64(int_least64_t actual, int_least64_t unexpected)`
+* `cheat_assert_uint_least64(uint_least64_t actual, uint_least64_t expected)`
+* `cheat_assert_not_uint_least64(uint_least64_t actual, uint_least64_t unexpected)`
+* `cheat_assert_intmax(intmax_t actual, intmax_t expected)`
+* `cheat_assert_not_intmax(intmax_t actual, intmax_t unexpected)`
+* `cheat_assert_uintmax(uintmax_t actual, uintmax_t expected)`
+* `cheat_assert_not_uintmax(uintmax_t actual, uintmax_t unexpected)`
+* `cheat_assert_intptr(intptr_t actual, intptr_t expected)`
+* `cheat_assert_not_intptr(intptr_t actual, intptr_t unexpected)`
+* `cheat_assert_uintptr(uintptr_t actual, uintptr_t expected)`
+* `cheat_assert_not_uintptr(uintptr_t actual, uintptr_t unexpected)`
+* `cheat_assert_float_complex(float actual, float expected)`
+* `cheat_assert_not_float_complex(float actual, float unexpected)`
+* `cheat_assert_double_complex(double actual, double expected)`
+* `cheat_assert_not_double_complex(double actual, double unexpected)`
+* `cheat_assert_long_double_complex(long double actual, long double expected)`
+* `cheat_assert_not_long_double_complex(long double actual, long double unexpected)`
+* `cheat_assert_signed_char(signed char actual, signed char expected)`
+* `cheat_assert_not_signed_char(signed char actual, signed char unexpected)`
+* `cheat_assert_unsigned_char(unsigned char actual, unsigned char expected)`
+* `cheat_assert_not_unsigned_char(unsigned char actual, unsigned char unexpected)`
+* `cheat_assert_signed_char(signed char actual, signed char expected)`
+* `cheat_assert_not_signed_char(signed char actual, signed char unexpected)`
+* `cheat_assert_unsigned_char(unsigned char actual, unsigned char expected)`
+* `cheat_assert_not_unsigned_char(unsigned char actual, unsigned char unexpected)`
+* `cheat_assert_pointer(void const* actual, void const* expected)`
+* `cheat_assert_not_pointer(void const* actual, void const* unexpected)`
+* `cheat_assert_string(actual, expected)`
+* `cheat_assert_not_string(actual, expected)`

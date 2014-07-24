@@ -26,17 +26,6 @@ Some assertions make use of fabs() and therefore require compiling with -lm.
 #endif
 
 /*
-This is needed to print pointer difference types correctly.
-*/
-#ifdef CHEAT_MODERN
-#define CHEAT_POINTER_FORMAT "%td"
-#define CHEAT_POINTER_TYPE ptrdiff_t
-#else
-#define CHEAT_POINTER_FORMAT "%ld"
-#define CHEAT_POINTER_TYPE long int
-#endif
-
-/*
 This evaluates to the maximum of two constant expressions.
 */
 #define CHEAT_MAXIMUM(x, y) \
@@ -67,9 +56,9 @@ This computes an upper bound for the string length of a floating point type.
 			else \
 				comparator = "=="; \
 \
-			expression = CHEAT_CAST(char*) cheat_allocate_total(4, \
-					CHEAT_INTEGER_LENGTH(actual), strlen(comparator), \
-					CHEAT_INTEGER_LENGTH(expected), (size_t )3); \
+			expression = CHEAT_CAST(char*, cheat_allocate_total(4, \
+						CHEAT_INTEGER_LENGTH(actual), strlen(comparator), \
+						CHEAT_INTEGER_LENGTH(expected), (size_t )3)); \
 			if (expression == NULL) \
 				cheat_death("failed to allocate memory", errno); \
 \
@@ -164,9 +153,9 @@ CHEAT_GENERATE_INTEGER(long_unsigned_int, long unsigned int, "%lu")
 			else \
 				comparator = "~=="; \
 \
-			expression = CHEAT_CAST(char*) cheat_allocate_total(4, \
-					CHEAT_FLOATING_LENGTH(actual), strlen(comparator), \
-					CHEAT_FLOATING_LENGTH(expected), (size_t )3); \
+			expression = CHEAT_CAST(char*, cheat_allocate_total(4, \
+						CHEAT_FLOATING_LENGTH(actual), strlen(comparator), \
+						CHEAT_FLOATING_LENGTH(expected), (size_t )3)); \
 			if (expression == NULL) \
 				cheat_death("failed to allocate memory", errno); \
 \
@@ -189,7 +178,7 @@ CHEAT_GENERATE_FLOATING(double, double, fabs, "%g")
 	cheat_check_double(&cheat_suite, true, tolerance, actual, expected, \
 		__FILE__, __LINE__)
 
-CHEAT_GENERATE_INTEGER(size, CHEAT_SIZE_TYPE, CHEAT_SIZE_FORMAT)
+CHEAT_GENERATE_INTEGER(size, CHEAT_SIZE_TYPE, CHEAT_SIZE_FORMAT) /* TODO No. */
 CHEAT_GENERATE_INTEGER(ptrdiff, CHEAT_POINTER_TYPE, CHEAT_POINTER_FORMAT)
 
 #define cheat_assert_size(actual, expected) \
@@ -522,9 +511,9 @@ CHEAT_GENERATE_INTEGER(uintptr, uintptr_t, "%" PRIuPTR)
 			else \
 				comparator = "~=="; \
 \
-			expression = CHEAT_CAST(char*) cheat_allocate_total(4, \
-					strlen(actual), strlen(comparator), strlen(expected), \
-					(size_t )7); \
+			expression = CHEAT_CAST(char*, cheat_allocate_total(4, \
+						strlen(actual), strlen(comparator), strlen(expected), \
+						(size_t )7)); \
 			if (expression == NULL) \
 				cheat_death("failed to allocate memory", errno); \
 \
@@ -622,9 +611,9 @@ static void cheat_check_string(struct cheat_suite* const suite,
 		else
 			comparator = "==";
 
-		expression = CHEAT_CAST(char*) cheat_allocate_total(4,
-				strlen(actual), strlen(comparator), strlen(expected),
-				(size_t )7);
+		expression = CHEAT_CAST(char*, cheat_allocate_total(4,
+					strlen(actual), strlen(comparator), strlen(expected),
+					(size_t )7));
 		if (expression == NULL)
 			cheat_death("failed to allocate memory", errno);
 

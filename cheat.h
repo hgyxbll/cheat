@@ -139,10 +139,11 @@ This is used to detect too long string literals.
 This is needed to be able to cast a void pointer to any other pointer type.
 */
 #ifdef CHEAT_POSTMODERN
-#define CHEAT_CAST(type) \
-	(type )
+#define CHEAT_CAST(type, expression) \
+	((type )expression)
 #else
-#define CHEAT_CAST(type)
+#define CHEAT_CAST(type, expression) \
+	(expression)
 #endif
 
 /*
@@ -166,14 +167,18 @@ This makes comma placement automatic.
 #endif
 
 /*
-These are needed to print size types correctly.
+These are needed to print size and pointer difference types correctly.
 */
 #ifdef CHEAT_MODERN
 #define CHEAT_SIZE_FORMAT "%zu"
 #define CHEAT_SIZE_TYPE size_t
+#define CHEAT_POINTER_FORMAT "%td"
+#define CHEAT_POINTER_TYPE ptrdiff_t
 #else
 #define CHEAT_SIZE_FORMAT "%lu"
 #define CHEAT_SIZE_TYPE long unsigned int
+#define CHEAT_POINTER_FORMAT "%ld"
+#define CHEAT_POINTER_TYPE long int
 #endif
 
 /*
@@ -529,7 +534,7 @@ static char* cheat_allocate_truncated(char const* const literal,
 		if (marker_length > result_length)
 			return NULL;
 
-		result = CHEAT_CAST(char*) malloc(result_length + 1);
+		result = CHEAT_CAST(char*, malloc(result_length + 1));
 		if (result == NULL)
 			return NULL;
 
@@ -537,7 +542,7 @@ static char* cheat_allocate_truncated(char const* const literal,
 		memcpy(result, literal, paste_length);
 		memcpy(&result[paste_length], marker, marker_length + 1);
 	} else {
-		result = CHEAT_CAST(char*) malloc(literal_length + 1);
+		result = CHEAT_CAST(char*, malloc(literal_length + 1));
 		if (result == NULL)
 			return NULL;
 
@@ -839,9 +844,8 @@ static void cheat_append_string_list(struct cheat_string_list* const list,
 		if (capacity == list->capacity)
 			cheat_death("item capacity exceeded", list->capacity);
 
-		items = CHEAT_CAST(char**)
-			cheat_reallocate_array(list->items,
-				capacity, sizeof *list->items);
+		items = CHEAT_CAST(char**, cheat_reallocate_array(list->items,
+					capacity, sizeof *list->items));
 		if (items == NULL)
 			cheat_death("failed to allocate more memory", errno);
 
@@ -878,9 +882,9 @@ static void cheat_append_list(struct cheat_character_array_list* const list,
 		if (capacity == list->capacity)
 			cheat_death("item capacity exceeded", list->capacity);
 
-		items = CHEAT_CAST(struct cheat_character_array*)
-			cheat_reallocate_array(list->items,
-				capacity, sizeof *list->items);
+		items = CHEAT_CAST(struct cheat_character_array*,
+				cheat_reallocate_array(list->items,
+					capacity, sizeof *list->items));
 		if (items == NULL)
 			cheat_death("failed to allocate more memory", errno);
 
@@ -888,7 +892,7 @@ static void cheat_append_list(struct cheat_character_array_list* const list,
 		list->items = items;
 	}
 
-	elements = CHEAT_CAST(char*) malloc(size);
+	elements = CHEAT_CAST(char*, malloc(size));
 	if (elements == NULL)
 		cheat_death("failed to allocate memory", errno);
 	memcpy(elements, buffer, size);
@@ -1017,7 +1021,7 @@ static void cheat_print_usage(struct cheat_suite const* const suite) {
 	bool print_options = false;
 	bool print_labels = false;
 	char usage_format[] = CHEAT_BOLD "%s"
-		CHEAT_RESET " [option] [another option] [...] [test]";
+		CHEAT_RESET " [test or option] [another test or option] [...]";
 	char option_strings[][80] = { /* This length is a coincidence. */
 		CHEAT_BOLD "-c"
 			CHEAT_RESET "  "
@@ -1491,10 +1495,10 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 		switch (suite->harness) {
 		case CHEAT_UNSAFE:
 		case CHEAT_DANGEROUS:
-			buffer = CHEAT_CAST(char*) cheat_allocate_total(6,
-					strlen(assertion_format), strlen(file),
-					CHEAT_INTEGER_LENGTH(line), strlen(suite->test_name),
-					strlen(truncation), (size_t )1);
+			buffer = CHEAT_CAST(char*, cheat_allocate_total(6,
+						strlen(assertion_format), strlen(file),
+						CHEAT_INTEGER_LENGTH(line), strlen(suite->test_name),
+						strlen(truncation), (size_t )1));
 			if (buffer == NULL)
 				cheat_death("failed to allocate memory", errno);
 
@@ -1598,7 +1602,7 @@ static void cheat_run_coupled_test(struct cheat_suite* const suite,
 
 #define CHEAT_PIPE "\\\\.\\pipe\\cheat" /* This is the pipe name prefix. */
 
-#define CHEAT_OPTION "-__hidden" /* This is the option to indicate hiding. */
+#define CHEAT_OPTION "--__hidden" /* This is the option to indicate hiding. */
 
 #endif
 
@@ -1837,8 +1841,8 @@ Windows makes working with pipes a hassle, so not all streams are captured.
 	free(command);
 
 	/*
-	name = CHEAT_CAST(LPTSTR) cheat_allocate_total(3, strlen(CHEAT_PIPE),
-			CHEAT_INTEGER_LENGTH(process.dwProcessId), (size_t )1);
+	name = CHEAT_CAST(LPTSTR, cheat_allocate_total(3, strlen(CHEAT_PIPE),
+				CHEAT_INTEGER_LENGTH(process.dwProcessId), (size_t )1));
 	if (name == NULL)
 		cheat_death("failed to allocate memory", errno);
 
@@ -1942,8 +1946,8 @@ static void cheat_run_hidden(struct cheat_suite* const suite,
 	/*
 	pid = GetCurrentProcessId();
 
-	pipe = CHEAT_CAST(LPTSTR) cheat_allocate_total(3,
-			strlen(CHEAT_PIPE), CHEAT_INTEGER_LENGTH(pid), (size_t )1);
+	pipe = CHEAT_CAST(LPTSTR, cheat_allocate_total(3,
+				strlen(CHEAT_PIPE), CHEAT_INTEGER_LENGTH(pid), (size_t )1));
 	if (pipe == NULL)
 		cheat_death("failed to allocate memory", errno);
 
@@ -2824,7 +2828,7 @@ static int CHEAT_WRAP(vfprintf)(FILE* const stream,
 		length = cheat_printed_length(format, list);
 
 		if (cheat_capture(&cheat_suite, stream)) {
-			buffer = CHEAT_CAST(char*) malloc(length + 1);
+			buffer = CHEAT_CAST(char*, malloc(length + 1));
 			if (buffer == NULL)
 				return -1;
 
