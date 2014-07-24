@@ -172,8 +172,8 @@ CHEAT_GENERATE_FLOATING(double, double, fabs, "%g")
 	cheat_check_double(&cheat_suite, true, tolerance, actual, expected, \
 		__FILE__, __LINE__)
 
-CHEAT_GENERATE_INTEGER(size, CHEAT_SIZE_TYPE, CHEAT_SIZE_FORMAT) /* TODO No. */
-CHEAT_GENERATE_INTEGER(ptrdiff, CHEAT_POINTER_TYPE, CHEAT_POINTER_FORMAT)
+CHEAT_GENERATE_INTEGER(size, size_t, CHEAT_SIZE_FORMAT)
+CHEAT_GENERATE_INTEGER(ptrdiff, ptrdiff_t, CHEAT_POINTER_FORMAT)
 
 #define cheat_assert_size(actual, expected) \
 	cheat_check_size(&cheat_suite, false, actual, expected, \

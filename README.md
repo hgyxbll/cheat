@@ -268,19 +268,23 @@ Here is CHEAT being compiled with Borland Turbo C and
 
 These are available.
 
-* `-c` `--colorful`
-* `-d` `--dangerous`
-* `-e` `--eternal`
-* `-h` `--help`
-* `-l` `--list`
-* `-m` `--minimal`
-* `-n` `--noisy`
-* `-p` `--plain`
-* `-s` `--safe`
-* `-t` `--timed`
-* `-u` `--unsafe`
-* `-v` `--version`
-* `-q` `--quiet`
+* `-c` for `--colorful`
+* `-d` for `--dangerous`
+* `-e` for `--eternal`
+* `-h` for `--help`
+* `-l` for `--list`
+* `-m` for `--minimal`
+* `-n` for `--noisy`
+* `-p` for `--plain`
+* `-s` for `--safe`
+* `-t` for `--timed`
+* `-u` for `--unsafe`
+* `-v` for `--version`
+* `-q` for `--quiet`
+
+This one is not.
+
+* `--__hidden`
 
 ### Compilation Things
 
@@ -303,23 +307,21 @@ These exist for convenience.
 * `CHEAT_GET(name)`
 * `CHEAT_CALL(name)`
 
-These allow changing behavior.
+This allows some configuration.
 
 * `CHEAT_TIME`
 
 These help work around issues.
 
+* `CHEAT_COMMA`
+* `CHEAT_COMMAS(...)`
+* `CHEAT_COMMAS_1(x1, x2)`
 * `int CHEAT_OFFSET`
 * `CHEAT_UNWRAP(name)`
 * `CHEAT_NO_WRAP`
 
-This exists for completeness.
+This is for those who want to do more.
 
-* `CHEAT_WRAP(name)`
-
-These are for those who want to do more.
-
-* `size_t CHEAT_PASS`
 * `CHEAT_NO_MAIN`
 
 These exist by accident.
@@ -328,6 +330,8 @@ These exist by accident.
 * `CHEAT_END`
 * `size_t CHEAT_LIMIT`
 * `type CHEAT_CAST(type, expression)`
+* `size_t CHEAT_INTEGER_LENGTH(type)`
+* `size_t CHEAT_FLOATING_LENGTH(type)`
 
 These are available as extensions (using `cheats.h` in addition to `cheat.h`).
 
@@ -431,5 +435,12 @@ These are available as extensions (using `cheats.h` in addition to `cheat.h`).
 * `cheat_assert_not_unsigned_char(unsigned char actual, unsigned char unexpected)`
 * `cheat_assert_pointer(void const* actual, void const* expected)`
 * `cheat_assert_not_pointer(void const* actual, void const* unexpected)`
-* `cheat_assert_string(actual, expected)`
-* `cheat_assert_not_string(actual, expected)`
+* `cheat_assert_string(char const* actual, char const* expected)`
+* `cheat_assert_not_string(char const* actual, char const* expected)`
+
+These are the stable parts of the internals.
+
+* `CHEAT_H`
+* `CHEATS_H`
+* `CHEAT_WRAP(name)`
+* `size_t CHEAT_PASS`

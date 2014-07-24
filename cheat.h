@@ -1623,7 +1623,7 @@ static void cheat_run_coupled_test(struct cheat_suite* const suite,
 
 #define CHEAT_PIPE "\\\\.\\pipe\\cheat" /* This is the pipe name prefix. */
 
-#define CHEAT_OPTION "--__hidden" /* This is the option to indicate hiding. */
+#define CHEAT_OPTION "--__hidden" /* This is the option to emulate fork(). */
 
 #endif
 
