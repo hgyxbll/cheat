@@ -25,13 +25,11 @@ Identifiers starting with CHEAT_ and cheat_ are reserved for internal use and
 
 #if __STDC_VERSION__ >= 199901L
 #define CHEAT_MODERN
-#define CHEAT_VARIADIC
 #endif
 
 #ifdef _WIN32
 #define CHEAT_WINDOWED
 #define CHEAT_SIZED
-#define CHEAT_VARIADIC
 #endif
 
 #if _POSIX_C_SOURCE >= 198809L
@@ -154,6 +152,17 @@ This disables GNU extensions for compilers that do not support them.
 #define __io__ __cold__ /* This is informational. */
 #else
 #define __attribute__(_)
+#endif
+
+/*
+This makes comma placement automatic.
+*/
+#ifdef CHEAT_MODERN
+#define CHEAT_VARIADIC
+#else
+#ifdef CHEAT_WINDOWED
+#define CHEAT_VARIADIC
+#endif
 #endif
 
 /*
@@ -450,7 +459,7 @@ static size_t cheat_format_specifiers(char const* const format) {
 			format[index] != '\0';
 			++index)
 		if (format[index] == '%') {
-			if (!(format[index + 1] == '%'))
+			if (!(format[index + 1] == '%' || format[index + 1] == '\0'))
 				++count;
 			++index;
 		}
@@ -459,7 +468,7 @@ static size_t cheat_format_specifiers(char const* const format) {
 }
 
 /*
-Safely allocates memory for a block and returns a pointer to the it or
+Safely allocates memory for a block and returns a pointer to it or
  returns NULL and sets errno in case of a failure.
 */
 __attribute__ ((__malloc__, __warn_unused_result__))
@@ -606,8 +615,8 @@ Prints a formatted string or
  fails safely in case the amount of conversion specifiers in
  the format string does not match the expected count.
 */
-__attribute__ ((__format__ (__printf__, 1, 4), __io__, __nonnull__ (1)))
-static int cheat_print(char const* const format, FILE* const stream,
+__attribute__ ((__format__ (__printf__, 2, 4), __io__, __nonnull__ (1)))
+static int cheat_print(FILE* const stream, char const* const format,
 		size_t const count, ...) {
 	va_list list;
 	int result;
@@ -928,9 +937,6 @@ static void cheat_handle_outcome(struct cheat_suite* const suite) {
 		++suite->tests.successful;
 		break;
 	case CHEAT_FAILED:
-		++suite->tests.run;
-		++suite->tests.failed;
-		break;
 	case CHEAT_EXITED:
 	case CHEAT_CRASHED:
 	case CHEAT_TIMED_OUT:
@@ -1090,7 +1096,7 @@ static void cheat_print_usage(struct cheat_suite const* const suite) {
 
 		if (print_labels)
 			(void )fputs("Usage: ", stdout);
-		(void )cheat_print(usage_format, stdout, 1, suite->program);
+		(void )cheat_print(stdout, usage_format, 1, suite->program);
 		(void )fputc('\n', stdout);
 	}
 
@@ -1157,7 +1163,7 @@ static void cheat_print_tests(struct cheat_suite const* const suite) {
 			} else
 				(void )fputs("       ", stdout);
 		}
-		(void )cheat_print(name_format, stdout, 1, suite->units[index].name);
+		(void )cheat_print(stdout, name_format, 1, suite->units[index].name);
 		(void )fputc('\n', stdout);
 	}
 }
@@ -1395,7 +1401,7 @@ static void cheat_print_summary(struct cheat_suite const* const suite) {
 			if (strip)
 				cheat_strip(successful_format);
 
-			(void )cheat_print(successful_format, stdout,
+			(void )cheat_print(stdout, successful_format,
 					1, (CHEAT_SIZE_TYPE )suite->tests.successful);
 		}
 		if (regular || (any_successes && any_failures)) {
@@ -1408,7 +1414,7 @@ static void cheat_print_summary(struct cheat_suite const* const suite) {
 			if (strip)
 				cheat_strip(failed_format);
 
-			(void )cheat_print(failed_format, stdout,
+			(void )cheat_print(stdout, failed_format,
 					1, (CHEAT_SIZE_TYPE )suite->tests.failed);
 		}
 		if (regular || (any_successes || any_failures)) {
@@ -1420,7 +1426,7 @@ static void cheat_print_summary(struct cheat_suite const* const suite) {
 		if (strip)
 			cheat_strip(run_format);
 
-		(void )cheat_print(run_format, stdout,
+		(void )cheat_print(stdout, run_format,
 				1, (CHEAT_SIZE_TYPE )suite->tests.run);
 		(void )fputc('\n', stdout);
 	}
@@ -1501,7 +1507,7 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 			free(buffer);
 			break;
 		case CHEAT_SAFE:
-			(void )cheat_print(assertion_format, suite->message_stream,
+			(void )cheat_print(suite->message_stream, assertion_format,
 					4, file, line, suite->test_name, truncation);
 			break;
 		default:
@@ -2256,7 +2262,7 @@ These add source information to assertions.
 		__FILE__, __LINE__)
 
 /*
-These help the preprocessor place commas.
+These help the user place commas.
 */
 
 #define CHEAT_COMMA ,
