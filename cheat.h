@@ -67,6 +67,7 @@ These headers are also
  they do not need to be.
 */
 
+#include <ctype.h>
 #include <errno.h> /* errno */
 #include <limits.h> /* INT_MAX */
 #include <setjmp.h> /* jmp_buf */
@@ -453,10 +454,10 @@ static size_t cheat_expand(size_t const size) {
 
 /*
 Compares two strings and returns whether they are approximately equal.
-Letter case of single byte characters is not taken into account.
+Letter case is ignored and only single byte characters are guaranteed to work.
 */
 __attribute__ ((__nonnull__, __pure__, __warn_unused_result__))
-static int cheat_compare(char const* const first, char const* const second) {
+static bool cheat_compare(char const* const first, char const* const second) {
 	size_t index;
 
 	if (second == first)
