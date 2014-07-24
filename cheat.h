@@ -452,6 +452,26 @@ static size_t cheat_expand(size_t const size) {
 }
 
 /*
+Compares two strings and returns whether they are approximately equal.
+Letter case of single byte characters is not taken into account.
+*/
+__attribute__ ((__nonnull__, __pure__, __warn_unused_result__))
+static int cheat_compare(char const* const first, char const* const second) {
+	size_t index;
+
+	if (second == first)
+		return true;
+
+	for (index = 0;
+			first[index] != '\0' && second[index] != '\0';
+			++index)
+		if (tolower(first[index]) != tolower(second[index]))
+			return false;
+
+	return tolower(first[index]) == tolower(second[index]);
+}
+
+/*
 Finds the amount of conversion specifiers in a format string.
 Valid specifiers start with '%' and are not immediately followed by '%' or '\0'.
 */
@@ -2096,49 +2116,49 @@ static void cheat_parse(struct cheat_suite* const suite) {
 		argument = suite->arguments.elements[index];
 
 		if (options && argument[0] == '-') {
-			if (strcmp(argument, "--") == 0)
+			if (cheat_compare(argument, "--"))
 				options = false;
-			else if (strcmp(argument, "-c") == 0
-					|| strcmp(argument, "--colorful") == 0)
+			else if (cheat_compare(argument, "-c")
+					|| cheat_compare(argument, "--colorful"))
 				colorful = true;
-			else if (strcmp(argument, "-d") == 0
-					|| strcmp(argument, "--dangerous") == 0)
+			else if (cheat_compare(argument, "-d")
+					|| cheat_compare(argument, "--dangerous"))
 				dangerous = true;
-			else if (strcmp(argument, "-e") == 0
-					|| strcmp(argument, "--eternal") == 0)
+			else if (cheat_compare(argument, "-e")
+					|| cheat_compare(argument, "--eternal"))
 				eternal = true;
-			else if (strcmp(argument, "-h") == 0
-					|| strcmp(argument, "--help") == 0)
+			else if (cheat_compare(argument, "-h")
+					|| cheat_compare(argument, "--help"))
 				help = true;
-			else if (strcmp(argument, "-l") == 0
-					|| strcmp(argument, "--list") == 0)
+			else if (cheat_compare(argument, "-l")
+					|| cheat_compare(argument, "--list"))
 				list = true;
-			else if (strcmp(argument, "-m") == 0
-					|| strcmp(argument, "--minimal") == 0)
+			else if (cheat_compare(argument, "-m")
+					|| cheat_compare(argument, "--minimal"))
 				minimal = true;
-			else if (strcmp(argument, "-n") == 0
-					|| strcmp(argument, "--noisy") == 0)
+			else if (cheat_compare(argument, "-n")
+					|| cheat_compare(argument, "--noisy"))
 				noisy = true;
-			else if (strcmp(argument, "-p") == 0
-					|| strcmp(argument, "--plain") == 0)
+			else if (cheat_compare(argument, "-p")
+					|| cheat_compare(argument, "--plain"))
 				plain = true;
-			else if (strcmp(argument, "-s") == 0
-					|| strcmp(argument, "--safe") == 0)
+			else if (cheat_compare(argument, "-s")
+					|| cheat_compare(argument, "--safe"))
 				safe = true;
-			else if (strcmp(argument, "-t") == 0
-					|| strcmp(argument, "--timed") == 0)
+			else if (cheat_compare(argument, "-t")
+					|| cheat_compare(argument, "--timed"))
 				timed = true;
-			else if (strcmp(argument, "-u") == 0
-					|| strcmp(argument, "--unsafe") == 0)
+			else if (cheat_compare(argument, "-u")
+					|| cheat_compare(argument, "--unsafe"))
 				unsafe = true;
-			else if (strcmp(argument, "-v") == 0
-					|| strcmp(argument, "--version") == 0)
+			else if (cheat_compare(argument, "-v")
+					|| cheat_compare(argument, "--version"))
 				version = true;
-			else if (strcmp(argument, "-q") == 0
-					|| strcmp(argument, "--quiet") == 0)
+			else if (cheat_compare(argument, "-q")
+					|| cheat_compare(argument, "--quiet"))
 				quiet = true;
 #ifdef CHEAT_WINDOWED
-			else if (strcmp(argument, CHEAT_OPTION) == 0)
+			else if (cheat_compare(argument, CHEAT_OPTION))
 				hidden = true;
 #endif
 			else

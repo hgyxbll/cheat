@@ -293,6 +293,8 @@ These form the primary interface.
 * `CHEAT_IGNORE(statements)`
 * `CHEAT_SKIP(statements)`
 
+These are the most essential part of it.
+
 * `cheat_assert(bool expected)`
 * `cheat_assert_not(bool unexpected)`
 
@@ -327,7 +329,7 @@ These exist by accident.
 * `size_t CHEAT_LIMIT`
 * `type CHEAT_CAST(type, expression)`
 
-These are available as extensions (by using `cheats.h` as well).
+These are available as extensions (using `cheats.h` in addition to `cheat.h`).
 
 * `cheat_assert_char(char actual, char expected)`
 * `cheat_assert_not_char(char actual, char unexpected)`

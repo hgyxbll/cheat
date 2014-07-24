@@ -26,12 +26,6 @@ Some assertions make use of fabs() and therefore require compiling with -lm.
 #endif
 
 /*
-This evaluates to the maximum of two constant expressions.
-*/
-#define CHEAT_MAXIMUM(x, y) \
-	((x) > (y) ? (x) : (y))
-
-/*
 This computes an upper bound for the string length of a floating point type.
 */
 #define CHEAT_FLOATING_LENGTH(type) \
