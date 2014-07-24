@@ -248,16 +248,16 @@ If the compiler works like Microsoft C/C++ (commonly known as `cl.exe`) and
 Everyone likes pretty pictures.
 
 Here is CHEAT being compiled with the GNU Compiler Collection and
- running in the Xfce terminal emulator that is provided by a Linux distribution.
+ run in the Xfce terminal emulator of a Linux distribution.
 
 ![Screenshot](https://raw.github.com/Tuplanolla/cheat/master/xfce.png)
 
 Here is CHEAT being compiled with Microsoft C/C++ and
- running in the command prompt of Windows XP.
+ run in the command prompt of Windows XP.
 
 ![Another Screenshot](https://raw.github.com/Tuplanolla/cheat/master/xp.png)
 
 Here is CHEAT being compiled with Borland Turbo C and
- running in the default shell of FreeDOS.
+ run in the default shell of FreeDOS.
 
 ![Yet Another Screenshot](https://raw.github.com/Tuplanolla/cheat/master/dos.png)
