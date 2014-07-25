@@ -171,6 +171,8 @@ CHEAT is designed for C, but
 
 	[user@computer cheat]$ make -e CC=g++ -f makefile.gcc
 
+The whole thing is very standards compliant.
+
 Many features are targeted for POSIX and Linux systems, but
  the most critical ones have Windows compatibility as well.
 

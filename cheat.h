@@ -29,7 +29,6 @@ Identifiers starting with CHEAT_ and cheat_ are reserved for internal use and
 
 #ifdef _WIN32
 #define CHEAT_WINDOWED
-#define CHEAT_SIZED
 #endif
 
 #if _POSIX_C_SOURCE >= 198809L
@@ -50,7 +49,6 @@ Identifiers starting with CHEAT_ and cheat_ are reserved for internal use and
 
 #ifdef __cplusplus
 #define CHEAT_POSTMODERN
-#define CHEAT_BOOLEAN
 #endif
 
 #if __GNUC__ >= 4
@@ -78,20 +76,20 @@ These headers are also
 #include <stdlib.h> /* EXIT_FAILURE, EXIT_SUCCESS */
 #include <string.h>
 
-#ifndef CHEAT_BOOLEAN
 #ifdef CHEAT_MODERN
 #include <stdbool.h> /* bool, false, true */
 #else
+#ifndef CHEAT_POSTMODERN
 typedef int bool;
 #define false (0)
 #define true (!false)
 #endif
 #endif
 
-#ifndef CHEAT_SIZED
 #ifdef CHEAT_MODERN
 #include <stdint.h> /* SIZE_MAX */
 #else
+#ifndef SIZE_MAX
 #define SIZE_MAX ((size_t )-1)
 #endif
 #endif
