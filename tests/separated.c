@@ -6,7 +6,7 @@ CHEAT_DECLARE(
 )
 
 CHEAT_SET_UP(
-	number = CHEAT_CAST(int*) malloc(sizeof *number);
+	number = CHEAT_CAST(int*, malloc(sizeof *number));
 
 	*number = 0;
 )

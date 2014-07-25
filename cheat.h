@@ -1532,6 +1532,8 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 		case CHEAT_SAFE:
 			(void )cheat_print(suite->message_stream, assertion_format,
 					4, file, line, suite->test_name, truncation);
+			(void )fflush(suite->message_stream); /* This prevents crashing from
+					absorbing messages. */
 			break;
 		default:
 			cheat_death("invalid harness", suite->harness);

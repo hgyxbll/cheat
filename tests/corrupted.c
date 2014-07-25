@@ -11,7 +11,7 @@ CHEAT_TEST(assignment_crash,
 CHEAT_TEST(smash_crash,
 	unsigned char buffer[1];
 
-	memset(&buffer[-sizeof (int)], UCHAR_MAX, sizeof (int) * 3);
+	memset(&buffer[-sizeof (int) * 3], UCHAR_MAX, sizeof (int) * 3 * 3);
 )
 
 CHEAT_TEST(free_crash,
