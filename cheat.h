@@ -579,12 +579,10 @@ Strips out ISO/IEC 6429 escape sequences from a string and
 */
 __attribute__ ((__nonnull__))
 static size_t cheat_strip(char* const variable) {
-	size_t in;
+	size_t in = 0;
 	size_t out = 0;
 
-	for (in = 0;
-			variable[in] != '\0';
-			++in) {
+	while (variable[in] != '\0') {
 		if (variable[in] == '\033') {
 			if (variable[in + 1] == '[') {
 				size_t off;
@@ -593,24 +591,26 @@ static size_t cheat_strip(char* const variable) {
 						variable[in + off] < '@' || variable[in + off] > '~';
 						++off) {
 					if (variable[in + off] == '\0') {
-						memcpy(&variable[out], &variable[in], off);
+						memmove(&variable[out], &variable[in], off);
 						out += off;
-
 						break;
 					}
 				}
-				in += off;
+				in += off + 1;
 
 				continue;
 			} else if (variable[in + 1] >= '@' && variable[in + 1] <= '_') {
-				++in;
+				in += 2;
 
 				continue;
 			}
 		}
+
 		variable[out] = variable[in];
+		++in;
 		++out;
 	}
+
 	variable[out] = variable[in];
 
 	return out;
@@ -2796,7 +2796,7 @@ static void CHEAT_WRAP(_Exit)(int const status) {
 	cheat_exit(&cheat_suite, CHEAT_EXITED);
 }
 
-#define _exit CHEAT_WRAP(_Exit)
+#define _Exit CHEAT_WRAP(_Exit)
 
 #endif
 
@@ -2812,7 +2812,7 @@ static void CHEAT_WRAP(_exit)(int const status) {
 	cheat_exit(&cheat_suite, CHEAT_EXITED);
 }
 
-#define _Exit CHEAT_WRAP(_exit)
+#define _exit CHEAT_WRAP(_exit)
 
 #endif
 

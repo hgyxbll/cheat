@@ -438,6 +438,10 @@ These are available as extensions (using `cheats.h` in addition to `cheat.h`).
 * `cheat_assert_string(char const* actual, char const* expected)`
 * `cheat_assert_not_string(char const* actual, char const* expected)`
 
+This is for working around extension issues.
+
+* `CHEAT_NO_MATH`
+
 These are the stable parts of the internals.
 
 * `CHEAT_H`

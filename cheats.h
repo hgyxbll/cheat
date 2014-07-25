@@ -13,11 +13,15 @@ The full license can be found in the LICENSE file.
 #ifndef CHEATS_H
 #define CHEATS_H
 
-/*
-Some assertions make use of fabs() and therefore require compiling with -lm.
-*/
-#include <math.h>
 #include <string.h>
+
+/*
+This prevents having to compile with -lm since
+ some assertions make use of fabs() and friends.
+*/
+#ifndef CHEAT_NO_MATH
+#include <math.h>
+#endif
 
 #ifdef CHEAT_MODERN
 #include <complex.h>
@@ -129,6 +133,8 @@ CHEAT_GENERATE_INTEGER(long_unsigned_int, long unsigned int, "%lu")
 	cheat_check_long_unsigned_int(&cheat_suite, true, actual, expected, \
 		__FILE__, __LINE__)
 
+#ifndef CHEAT_NO_MATH
+
 #define CHEAT_GENERATE_FLOATING(name, type, abs, specifier) \
 	__attribute__ ((__io__, __nonnull__ (1, 6), __unused__)) \
 	static void cheat_check_##name(struct cheat_suite* const suite, \
@@ -172,6 +178,8 @@ CHEAT_GENERATE_FLOATING(double, double, fabs, "%g")
 	cheat_check_double(&cheat_suite, true, tolerance, actual, expected, \
 		__FILE__, __LINE__)
 
+#endif
+
 CHEAT_GENERATE_INTEGER(size, size_t, CHEAT_SIZE_FORMAT)
 CHEAT_GENERATE_INTEGER(ptrdiff, ptrdiff_t, CHEAT_POINTER_FORMAT)
 
@@ -212,6 +220,8 @@ CHEAT_GENERATE_INTEGER(long_long_unsigned_int, long long unsigned int, "%llu")
 	cheat_check_long_long_unsigned_int(&cheat_suite, true, actual, expected, \
 		__FILE__, __LINE__)
 
+#ifndef CHEAT_NO_MATH
+
 CHEAT_GENERATE_FLOATING(float, float, fabsf, "%hg")
 CHEAT_GENERATE_FLOATING(long_double, long double, fabsl, "%lg")
 
@@ -230,6 +240,8 @@ CHEAT_GENERATE_FLOATING(long_double, long double, fabsl, "%lg")
 #define cheat_assert_not_long_double(actual, expected) \
 	cheat_check_long_double(&cheat_suite, true, actual, expected, \
 		__FILE__, __LINE__)
+
+#endif
 
 /*
 These alone would take up 839 lines without preprocessor generators.
@@ -487,6 +499,8 @@ CHEAT_GENERATE_INTEGER(uintptr, uintptr_t, "%" PRIuPTR)
 	cheat_check_uintptr(&cheat_suite, true, actual, expected, \
 		__FILE__, __LINE__)
 
+#ifndef CHEAT_NO_MATH
+
 #define CHEAT_GENERATE_COMPLEX(name, type, abs, real, imag, specifier) \
 	__attribute__ ((__io__, __nonnull__ (1, 6), __unused__)) \
 	static void cheat_check_##name(struct cheat_suite* const suite, \
@@ -506,8 +520,8 @@ CHEAT_GENERATE_INTEGER(uintptr, uintptr_t, "%" PRIuPTR)
 				comparator = "~=="; \
 \
 			expression = CHEAT_CAST(char*, cheat_allocate_total(4, \
-						strlen(actual), strlen(comparator), strlen(expected), \
-						(size_t )7)); \
+						CHEAT_FLOATING_LENGTH(actual), strlen(comparator), \
+						CHEAT_FLOATING_LENGTH(expected), (size_t )7)); \
 			if (expression == NULL) \
 				cheat_death("failed to allocate memory", errno); \
 \
@@ -550,6 +564,8 @@ CHEAT_GENERATE_COMPLEX(long_double_complex, long double,
 #define cheat_assert_not_long_double_complex(actual, expected, tolerance) \
 	cheat_check_long_double_complex(&cheat_suite, true, actual, expected, \
 		__FILE__, __LINE__)
+
+#endif
 
 CHEAT_GENERATE_INTEGER(signed_char, signed char, "%hhd")
 CHEAT_GENERATE_INTEGER(unsigned_char, unsigned char, "%hhu")
