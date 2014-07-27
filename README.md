@@ -12,8 +12,8 @@ Only a header file and a test case is needed.
 		cheat_assert_not(2 + 2 == 5);
 	)
 
-The following section presents the basic use case.
-You can skip it if you are only looking for an overview.
+Section 1 presents the basic use case.
+You can skip to section 2 if you are only looking for an overview.
 
 ## 1   Getting Started
 
@@ -24,11 +24,11 @@ Compatibility with other tools and operating systems is addressed in section 4.
 
 ### 1.1   Preparing
 
-First you need to download `cheat.h`
+First you need to download the main header
 
 	[user@computer ~]$ wget https://github.com/Tuplanolla/cheat/raw/stable/cheat.h
 
- and move the header to a suitable location like the global search path
+ and move it to a suitable location like the global search path
 
 	[user@computer ~]$ sudo mv -n cheat.h /usr/include
 
@@ -42,22 +42,31 @@ Then you are ready to write tests.
 
 ### 1.2   Writing Tests
 
-Create a new source file,
+Tests go into their own source file.
 
-	[user@computer project]$ touch tests.c
+	[user@computer project]$ cat > tests.c
+	#include <cheat.h>
 
- include the header and write your tests.
-We have done so in the `example.c` file.
+It is an ordinary file with the exception that it is processed more than once.
+Therefore you must wrap all top level declarations and definitions with
+ the appropriate preprocessor directives.
+The reason for that is explained in section 2.3.
+
+Including the main header is enough to get an empty test suite, but
+ such a thing is not very useful beyond making sure everything is set up right.
+The next step is to define tests.
+You can define tests with `CHEAT_TEST()` and
+ their success conditions called assertions with `cheat_assert()`.
+Doing so is demonstrated in the example file.
 
 	[user@computer project]$ wget https://github.com/Tuplanolla/cheat/raw/stable/example.c
+	[user@computer project]$ mv example.c tests.c
 
-A short walkthrough goes here.
+It is important to note that the utility procedures defined with
+ `CHEAT_SET_UP()` and `CHEAT_TEAR_DOWN()` are run for every test and
+ the state of mutable global variables before the former is undefined.
 
-Global variables are undefined and set ups and tear downs run for every test.
-
-There are other more or less useful files, but we ignore them for now.
-
-Sections 6.1 and 6.3 cover the rest.
+A detailed explanation of the entire interface is in section 7.1.
 
 ### 1.3   Running Tests
 
@@ -66,7 +75,15 @@ Tests compile into an executable
 	[user@computer project]$ gcc -I . -o tests tests.c
 
  that takes care of running the tests and reporting their outcomes.
-It is necessary to add the directory of the tests to the search path.
+There are two things that need to be taken care of when compiling the file.
+First you have to add the directory of the test suite to the search path, as
+ is done here with `-I .`.
+Then you have to make `__BASE_FILE__` point to the test suite, by
+ using `-D __BASE_FILE__=\"tests.c\"`, if the compiler does not.
+The reason is related to the previous oddity and is in section 2.3.
+
+The resulting executable runs tests in a security harness if possible, so
+ the suite does not crash if one of its tests does.
 
 	[user@computer project]$ ./tests
 	..:..??..!..
@@ -77,15 +94,25 @@ It is necessary to add the directory of the tests to the search path.
 	8 successful and 2 failed of 12 run
 	FAILURE
 
-The executable runs tests in
- isolated subprocesses if possible, so
- the suite does not crash if
- one of the tests does.
+The results are reported in four parts.
 
-The results are reported in a format similar to
- what many popular C compilers produce.
+The first part is a progress bar, where
 
-All of the options are in section 6.2.
+* a success is a green dot,
+* a failure is a red colon,
+* a crash is a red exclamation mark,
+* a time out is a yellow exclamation mark and
+* an ignored outcome is signaled with a yellow question mark.
+
+The second part contains diagnostic messages in
+ a format similar to what many popular C compilers produce.
+
+The third part, omitted here, would hold the captured output and error streams.
+
+The fourth and last part, which is always shown, briefly summarizes all of that.
+
+You can control the behavior of the test suite with command line options.
+They are presented in sections 3.3 and 7.2.
 
 ## 2   Overview
 
@@ -241,7 +268,7 @@ There are a few `makefile`s for different compilers that
 
 You can see screenshots of these in section 7.
 
-### 4.2   Atrocities
+### 4.2   Language Compatibility
 
 CHEAT is designed for C, but
  also works with C++ after wading through a million warnings.
@@ -313,9 +340,28 @@ It is not possible to attach a breakpoint to `cheat_assert()`, because
  it is erased by the preprocessor, but
  using `cheat_check()` instead should work.
 
-## 6   Reference
+### 6   Screenshots
 
-### 6.1   Compilation Things
+Everyone likes pretty pictures.
+
+Here is CHEAT being compiled with the GNU Compiler Collection and
+ run in the Xfce terminal emulator of a Linux distribution.
+
+![Screenshot](https://raw.github.com/Tuplanolla/cheat/master/xfce.png)
+
+Here is CHEAT being compiled with Microsoft C/C++ and
+ run in the command prompt of Windows XP.
+
+![Another Screenshot](https://raw.github.com/Tuplanolla/cheat/master/xp.png)
+
+Here is CHEAT being compiled with Borland Turbo C and
+ run in the default shell of FreeDOS.
+
+![Yet Another Screenshot](https://raw.github.com/Tuplanolla/cheat/master/dos.png)
+
+## 7   Reference
+
+### 7.1   Compilation Things
 
 These form the primary interface.
 
@@ -362,7 +408,7 @@ These exist by accident.
 * `size_t CHEAT_INTEGER_LENGTH(type)`
 * `size_t CHEAT_FLOATING_LENGTH(type)`
 
-### 6.2   Execution Things
+### 7.2   Execution Things
 
 These are available.
 
@@ -384,7 +430,7 @@ This one is not.
 
 * `--__hidden`
 
-### 6.3   Extension Things
+### 7.3   Extension Things
 
 These are available as extensions (using `cheats.h` in addition to `cheat.h`).
 
@@ -502,7 +548,7 @@ These are the stable parts of the internals.
 * `CHEAT_WRAP(name)`
 * `size_t CHEAT_PASS`
 
-### 6.4   Internal Things
+### 7.4   Internal Things
 
 These are not to be relied on.
 
@@ -512,22 +558,3 @@ These are not to be relied on.
 * `CHEAT_VERY_POSIXLY`
 * `CHEAT_POSTMODERN`
 * `CHEAT_GNUTIFUL`
-
-### 7   Screenshots
-
-Everyone likes pretty pictures.
-
-Here is CHEAT being compiled with the GNU Compiler Collection and
- run in the Xfce terminal emulator of a Linux distribution.
-
-![Screenshot](https://raw.github.com/Tuplanolla/cheat/master/xfce.png)
-
-Here is CHEAT being compiled with Microsoft C/C++ and
- run in the command prompt of Windows XP.
-
-![Another Screenshot](https://raw.github.com/Tuplanolla/cheat/master/xp.png)
-
-Here is CHEAT being compiled with Borland Turbo C and
- run in the default shell of FreeDOS.
-
-![Yet Another Screenshot](https://raw.github.com/Tuplanolla/cheat/master/dos.png)
