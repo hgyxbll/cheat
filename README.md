@@ -176,6 +176,7 @@ There is the example and makefiles for it,
  tests for corner cases
 
 	[user@computer cheat]$ ls tests
+	[user@computer cheat]$ ./test
 
  and other fun things.
 
@@ -246,7 +247,7 @@ No tests and empty tests result in a success.
 
 More about these kinds of things later.
 
-## 4   Compatibility
+## 4   Portability
 
 ### 4.1   Standards Compliance
 

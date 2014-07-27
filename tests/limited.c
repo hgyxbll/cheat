@@ -1,3 +1,5 @@
+#define CHEAT_LIMIT 43
+
 #include <cheat.h>
 
 CHEAT_TEST(failure,

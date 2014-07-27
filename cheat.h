@@ -118,8 +118,9 @@ All nested conditions use
 #endif
 
 /*
-This is used to detect too long string literals.
+This is used to truncate too long string literals.
 */
+#ifndef CHEAT_LIMIT
 #ifdef CHEAT_POSTMODERN
 #define CHEAT_LIMIT ((size_t )65535)
 #else
@@ -130,6 +131,7 @@ This is used to detect too long string literals.
 #define CHEAT_LIMIT ((size_t )2047)
 #else
 #define CHEAT_LIMIT ((size_t )509)
+#endif
 #endif
 #endif
 #endif
@@ -309,25 +311,29 @@ struct cheat_unit {
 };
 
 /*
-This naming convention follows the notion that
+This naming convention used here follows the notion that
  lists have items,
  arrays have elements,
  arrays of structures have counts and
  arrays of primitive types have sizes.
 */
+
 struct cheat_string_array {
 	size_t count;
 	char** elements;
 };
+
 struct cheat_character_array {
 	size_t size;
 	char* elements;
 };
+
 struct cheat_string_list {
 	size_t count;
 	size_t capacity;
 	char** items;
 };
+
 struct cheat_character_array_list {
 	size_t count;
 	size_t capacity;
@@ -344,9 +350,6 @@ struct cheat_statistics {
 struct cheat_suite {
 	struct cheat_unit const* units; /* All tests and
 			utility procedures (changes for each compilation). */
-
-	size_t assertion_length; /* The maximum length of an assertion to
-			write into a message (changes for each compilation). */
 
 	cheat_handler handler; /* The procedure to handle the recovery from
 			a fatal signal (changes for each compilation). */
@@ -412,17 +415,6 @@ struct cheat_channel {
 Procedures are ordered from more pure and general to
  more effectful and domain specific.
 */
-
-/*
-Finds the minimum of two sizes and returns it.
-*/
-__attribute__ ((__const__, __warn_unused_result__))
-static size_t cheat_minimum(size_t const size, size_t const another_size) {
-	if (another_size < size)
-		return another_size;
-
-	return size;
-}
 
 /*
 Calculates the arithmetic mean of two sizes and returns it.
@@ -540,24 +532,22 @@ __attribute__ ((__malloc__, __nonnull__, __warn_unused_result__))
 static char* cheat_allocate_truncated(char const* const literal,
 		size_t const length, char const* const marker) {
 	size_t literal_length;
-	size_t result_length;
 	char* result;
 
 	literal_length = strlen(literal);
-	result_length = cheat_minimum(length, CHEAT_LIMIT);
-	if (literal_length > result_length) {
+	if (literal_length > CHEAT_LIMIT) {
 		size_t marker_length;
 		size_t paste_length;
 
 		marker_length = strlen(marker);
-		if (marker_length > result_length)
+		if (marker_length > CHEAT_LIMIT)
 			return NULL;
 
-		result = CHEAT_CAST(char*, malloc(result_length + 1));
+		result = CHEAT_CAST(char*, malloc(CHEAT_LIMIT + 1));
 		if (result == NULL)
 			return NULL;
 
-		paste_length = result_length - marker_length;
+		paste_length = CHEAT_LIMIT - marker_length;
 		memcpy(result, literal, paste_length);
 		memcpy(&result[paste_length], marker, marker_length + 1);
 	} else {
@@ -778,8 +768,6 @@ Initializes an undefined test suite.
 __attribute__ ((__nonnull__))
 static void cheat_initialize(struct cheat_suite* const suite) {
 	suite->units = NULL;
-
-	suite->assertion_length = 256; /* This is arbitrary. */
 
 	/* Do not touch suite->handler. */
 
@@ -1503,8 +1491,7 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 		char* truncation;
 		char* buffer;
 
-		truncation = cheat_allocate_truncated(expression,
-				suite->assertion_length, "...");
+		truncation = cheat_allocate_truncated(expression, CHEAT_LIMIT, "...");
 		if (truncation == NULL)
 			cheat_death("failed to allocate memory", errno);
 
