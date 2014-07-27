@@ -1,10 +1,9 @@
 # CHEAT
 
-CHEAT is a minimal unit testing framework for the C programming language.
-Its primary use cases are small projects and systems for embedded platforms.
+CHEAT stands for C Header Embedded Automated Testing or something like that.
+It is a minimal unit testing framework for the C programming language.
 It has no dependencies and requires no installation or configuration.
-The design philosophy is that time spent not writing tests is time wasted.
-Only a header file and a statement block is needed.
+Only a header file and a test case is needed.
 
 	#include <cheat.h>
 
@@ -13,92 +12,61 @@ Only a header file and a statement block is needed.
 		cheat_assert_not(2 + 2 == 5);
 	)
 
-## Explanation
+The following section presents the basic use case.
+You can skip it if you are only looking for an overview.
 
-The working principle is best explained by a thought experiment.
+## 1  Getting Started
 
-> Imagine a source file including a header file.
-> Then imagine the header file including the source file that included it.
-> Now imagine doing that three times in a row within the same header file.
-> Proceed to imagine redefining all of the identifiers each time.
-> Finally imagine doing all of that with preprocessor directives.
-> What you ended up with is CHEAT.
+In this introduction it is assumed that you are running a Linux system with
+ the GNU Core Utilities and the GNU Compiler Collection installed.
+None of that is necessary, but it makes the introduction easier to follow.
+Compatibility with other tools and operating systems is addressed in section 4.
 
-## History
+### 1.1  Preparing
 
-The project was started on 2012-08-07 and
- will be first released on 2014-08-07.
-It was originally written by Guillermo "Tordek" Freschi for
- the entertainment and education of everyone in
- the ISO/IEC 9899 community on Freenode.
-It was later picked up by Sampsa "Tuplanolla" Kiiskinen who
- grew tired of unit testing frameworks that suck and
- wondered what happened to the one that did not.
+First you need to download `cheat.h`
 
-## License
+	[user@computer ~]$ wget https://github.com/Tuplanolla/cheat/raw/stable/cheat.h
 
-CHEAT is free software and as such
- licensed under the simplified BSD license with two clauses.
-The full license can be found in the `LICENSE` file that
- resides in the same directory as this file.
-In short, copies and derivative works are permitted
- as long as they use the same license.
+ and move the header to a suitable location like the global search path
 
-## Usage
+	[user@computer ~]$ sudo mv -n cheat.h /usr/include
 
-This documentation is slightly lacking, but it will improve soon.
+ or the working directory of your project.
 
-### Installation
+	[user@computer ~]$ mv -n cheat.h project
 
-The core components are defined in a single header file, so
- the only necessary step is to download it.
+Then you are ready to write tests.
 
-	[user@computer ~]$ cd /usr/include
-	[user@computer include]$ sudo wget -q https://github.com/Tuplanolla/cheat/raw/stable/cheat.h
+	[user@computer ~]$ cd project
 
-### Writing Tests
+### 1.2  Writing Tests
 
-Tests should be put in their own source file,
+Create a new source file,
 
-	[user@computer project]$ cat > tests.c
+	[user@computer project]$ touch tests.c
 
- which has to define `__BASE_FILE__`,
+ include the header and write your tests.
+We have done so in the `example.c` file.
 
-	#ifndef __BASE_FILE__
-	#define __BASE_FILE__ __FILE__
-	#endif
+	[user@computer project]$ wget https://github.com/Tuplanolla/cheat/raw/stable/example.c
 
- if the compiler does not, and
- include `cheat.h`.
+A short walkthrough goes here.
 
-	#include <cheat.h>
+Global variables are undefined and set ups and tear downs run for every test.
 
-For example GCC defines `__BASE_FILE__`, but
- the condition should be used anyway for portability.
+There are other more or less useful files, but we ignore them for now.
 
-Tests can then be defined with `CHEAT_TEST(name, block)`,
- global variables with `CHEAT_DECLARE(declarations)`,
- initialization with `CHEAT_SET_UP(block)` and
- finalization with `CHEAT_TEAR_DOWN(block)`.
-It is also possible to
- ignore the outcome of a test with `CHEAT_IGNORE(block)` or
- skip running it altogether with `CHEAT_SKIP(block)`.
-Additionally
- a reference to test can be retrieved with `CHEAT_GET(name)` or
- it can be directly called with `CHEAT_CALL(name)`.
-Magical `CHEAT_PASS`, `CHEAT_TIME`, `CHEAT_OFFSET`,
- `CHEAT_NO_WRAP`, `CHEAT_NO_MAIN`,
- `CHEAT_WRAP(name)` and `CHEAT_UNWRAP(name)` also exist.
+Sections 6.1 and 6.3 cover the rest.
 
-Some examples are in the `example.c` file.
-
-### Running Tests
+### 1.3  Running Tests
 
 Tests compile into an executable
 
-	[user@computer project]$ gcc -o tests tests.c
+	[user@computer project]$ gcc -I . -o tests tests.c
 
  that takes care of running the tests and reporting their outcomes.
+It is necessary to add the directory of the tests to the search path.
 
 	[user@computer project]$ ./tests
 	..:..??..!..
@@ -110,9 +78,92 @@ Tests compile into an executable
 	FAILURE
 
 The executable runs tests in
- an isolated subprocess if possible, so
+ isolated subprocesses if possible, so
  the suite does not crash if
  one of the tests does.
+
+The results are reported in a format similar to
+ what many popular C compilers produce.
+
+All of the options are in section 6.2.
+
+## 2  Overview
+
+### 2.1  License
+
+CHEAT is free software and as such
+ licensed under the simplified BSD license with two clauses.
+The full license can be found in the `LICENSE` file that
+ resides in the same directory as this file.
+In short, copies and derivative works are permitted
+ as long as they use the same license.
+
+It would be licensed under the GNU GPL, but
+ the authors felt that such a decision would hinder its adoption.
+
+### 2.2  History
+
+The project was started on 2012-08-07 and will be first released on 2014-08-07.
+It was originally written by Guillermo "Tordek" Freschi for
+ the entertainment and education of everyone in
+ the ISO/IEC 9899 community on Freenode.
+The prototype was later picked up by Sampsa "Tuplanolla" Kiiskinen who
+ grew tired of unit testing frameworks that suck and
+ wondered what happened to the one that did not.
+It was rewritten, stuffed with new features and
+ finally audited in a small scale.
+
+### 2.3  Implementation
+
+The working principle is best explained by a thought experiment.
+
+> Imagine a source file including a header file.
+> Then imagine the header file including the source file that included it.
+> Now imagine doing that three times in a row within the same header file.
+> Proceed to imagine redefining all of the identifiers each time.
+> Finally imagine doing all of that with preprocessor directives.
+> What you ended up with is CHEAT.
+
+It sounds strange, but it works.
+
+### 2.4  Contributing
+
+The support for Windows and other more exotic operating systems is not complete.
+For example stream capturing is currently very limited without POSIX interfaces.
+
+Contributions in the forms of feedback and pull requests are all very welcome!
+
+## 3  Advanced Usage
+
+### 3.1  Other Files
+
+There are other useful files as mentioned earlier.
+
+	[user@computer ~]$ git clone git@github.com:Tuplanolla/cheat.git
+	[user@computer ~]$ cd cheat
+
+There is the example and makefiles for it,
+
+	[user@computer cheat]$ make test clean
+
+ tests for corner cases
+
+	[user@computer cheat]$ ls tests
+
+ and other fun things.
+
+	[user@computer cheat]$ xdot streams.dot
+	[user@computer cheat]$ man ./cheat.7
+	[user@computer cheat]$ cat LICENSE
+
+### 3.2  Additional Features
+
+There are things like `CHEAT_SET_UP(declarations)` and `CHEAT_CALL(name)`.
+
+See section 7 or wait for this to be completed.
+
+### 3.3  Command Line Options
+
 The `-u` for `--unsafe` option allows
  running everything in the same process if
  `fork()` or `CreateProcess()` is unsupported, fails or
@@ -123,27 +174,6 @@ Additionally the `-d` for `--dangerous` option provides some stability by
  attempting to recover from signals like `SIGFPE` and `SIGSEGV`,
  most likely leading to undefined behavior.
 Luckily undefined behavior is often defined enough behavior.
-
-The incomplete `-t` for `--timed` and
- `-e` for `--eternal` allow controlling isolated tests that get stuck while
- `-q` for `--quiet` and
- `-n` for `--noisy` determine whether standard streams are captured and printed.
-
-The results are reported in a format similar to
- what many popular C compilers produce.
-As an added bonus the `-c` for `--colorful` option makes everything colorful,
- the `-m` for `--minimal` option makes the report machine readable and
- the `-x` for `--xml` option does nothing for good measure.
-
-	[user@computer project]$ ./tests -m
-	8 2 12
-
-The default options depend on the target platform.
-
-Option parsing can be disabled with `--` if
- some of the arguments begin with a dash when they should not.
-
-### Complicated Tests
 
 More exotic use cases may require running individual tests.
 The names of the tests follow the ones given in the source file, but
@@ -161,19 +191,43 @@ They can be given as arguments to specify the tests to run.
 	[user@computer project]$ echo returned $?
 	returned 0
 
+The incomplete `-t` for `--timed` and
+ `-e` for `--eternal` allow controlling isolated tests that get stuck while
+ `-q` for `--quiet` and
+ `-n` for `--noisy` determine whether standard streams are captured and printed.
+
+As an added bonus the `-c` for `--colorful` option makes everything colorful,
+ the `-m` for `--minimal` option makes the report machine readable and
+ the `-x` for `--xml` option does nothing for good measure.
+
+	[user@computer project]$ ./tests -m
+	8 2 12
+
+The default options depend on the target platform.
+
+Option parsing can be disabled with `--` if
+ some of the arguments begin with a dash when they should not.
+
 Extra procedures like `cheat_assert_string(actual, expected)` and
  other convenient things are available in `cheats.h`.
 
-## Compatibility
+### 3.4   Design Decisions
 
-CHEAT is designed for C, but
- also works with C++ after wading through a million warnings.
+No tests and empty tests result in a success.
 
-	[user@computer cheat]$ make -e CC=g++ -f makefile.gcc
+> Every predicate is true for the empty set, so why not choose favorably?
+
+More about these kinds of things later.
+
+## 4  Compatibility
+
+### 4.1  Standards Compliance
 
 The whole thing is very standards compliant.
+It follows ANSI this, ISO that and IEEE what.
+The details will be written later.
 
-Many features are targeted for POSIX and Linux systems, but
+Many features are targeted for POSIX systems, but
  the most critical ones have Windows compatibility as well.
 
 There are a few `makefile`s for different compilers that
@@ -183,9 +237,18 @@ There are a few `makefile`s for different compilers that
 
 	computer# make -f makefile.tcc
 
-	C:\CHEAT> makefile.bat
+	E:\CHEAT> makefile.bat
 
-## Bugs and Limitations
+You can see screenshots of these in section 7.
+
+### 4.2  Atrocities
+
+CHEAT is designed for C, but
+ also works with C++ after wading through a million warnings.
+
+	[user@computer cheat]$ make -e CC=g++ -f makefile.gcc
+
+## 5  Bugs and Limitations
 
 CHEAT is naturally fickle, because
  it is built with C and
@@ -193,14 +256,40 @@ CHEAT is naturally fickle, because
 Some problems that are impossible to fix are
  collected into the following sections.
 
-### Identifiers
+### 5.1  Identifiers
 
 Identifiers starting with
  `CHEAT_` and `cheat_` are
  reserved for internal use as
  C does not have namespaces.
 
-### Commas
+### 5.2  File Definitions
+
+The preprocessor directive `__BASE_FILE__` has to be defined like
+
+	#ifndef __BASE_FILE__
+	#define __BASE_FILE__ __FILE__
+	#endif
+
+ if the compiler fails to do so.
+For example GCC defines `__BASE_FILE__`, but
+ the condition should be used anyway for portability.
+
+### 5.3  Broken Compiler
+
+If the compiler works like Microsoft C/C++ (commonly known as `cl.exe`) and
+ defines either `__BASE_FILE__` or `__FILE__` wrong, then
+ the test suite will be empty as
+ long as it is not manually fed to the compiler.
+
+### 5.4  Include Path
+
+If `cheat.h` is placed in a global include directory (like `/usr/include`) and
+ `__BASE_FILE__` is a relative path, then
+ CHEAT will not work unless
+ `cheat.h` is copied into the project directory.
+
+### 5.5  Commas
 
 Using commas directly inside preprocessor directives like
  `CHEAT_TEST()` without `__VA_ARGS__` support causes
@@ -212,83 +301,21 @@ Using commas directly inside preprocessor directives like
  the matching `CHEAT_COMMAS_` n `(x1, x2,` ... `)` where
  n is the amount of commas.
 
-### Expressions
+### 5.6  Expressions
 
 The expressions given to `cheat_assert()` should be
  at most 509 characters long since
  they are converted into string literals during compilation.
 
-### Debugging
+### 5.7  Debugging
 
 It is not possible to attach a breakpoint to `cheat_assert()`, because
  it is erased by the preprocessor, but
  using `cheat_check()` instead should work.
 
-### Include Path
+## 6  Reference
 
-If `cheat.h` is placed in a global include directory (like `/usr/include`) and
- `__BASE_FILE__` is a relative path, then
- CHEAT will not work unless
- `cheat.h` is copied into the project directory.
-
-### Base File
-
-If `__BASE_FILE__` is defined in a file
- that does not directly include `cheat.h`, then
- CHEAT will refuse to cooperate until
- the definition is moved.
-
-### Broken Compiler
-
-If the compiler works like Microsoft C/C++ (commonly known as `cl.exe`) and
- defines either `__BASE_FILE__` or `__FILE__` wrong, then
- the test suite will be empty as
- long as it is not manually fed to the compiler.
-
-## Screenshots
-
-Everyone likes pretty pictures.
-
-Here is CHEAT being compiled with the GNU Compiler Collection and
- run in the Xfce terminal emulator of a Linux distribution.
-
-![Screenshot](https://raw.github.com/Tuplanolla/cheat/master/xfce.png)
-
-Here is CHEAT being compiled with Microsoft C/C++ and
- run in the command prompt of Windows XP.
-
-![Another Screenshot](https://raw.github.com/Tuplanolla/cheat/master/xp.png)
-
-Here is CHEAT being compiled with Borland Turbo C and
- run in the default shell of FreeDOS.
-
-![Yet Another Screenshot](https://raw.github.com/Tuplanolla/cheat/master/dos.png)
-
-## A Reference in the Making
-
-### Execution Things
-
-These are available.
-
-* `-c` for `--colorful`
-* `-d` for `--dangerous`
-* `-e` for `--eternal`
-* `-h` for `--help`
-* `-l` for `--list`
-* `-m` for `--minimal`
-* `-n` for `--noisy`
-* `-p` for `--plain`
-* `-s` for `--safe`
-* `-t` for `--timed`
-* `-u` for `--unsafe`
-* `-v` for `--version`
-* `-q` for `--quiet`
-
-This one is not.
-
-* `--__hidden`
-
-### Compilation Things
+### 6.1  Compilation Things
 
 These form the primary interface.
 
@@ -334,6 +361,30 @@ These exist by accident.
 * `type CHEAT_CAST(type, expression)`
 * `size_t CHEAT_INTEGER_LENGTH(type)`
 * `size_t CHEAT_FLOATING_LENGTH(type)`
+
+### 6.2  Execution Things
+
+These are available.
+
+* `-c` for `--colorful`
+* `-d` for `--dangerous`
+* `-e` for `--eternal`
+* `-h` for `--help`
+* `-l` for `--list`
+* `-m` for `--minimal`
+* `-n` for `--noisy`
+* `-p` for `--plain`
+* `-s` for `--safe`
+* `-t` for `--timed`
+* `-u` for `--unsafe`
+* `-v` for `--version`
+* `-q` for `--quiet`
+
+This one is not.
+
+* `--__hidden`
+
+### 6.3  Extension Things
 
 These are available as extensions (using `cheats.h` in addition to `cheat.h`).
 
@@ -450,3 +501,33 @@ These are the stable parts of the internals.
 * `CHEATS_H`
 * `CHEAT_WRAP(name)`
 * `size_t CHEAT_PASS`
+
+### 6.4  Internal Things
+
+These are not to be relied on.
+
+* `CHEAT_MODERN`
+* `CHEAT_WINDOWED`
+* `CHEAT_POSIXLY`
+* `CHEAT_VERY_POSIXLY`
+* `CHEAT_POSTMODERN`
+* `CHEAT_GNUTIFUL`
+
+### 7  Screenshots
+
+Everyone likes pretty pictures.
+
+Here is CHEAT being compiled with the GNU Compiler Collection and
+ run in the Xfce terminal emulator of a Linux distribution.
+
+![Screenshot](https://raw.github.com/Tuplanolla/cheat/master/xfce.png)
+
+Here is CHEAT being compiled with Microsoft C/C++ and
+ run in the command prompt of Windows XP.
+
+![Another Screenshot](https://raw.github.com/Tuplanolla/cheat/master/xp.png)
+
+Here is CHEAT being compiled with Borland Turbo C and
+ run in the default shell of FreeDOS.
+
+![Yet Another Screenshot](https://raw.github.com/Tuplanolla/cheat/master/dos.png)
