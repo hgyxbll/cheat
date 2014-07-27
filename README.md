@@ -15,14 +15,14 @@ Only a header file and a test case is needed.
 The following section presents the basic use case.
 You can skip it if you are only looking for an overview.
 
-## 1  Getting Started
+## 1   Getting Started
 
 In this introduction it is assumed that you are running a Linux system with
  the GNU Core Utilities and the GNU Compiler Collection installed.
 None of that is necessary, but it makes the introduction easier to follow.
 Compatibility with other tools and operating systems is addressed in section 4.
 
-### 1.1  Preparing
+### 1.1   Preparing
 
 First you need to download `cheat.h`
 
@@ -40,7 +40,7 @@ Then you are ready to write tests.
 
 	[user@computer ~]$ cd project
 
-### 1.2  Writing Tests
+### 1.2   Writing Tests
 
 Create a new source file,
 
@@ -59,7 +59,7 @@ There are other more or less useful files, but we ignore them for now.
 
 Sections 6.1 and 6.3 cover the rest.
 
-### 1.3  Running Tests
+### 1.3   Running Tests
 
 Tests compile into an executable
 
@@ -87,9 +87,9 @@ The results are reported in a format similar to
 
 All of the options are in section 6.2.
 
-## 2  Overview
+## 2   Overview
 
-### 2.1  License
+### 2.1   License
 
 CHEAT is free software and as such
  licensed under the simplified BSD license with two clauses.
@@ -101,7 +101,7 @@ In short, copies and derivative works are permitted
 It would be licensed under the GNU GPL, but
  the authors felt that such a decision would hinder its adoption.
 
-### 2.2  History
+### 2.2   History
 
 The project was started on 2012-08-07 and will be first released on 2014-08-07.
 It was originally written by Guillermo "Tordek" Freschi for
@@ -113,7 +113,7 @@ The prototype was later picked up by Sampsa "Tuplanolla" Kiiskinen who
 It was rewritten, stuffed with new features and
  finally audited in a small scale.
 
-### 2.3  Implementation
+### 2.3   Implementation
 
 The working principle is best explained by a thought experiment.
 
@@ -126,16 +126,16 @@ The working principle is best explained by a thought experiment.
 
 It sounds strange, but it works.
 
-### 2.4  Contributing
+### 2.4   Contributing
 
 The support for Windows and other more exotic operating systems is not complete.
 For example stream capturing is currently very limited without POSIX interfaces.
 
 Contributions in the forms of feedback and pull requests are all very welcome!
 
-## 3  Advanced Usage
+## 3   Advanced Usage
 
-### 3.1  Other Files
+### 3.1   Other Files
 
 There are other useful files as mentioned earlier.
 
@@ -156,13 +156,13 @@ There is the example and makefiles for it,
 	[user@computer cheat]$ man ./cheat.7
 	[user@computer cheat]$ cat LICENSE
 
-### 3.2  Additional Features
+### 3.2   Additional Features
 
 There are things like `CHEAT_SET_UP(declarations)` and `CHEAT_CALL(name)`.
 
 See section 7 or wait for this to be completed.
 
-### 3.3  Command Line Options
+### 3.3   Command Line Options
 
 The `-u` for `--unsafe` option allows
  running everything in the same process if
@@ -211,7 +211,7 @@ Option parsing can be disabled with `--` if
 Extra procedures like `cheat_assert_string(actual, expected)` and
  other convenient things are available in `cheats.h`.
 
-### 3.4   Design Decisions
+### 3.4   Design Decisions
 
 No tests and empty tests result in a success.
 
@@ -219,9 +219,9 @@ No tests and empty tests result in a success.
 
 More about these kinds of things later.
 
-## 4  Compatibility
+## 4   Compatibility
 
-### 4.1  Standards Compliance
+### 4.1   Standards Compliance
 
 The whole thing is very standards compliant.
 It follows ANSI this, ISO that and IEEE what.
@@ -241,14 +241,14 @@ There are a few `makefile`s for different compilers that
 
 You can see screenshots of these in section 7.
 
-### 4.2  Atrocities
+### 4.2   Atrocities
 
 CHEAT is designed for C, but
  also works with C++ after wading through a million warnings.
 
 	[user@computer cheat]$ make -e CC=g++ -f makefile.gcc
 
-## 5  Bugs and Limitations
+## 5   Bugs and Limitations
 
 CHEAT is naturally fickle, because
  it is built with C and
@@ -256,14 +256,14 @@ CHEAT is naturally fickle, because
 Some problems that are impossible to fix are
  collected into the following sections.
 
-### 5.1  Identifiers
+### 5.1   Identifiers
 
 Identifiers starting with
  `CHEAT_` and `cheat_` are
  reserved for internal use as
  C does not have namespaces.
 
-### 5.2  File Definitions
+### 5.2   File Definitions
 
 The preprocessor directive `__BASE_FILE__` has to be defined like
 
@@ -275,21 +275,21 @@ The preprocessor directive `__BASE_FILE__` has to be defined like
 For example GCC defines `__BASE_FILE__`, but
  the condition should be used anyway for portability.
 
-### 5.3  Broken Compiler
+### 5.3   Broken Compiler
 
 If the compiler works like Microsoft C/C++ (commonly known as `cl.exe`) and
  defines either `__BASE_FILE__` or `__FILE__` wrong, then
  the test suite will be empty as
  long as it is not manually fed to the compiler.
 
-### 5.4  Include Path
+### 5.4   Include Path
 
 If `cheat.h` is placed in a global include directory (like `/usr/include`) and
  `__BASE_FILE__` is a relative path, then
  CHEAT will not work unless
  `cheat.h` is copied into the project directory.
 
-### 5.5  Commas
+### 5.5   Commas
 
 Using commas directly inside preprocessor directives like
  `CHEAT_TEST()` without `__VA_ARGS__` support causes
@@ -301,21 +301,21 @@ Using commas directly inside preprocessor directives like
  the matching `CHEAT_COMMAS_` n `(x1, x2,` ... `)` where
  n is the amount of commas.
 
-### 5.6  Expressions
+### 5.6   Expressions
 
 The expressions given to `cheat_assert()` should be
  at most 509 characters long since
  they are converted into string literals during compilation.
 
-### 5.7  Debugging
+### 5.7   Debugging
 
 It is not possible to attach a breakpoint to `cheat_assert()`, because
  it is erased by the preprocessor, but
  using `cheat_check()` instead should work.
 
-## 6  Reference
+## 6   Reference
 
-### 6.1  Compilation Things
+### 6.1   Compilation Things
 
 These form the primary interface.
 
@@ -362,7 +362,7 @@ These exist by accident.
 * `size_t CHEAT_INTEGER_LENGTH(type)`
 * `size_t CHEAT_FLOATING_LENGTH(type)`
 
-### 6.2  Execution Things
+### 6.2   Execution Things
 
 These are available.
 
@@ -384,7 +384,7 @@ This one is not.
 
 * `--__hidden`
 
-### 6.3  Extension Things
+### 6.3   Extension Things
 
 These are available as extensions (using `cheats.h` in addition to `cheat.h`).
 
@@ -502,7 +502,7 @@ These are the stable parts of the internals.
 * `CHEAT_WRAP(name)`
 * `size_t CHEAT_PASS`
 
-### 6.4  Internal Things
+### 6.4   Internal Things
 
 These are not to be relied on.
 
@@ -513,7 +513,7 @@ These are not to be relied on.
 * `CHEAT_POSTMODERN`
 * `CHEAT_GNUTIFUL`
 
-### 7  Screenshots
+### 7   Screenshots
 
 Everyone likes pretty pictures.
 
