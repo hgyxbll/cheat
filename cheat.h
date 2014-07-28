@@ -271,7 +271,7 @@ These make preprocessor directives work like statements.
 This computes an upper bound for the string length of an unsigned integer type.
 */
 #define CHEAT_INTEGER_LENGTH(type) \
-	((CHAR_BIT * sizeof type + 1) / 3 + 1) /* This is derived from
+	(CHAR_BIT * sizeof type / 3 + 1) /* This is derived from
 		the base 2 logarithm of 10. */
 
 /*
@@ -535,19 +535,19 @@ static char* cheat_allocate_truncated(char const* const literal,
 	char* result;
 
 	literal_length = strlen(literal);
-	if (literal_length > CHEAT_LIMIT) {
+	if (literal_length > length) {
 		size_t marker_length;
 		size_t paste_length;
 
 		marker_length = strlen(marker);
-		if (marker_length > CHEAT_LIMIT)
+		if (marker_length > length)
 			return NULL;
 
-		result = CHEAT_CAST(char*, malloc(CHEAT_LIMIT + 1));
+		result = CHEAT_CAST(char*, malloc(length + 1));
 		if (result == NULL)
 			return NULL;
 
-		paste_length = CHEAT_LIMIT - marker_length;
+		paste_length = length - marker_length;
 		memcpy(result, literal, paste_length);
 		memcpy(&result[paste_length], marker, marker_length + 1);
 	} else {
