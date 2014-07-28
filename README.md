@@ -26,15 +26,15 @@ Compatibility with other tools and operating systems is addressed in section 4.
 
 First you need to download the main header
 
-	[user@computer ~]$ wget https://github.com/Tuplanolla/cheat/raw/stable/cheat.h
+	[user@computer ~]$ wget http://github.com/Tuplanolla/cheat/raw/stable/cheat.h
 
  and move it to a suitable location like the global search path
 
-	[user@computer ~]$ sudo mv -n cheat.h /usr/include
+	[user@computer ~]$ sudo mv -i cheat.h /usr/include
 
  or the working directory of your project.
 
-	[user@computer ~]$ mv -n cheat.h project
+	[user@computer ~]$ mv -i cheat.h project
 
 Then you are ready to write tests.
 
@@ -59,7 +59,7 @@ You can define tests with `CHEAT_TEST()` and
  their success conditions called assertions with `cheat_assert()`.
 Doing so is demonstrated in the example file.
 
-	[user@computer project]$ wget https://github.com/Tuplanolla/cheat/raw/stable/example.c
+	[user@computer project]$ wget http://github.com/Tuplanolla/cheat/raw/stable/example.c
 	[user@computer project]$ mv example.c tests.c
 
 It is important to note that the utility procedures defined with
@@ -79,7 +79,7 @@ There are two things that need to be taken care of when compiling the file.
 First you have to add the directory of the test suite to the search path, as
  is done here with `-I .`.
 Then you have to make `__BASE_FILE__` point to the test suite, by
- using `-D __BASE_FILE__=\"tests.c\"`, if the compiler does not.
+ using `-D __BASE_FILE__=\"tests.c\"` or such, if the compiler does not.
 The reason is related to the previous oddity and is in section 2.3.
 
 The resulting executable runs tests in a security harness if possible, so
@@ -118,13 +118,12 @@ They are presented in sections 3.3 and 7.2.
 
 ### 2.1   License
 
-CHEAT is free software and as such
- licensed under the simplified BSD license with two clauses.
+CHEAT is free software and
+ as such licensed under the simplified BSD license with two clauses.
 The full license can be found in the `LICENSE` file that
  resides in the same directory as this file.
-In short, copies and derivative works are permitted
- as long as they use the same license.
-
+In short, copies and derivative works are permitted as long as
+ they use the same license.
 It would be licensed under the GNU GPL, but
  the authors felt that such a decision would hinder its adoption.
 
@@ -164,25 +163,42 @@ Contributions in the forms of feedback and pull requests are all very welcome!
 
 ### 3.1   Other Files
 
-There are other useful files as mentioned earlier.
+The project contains other useful files in addition to the main header.
+You can acquire them by cloning the repository
 
 	[user@computer ~]$ git clone git@github.com:Tuplanolla/cheat.git
 	[user@computer ~]$ cd cheat
 
-There is the example and makefiles for it,
+ or downloading the clone directly.
 
-	[user@computer cheat]$ make test clean
+	[user@computer ~]$ wget http://github.com/Tuplanolla/cheat/archive/master.zip
+	[user@computer ~]$ unzip master.zip
+	[user@computer ~]$ mv -i cheat-master cheat
 
- tests for corner cases
+In addition to the main header there is an extension header and
+ examples of how to use them with various compilers.
+
+	[user@computer cheat]$ less example.c examples.c
+	[user@computer cheat]$ make -f makefile.gcc
+
+The extensions are introduced in section 3.4.
+
+There are also tests for corner cases,
 
 	[user@computer cheat]$ ls tests
 	[user@computer cheat]$ ./test
 
- and other fun things.
+ supplementary reading material
+
+	[user@computer cheat]$ man ./cheat.7
+	[user@computer cheat]$ sudo cp -i cheat.7 /usr/share/man/man7
+	[user@computer cheat]$ sudo gzip /usr/share/man/man7/cheat.7
+
+ and things used during development.
 
 	[user@computer cheat]$ xdot streams.dot
-	[user@computer cheat]$ man ./cheat.7
-	[user@computer cheat]$ cat LICENSE
+	[user@computer cheat]$ tcc -run meta.c 4
+	[user@computer cheat]$ rm -i windowed.h
 
 ### 3.2   Additional Features
 
@@ -239,7 +255,13 @@ Option parsing can be disabled with `--` if
 Extra procedures like `cheat_assert_string(actual, expected)` and
  other convenient things are available in `cheats.h`.
 
-### 3.4   Design Decisions
+### 3.4   Extensions
+
+There are things like `CHEAT_SET_UP(declarations)` and `CHEAT_CALL(name)`.
+
+See section 7 or wait for this to be completed.
+
+### 3.5   Design Decisions
 
 No tests and empty tests result in a success.
 
@@ -348,17 +370,17 @@ Everyone likes pretty pictures.
 Here is CHEAT being compiled with the GNU Compiler Collection and
  run in the Xfce terminal emulator of a Linux distribution.
 
-![Screenshot](https://raw.github.com/Tuplanolla/cheat/master/xfce.png)
+![Screenshot](http://raw.github.com/Tuplanolla/cheat/master/xfce.png)
 
 Here is CHEAT being compiled with Microsoft C/C++ and
  run in the command prompt of Windows XP.
 
-![Another Screenshot](https://raw.github.com/Tuplanolla/cheat/master/xp.png)
+![Another Screenshot](http://raw.github.com/Tuplanolla/cheat/master/xp.png)
 
 Here is CHEAT being compiled with Borland Turbo C and
  run in the default shell of FreeDOS.
 
-![Yet Another Screenshot](https://raw.github.com/Tuplanolla/cheat/master/dos.png)
+![Yet Another Screenshot](http://raw.github.com/Tuplanolla/cheat/master/dos.png)
 
 ## 7   Reference
 
