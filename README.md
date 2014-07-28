@@ -55,18 +55,24 @@ The reason for that is explained in section 2.3.
 Including the main header is enough to get an empty test suite, but
  such a thing is not very useful beyond making sure everything is set up right.
 The next step is to define tests.
-You can define tests with `CHEAT_TEST()` and
- their success conditions called assertions with `cheat_assert()`.
+You can define tests with `CHEAT_TEST(name, statements)` and
+ their success conditions called assertions with `cheat_assert(bool expected)`.
 Doing so is demonstrated in the example file.
 
 	[user@computer project]$ wget http://github.com/Tuplanolla/cheat/raw/stable/example.c
-	[user@computer project]$ mv example.c tests.c
+	[user@computer project]$ mv -i example.c tests.c
 
-It is important to note that the utility procedures defined with
- `CHEAT_SET_UP()` and `CHEAT_TEAR_DOWN()` are run for every test and
- the state of mutable global variables before the former is undefined.
+The example also shows how you can declare global variables with
+ `CHEAT_DECLARE(declarations)` and manage them with
+ `CHEAT_SET_UP(statements)` and `CHEAT_TEAR_DOWN(statements)`, which
+ are executed before and after each test respectively.
 
-A detailed explanation of the entire interface is in section 7.1.
+A detailed explanation of the entire interface is in section 3.2.
+However it is important to note that the state of all global variables that
+ are mutable (as in modified by any execution path) is undefined when
+ the set up or, in case there is no set up, a test begins.
+
+It is time to run your new tests.
 
 ### 1.3   Running Tests
 
@@ -75,7 +81,7 @@ Tests compile into an executable
 	[user@computer project]$ gcc -I . -o tests tests.c
 
  that takes care of running the tests and reporting their outcomes.
-There are two things that need to be taken care of when compiling the file.
+There are two things that need to be taken care of when compiling a test suite.
 First you have to add the directory of the test suite to the search path, as
  is done here with `-I .`.
 Then you have to make `__BASE_FILE__` point to the test suite, by
@@ -94,9 +100,9 @@ The resulting executable runs tests in a security harness if possible, so
 	8 successful and 2 failed of 12 run
 	FAILURE
 
-The results are reported in four parts.
+The results are reported in five parts.
 
-The first part is a progress bar, where
+The first part is the progress bar, where
 
 * a success is a green dot,
 * a failure is a red colon,
@@ -107,12 +113,23 @@ The first part is a progress bar, where
 The second part contains diagnostic messages in
  a format similar to what many popular C compilers produce.
 
-The third part, omitted here, would hold the captured output and error streams.
+The third and fourth part, which is omitted here, holds the contents of
+ the captured standard output and error streams.
 
-The fourth and last part, which is always shown, briefly summarizes all of that.
+The fifth and last part, which is always shown, briefly summarizes what
+ the outcome of the test suite is.
+A test suite is considered successful if and only if
+ every single one of its tests completes without failing a single assertion.
+The outcome is also reflected by the exit code of the process.
 
-You can control the behavior of the test suite with command line options.
-They are presented in sections 3.3 and 7.2.
+	[user@computer project]$ echo returned $?
+	returned 1
+
+You can further change the behavior of a test suite with command line options.
+
+	[user@computer project]$ ./tests --help
+
+They are presented in section 3.3.
 
 ## 2   Overview
 
@@ -152,7 +169,13 @@ The working principle is best explained by a thought experiment.
 
 It sounds strange, but it works.
 
-### 2.4   Contributing
+### 2.4   Correctness
+
+Everything in the project is built with extreme care and attention to detail.
+While the authors are quite confident the project is free of serious bugs,
+ they are mere mortals and not well versed in certified programming.
+
+### 2.5   Contributing
 
 The support for Windows and other more exotic operating systems is not complete.
 For example stream capturing is currently very limited without POSIX interfaces.
@@ -161,7 +184,7 @@ Contributions in the forms of feedback and pull requests are all very welcome!
 
 ## 3   Advanced Usage
 
-### 3.1   Other Files
+### 3.1   Files
 
 The project contains other useful files in addition to the main header.
 You can acquire them by cloning the repository
@@ -200,11 +223,31 @@ There are also tests for corner cases,
 	[user@computer cheat]$ tcc -run meta.c 4
 	[user@computer cheat]$ rm -i windowed.h
 
-### 3.2   Additional Features
+### 3.2   Programming Interface
 
-There are things like `CHEAT_SET_UP(declarations)` and `CHEAT_CALL(name)`.
+Tests can be defined with `CHEAT_TEST(name, statements)`,
+ where `name` must be a valid identifier and `statements` a list of statements.
+The identifier must not conflict with an existing preprocessor directive.
+For example `putc` is not a valid identifier, because
+ it is reserved by the standard library and
+ `exit` and `write` may not be valid unless `CHEAT_NO_WRAP` is defined, because
+ procedures that resemble continuations or effects are wrapped by default.
+The list of statements must not be empty or ambiguous.
+For example `int x, y;` may be interpreted as an invalid parameter list if
+ the compiler does not support `__VA_ARGS__`.
+Solutions to that are presented in section 5.5.
 
-See section 7 or wait for this to be completed.
+Tests can also be defined with
+ `CHEAT_IGNORE(name, statements)` and `CHEAT_SKIP(name, statements)`.
+They work like `CHEAT_TEST(name, statements)` with the exception that
+ the outcome of the former is ignored and the latter is not executed at all.
+One could think of them as checked comments.
+
+(Insert an explanation of `CHEAT_DECLARE(declarations)`,
+ `CHEAT_SET_UP(statements)` and
+ `CHEAT_TEAR_DOWN(statements)` here.)
+
+(Mention `cheat_assert(bool expected)` and `cheat_assert_not(bool unexpected)`.)
 
 ### 3.3   Command Line Options
 
@@ -255,33 +298,38 @@ Option parsing can be disabled with `--` if
 Extra procedures like `cheat_assert_string(actual, expected)` and
  other convenient things are available in `cheats.h`.
 
+(Make this section less terrible.)
+
 ### 3.4   Extensions
 
-There are things like `CHEAT_SET_UP(declarations)` and `CHEAT_CALL(name)`.
+There are things like `cheat_assert_not_long_double_complex(long double actual, long double unexpected)`.
 
-See section 7 or wait for this to be completed.
+(Pull things from section 7.)
 
 ### 3.5   Design Decisions
 
-No tests and empty tests result in a success.
+Empty tests and test suites are both have successful outcomes, because
+ every predicate is true for the empty set, so why not choose favorably?
 
-> Every predicate is true for the empty set, so why not choose favorably?
-
-More about these kinds of things later.
+(Explain more things.)
 
 ## 4   Portability
 
 ### 4.1   Standards Compliance
 
-The whole thing is very standards compliant.
-It follows ANSI this, ISO that and IEEE what.
-The details will be written later.
+CHEAT follows the original language specification, ISO/IEC 9899:1990, and
+ the first POSIX specification, IEEE Std 1003.1-1988, to the letter.
+It also takes the newer revisions, both
+ ISO/IEC 9899:1999 and IEEE Std 1003.1-2001, into account whenever possible.
 
-Many features are targeted for POSIX systems, but
- the most critical ones have Windows compatibility as well.
+The project does not require a POSIX system to work, but it helps, because
+ only the most critical features are universal and
+ just a few of the rest are compatible with Windows.
 
-There are a few `makefile`s for different compilers that
- show how to hammer out most problems.
+While the project does not rely on a particular compiler,
+ it is easier to use with some of them.
+Specialized build automation scripts are provided to
+ help hammer out common problems and save you from needless frustration.
 
 	[user@computer cheat]$ make -f makefile.gcc
 
@@ -289,29 +337,28 @@ There are a few `makefile`s for different compilers that
 
 	E:\CHEAT> makefile.bat
 
-You can see screenshots of these in section 7.
+You can see screenshots of them in section 6.
 
 ### 4.2   Language Compatibility
 
-CHEAT is designed for C, but
- also works with C++ after wading through a million warnings.
+The project is designed for C, but also works with C++.
+It abides by ISO/IEC 14882:1998 as far as is reasonable.
+
+Hopefully it is not an issue to wade through a million warnings.
 
 	[user@computer cheat]$ make -e CC=g++ -f makefile.gcc
 
 ## 5   Bugs and Limitations
 
-CHEAT is naturally fickle, because
- it is built with C and
- heavy preprocessor abuse.
-Some problems that are impossible to fix are
- collected into the following sections.
+CHEAT is naturally fickle, because it is built with heavy preprocessor abuse.
+Some problems are impossible to fix, so they are collected into this section.
 
 ### 5.1   Identifiers
 
-Identifiers starting with
- `CHEAT_` and `cheat_` are
- reserved for internal use as
- C does not have namespaces.
+Identifiers starting with `CHEAT_` and `cheat_` are reserved for
+ internal use as C does not have namespaces.
+
+(Rewrite the rest.)
 
 ### 5.2   File Definitions
 
@@ -363,12 +410,12 @@ It is not possible to attach a breakpoint to `cheat_assert()`, because
  it is erased by the preprocessor, but
  using `cheat_check()` instead should work.
 
-### 6   Screenshots
+## 6   Screenshots
 
 Everyone likes pretty pictures.
 
 Here is CHEAT being compiled with the GNU Compiler Collection and
- run in the Xfce terminal emulator of a Linux distribution.
+ run in the Xfce terminal emulator provided by a Linux distribution.
 
 ![Screenshot](http://raw.github.com/Tuplanolla/cheat/master/xfce.png)
 
@@ -392,8 +439,8 @@ These form the primary interface.
 * `CHEAT_DECLARE(declarations)`
 * `CHEAT_SET_UP(statements)`
 * `CHEAT_TEAR_DOWN(statements)`
-* `CHEAT_IGNORE(statements)`
-* `CHEAT_SKIP(statements)`
+* `CHEAT_IGNORE(name, statements)`
+* `CHEAT_SKIP(name, statements)`
 
 These are the most essential part of it.
 

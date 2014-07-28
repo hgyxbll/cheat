@@ -1,15 +1,7 @@
-#ifndef __BASE_FILE__
-#define __BASE_FILE__ __FILE__
-#endif
-
 #include <cheat.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
-
-CHEAT_DECLARE(
-	extern size_t size;
-)
 
 CHEAT_TEST(mathematics_still_work,
 	cheat_assert(2 + 2 == 4);
@@ -33,19 +25,17 @@ CHEAT_DECLARE(
 )
 
 CHEAT_TEST(physics_still_work,
-	double x0 = 1;
-	double y0 = 2;
-	size_t n = 128;
 	double xn = 3;
-	double dx;
-	double y;
+	double x0 = 1;
+	size_t n = 128;
 	double s;
+	double y0 = 2;
+	double y;
 	size_t i;
 	double x;
 
-	dx = xn - x0;
+	s = (xn - x0) / (double )n;
 	y = y0;
-	s = dx / (double )n;
 	for (i = 0;
 			i <= n;
 			++i) {
@@ -54,6 +44,10 @@ CHEAT_TEST(physics_still_work,
 	}
 
 	cheat_assert(p(y, 1, 0.1));
+)
+
+CHEAT_DECLARE(
+	extern size_t size;
 )
 
 CHEAT_DECLARE(
