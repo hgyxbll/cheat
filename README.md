@@ -12,8 +12,8 @@ Only a header file and a test case is needed.
 		cheat_assert_not(2 + 2 == 5);
 	)
 
-Section 1 presents the basic use case.
-You can skip to section 2 if you are only looking for an overview.
+The following section presents the basic use case;
+ you can skip to section 2 if you are only looking for an overview.
 
 ## 1   Getting Started
 
@@ -26,31 +26,31 @@ Compatibility with other tools and operating systems is addressed in section 4.
 
 First you need to download the main header
 
-	[user@computer ~]$ wget http://github.com/Tuplanolla/cheat/raw/stable/cheat.h
+	[user@computer:~]$ wget http://github.com/Tuplanolla/cheat/raw/stable/cheat.h
 
  and move it to a suitable location like the global search path
 
-	[user@computer ~]$ sudo mv -i cheat.h /usr/include
+	[user@computer:~]$ sudo mv -i cheat.h /usr/include
 
  or the working directory of your project.
 
-	[user@computer ~]$ mv -i cheat.h project
+	[user@computer:~]$ mv -i cheat.h project
 
 Then you are ready to write tests.
 
-	[user@computer ~]$ cd project
+	[user@computer:~]$ cd project
 
 ### 1.2   Writing Tests
 
 Tests go into their own source file.
 
-	[user@computer project]$ cat > tests.c
+	[user@computer:project]$ cat > tests.c
 	#include <cheat.h>
 
 It is an ordinary file with the exception that it is processed more than once.
 Therefore you must wrap all top level declarations and definitions with
  the appropriate preprocessor directives.
-The reason for that is explained in section 2.3.
+The reason for that is found in section 2.3.
 
 Including the main header is enough to get an empty test suite, but
  such a thing is not very useful beyond making sure everything is set up right.
@@ -59,8 +59,8 @@ You can define tests with `CHEAT_TEST(name, statements)` and
  their success conditions called assertions with `cheat_assert(bool expected)`.
 Doing so is demonstrated in the example file.
 
-	[user@computer project]$ wget http://github.com/Tuplanolla/cheat/raw/stable/example.c
-	[user@computer project]$ mv -i example.c tests.c
+	[user@computer:project]$ wget http://github.com/Tuplanolla/cheat/raw/stable/example.c
+	[user@computer:project]$ mv -i example.c tests.c
 
 The example also shows how you can declare global variables with
  `CHEAT_DECLARE(declarations)` and manage them with
@@ -78,7 +78,7 @@ It is time to run your new tests.
 
 Tests compile into an executable
 
-	[user@computer project]$ gcc -I . -o tests tests.c
+	[user@computer:project]$ gcc -I . -o tests tests.c
 
  that takes care of running the tests and reporting their outcomes.
 There are two things that need to be taken care of when compiling a test suite.
@@ -86,12 +86,12 @@ First you have to add the directory of the test suite to the search path, as
  is done here with `-I .`.
 Then you have to make `__BASE_FILE__` point to the test suite, by
  using `-D __BASE_FILE__=\"tests.c\"` or such, if the compiler does not.
-The reason is related to the previous oddity and is in section 2.3.
+The reason is related to the previous oddity and again found in section 2.3.
 
 The resulting executable runs tests in a security harness if possible, so
- the suite does not crash if one of its tests does.
+ the suite does not crash or hang if one of its tests does.
 
-	[user@computer project]$ ./tests
+	[user@computer:project]$ ./tests
 	..:..??..!..
 	---
 	tests.c:87: assertion in 'philosophy_never_worked' failed: 'heap == stack'
@@ -122,14 +122,41 @@ A test suite is considered successful if and only if
  every single one of its tests completes without failing a single assertion.
 The outcome is also reflected by the exit code of the process.
 
-	[user@computer project]$ echo returned $?
+	[user@computer:project]$ echo returned $?
 	returned 1
 
 You can further change the behavior of a test suite with command line options.
 
-	[user@computer project]$ ./tests --help
+	[user@computer:project]$ ./tests --help
 
 They are presented in section 3.3.
+
+### 1.4   Using Extensions
+
+There is an extension header in addition to the main header.
+
+	[user@computer:project]$ wget http://github.com/Tuplanolla/cheat/raw/stable/cheats.h
+
+It is supposed to be used as a supplement and
+ expects the main header to be included first.
+
+	[user@computer:project]$ cat > tests.c
+	#include <cheat.h>
+	#include <cheats.h>
+
+It provides specialized assertions like
+ `cheat_assert_double(double actual, double expected, double tolerance)` and
+ `cheat_assert_string(char const* actual, char const* expected)` for
+ they require less typing and provide more detailed diagnostic messages.
+
+Its features are demonstrated in the additional example file.
+
+	[user@computer:project]$ wget http://github.com/Tuplanolla/cheat/raw/stable/examples.c
+	[user@computer:project]$ mv -i examples.c tests.c
+
+You can read more about the extensions in section 3.4.
+
+Hopefully you have now gotten started by now.
 
 ## 2   Overview
 
@@ -189,39 +216,39 @@ Contributions in the forms of feedback and pull requests are all very welcome!
 The project contains other useful files in addition to the main header.
 You can acquire them by cloning the repository
 
-	[user@computer ~]$ git clone git@github.com:Tuplanolla/cheat.git
-	[user@computer ~]$ cd cheat
+	[user@computer:~]$ git clone git@github.com:Tuplanolla/cheat.git
+	[user@computer:~]$ cd cheat
 
  or downloading the clone directly.
 
-	[user@computer ~]$ wget http://github.com/Tuplanolla/cheat/archive/master.zip
-	[user@computer ~]$ unzip master.zip
-	[user@computer ~]$ mv -i cheat-master cheat
+	[user@computer:~]$ wget http://github.com/Tuplanolla/cheat/archive/master.zip
+	[user@computer:~]$ unzip master.zip
+	[user@computer:~]$ mv -i cheat-master cheat
 
 In addition to the main header there is an extension header and
  examples of how to use them with various compilers.
 
-	[user@computer cheat]$ less example.c examples.c
-	[user@computer cheat]$ make -f makefile.gcc
+	[user@computer:cheat]$ less example.c examples.c
+	[user@computer:cheat]$ make -f makefile.gcc
 
 The extensions are introduced in section 3.4.
 
 There are also tests for corner cases,
 
-	[user@computer cheat]$ ls tests
-	[user@computer cheat]$ ./test
+	[user@computer:cheat]$ ls tests
+	[user@computer:cheat]$ ./test
 
  supplementary reading material
 
-	[user@computer cheat]$ man ./cheat.7
-	[user@computer cheat]$ sudo cp -i cheat.7 /usr/share/man/man7
-	[user@computer cheat]$ sudo gzip /usr/share/man/man7/cheat.7
+	[user@computer:cheat]$ man ./cheat.7
+	[user@computer:cheat]$ sudo cp -i cheat.7 /usr/share/man/man7
+	[user@computer:cheat]$ sudo gzip /usr/share/man/man7/cheat.7
 
  and things used during development.
 
-	[user@computer cheat]$ xdot streams.dot
-	[user@computer cheat]$ tcc -run meta.c 4
-	[user@computer cheat]$ rm -i windowed.h
+	[user@computer:cheat]$ xdot streams.dot
+	[user@computer:cheat]$ tcc -run meta.c 4
+	[user@computer:cheat]$ rm -i windowed.h
 
 ### 3.2   Programming Interface
 
@@ -243,75 +270,135 @@ They work like `CHEAT_TEST(name, statements)` with the exception that
  the outcome of the former is ignored and the latter is not executed at all.
 One could think of them as checked comments.
 
-(Insert an explanation of `CHEAT_DECLARE(declarations)`,
- `CHEAT_SET_UP(statements)` and
- `CHEAT_TEAR_DOWN(statements)` here.)
+Tests need success conditions called assertions and
+ those can be checked with `cheat_assert(bool expected)` or
+ its logical complement `cheat_assert_not(bool unexpected)`.
+The condition is satisfied if `expected` is true or, in other words, not zero.
 
-(Mention `cheat_assert(bool expected)` and `cheat_assert_not(bool unexpected)`.)
+In addition to tests it is possible to write global declarations by
+ putting them inside `CHEAT_DECLARE(declarations)`, where
+ `declarations` must be a valid list of top level declarations or definitions.
+Preprocessor directives do not need it since
+ an `#ifndef` condition works similarly.
+Global definitions can also contain assertions and be called from within tests.
+
+Running code before and after each test can be done with
+ `CHEAT_SET_UP(statements)` and `CHEAT_TEAR_DOWN(statements)`, where
+ `statements` is a list of statements with the same restrictions as before.
+
+The names given to tests are not directly used identifiers, but
+ the identifier of a test can be retrieved with `CHEAT_GET(name)`, where
+ `name` must match the name of the test.
+Pointers to test procedures have the type `cheat_procedure` or
+ equivalently `void (*)(void)`.
+
+The convenient `CHEAT_CALL(name)` is equivalent to `CHEAT_GET(name)()`.
+
+The behavior of the test suite is primarly controlled with command line options.
+However some of the options are compiled into the test suite and
+ their default values can be overridden by
+ defining them before including the main header.
+
+The `size_t CHEAT_LIMIT` option determines how long string literals in
+ diagnostic messages can be.
+Its valid values go from `3` to `SIZE_MAX - 1` and
+ the default is the maximum length of a string literal required by the standard.
+
+The `CHEAT_TIME` option sets the maximum time after which
+ unresponsive tests are terminated if such a thing is possible.
+It is always stored in milliseconds, but its type is implementation defined.
+The default value is two thousand and therefore equal to two seconds.
+
+The `int CHEAT_OFFSET` option changes the range of
+ exit codes used for internal interprocess communication.
+The only reason it exists is to stop serious crashes that
+ use reserved error numbers from showing up with the wrong outcome.
+
+The `CHEAT_NO_MAIN` option removes the `main` procedure from the test suite,
+ making it possible to link it with other object files.
+It is not very useful.
+
+The `CHEAT_NO_WRAP` option prevents wrapping procedures that
+ resemble continuations or effects.
+Such procedures include `exit`, `printf`, `fwrite`, `fflush` and `perror`.
+It is only useful if the tests rely on
+ the exact way they call standard library and system procedures or
+ their names clash with existing preprocessor directives.
+
+Wrapping can be undone with `CHEAT_UNWRAP(name)` instead of turning it off or
+ repeated with `CHEAT_WRAP(name)` if it is already turned off.
+
+The expansion of commas can be delayed with `CHEAT_COMMAS(...)` or,
+ in case `__VA_ARGS__` is not available, with `CHEAT_COMMA` or
+ the matching `CHEAT_COMMAS_` n `(x1, x2,` ... `)`, where
+ n is the amount of commas in the argument list.
+For example `CHEAT_COMMAS(int x, y;)`, `int x CHEAT_COMMA y;` and
+ `CHEAT_COMMAS_1(int x, y;)` all expand to `int x, y;`.
 
 ### 3.3   Command Line Options
 
-The `-u` for `--unsafe` option allows
- running everything in the same process if
- `fork()` or `CreateProcess()` is unsupported, fails or
- something equally fun happens.
-Conversely the `-s` for `--safe` option disallows
- running tests in the same process.
-Additionally the `-d` for `--dangerous` option provides some stability by
- attempting to recover from signals like `SIGFPE` and `SIGSEGV`,
- most likely leading to undefined behavior.
-Luckily undefined behavior is often defined enough behavior.
+Test suites obey a basic set of command line options so that
+ they do not need to be recompiled after every change.
+There are options and names with slightly different semantics.
 
-More exotic use cases may require running individual tests.
-The names of the tests follow the ones given in the source file, but
- there is also `-l` for `--list`.
+Options begin with a dash.
+They are parameterless, essentially orderless and case insensitive.
+Each of them has a long and a short form that work identically.
+Everything else is considered a name.
+Since names might start with a dash, there is a special `--` option that
+ disables parsing and so turns the arguments that come after it into names.
 
-	[user@computer project]$ ./tests -l
-	Tests: mathematics_still_work
-	       physics_still_work
-	       philosophy_never_worked
+For example the command `./tests -e x --plain -- -ed` would
+ treat `x` and `-ed` as a names and the rest as options.
 
-They can be given as arguments to specify the tests to run.
+It is safe to use wrong or conflicting options, because
+ they are checked before anything else is done.
 
-	[user@computer project]$ ./tests -m physics_still_work physics_still_work
-	2 0 2
-	[user@computer project]$ echo returned $?
-	returned 0
+The `-h` for `--help` option briefly summarizes all of the options.
 
-The incomplete `-t` for `--timed` and
- `-e` for `--eternal` allow controlling isolated tests that get stuck while
- `-q` for `--quiet` and
- `-n` for `--noisy` determine whether standard streams are captured and printed.
+The `-v` for `--version` option prints the name of the project and its version.
 
-As an added bonus the `-c` for `--colorful` option makes everything colorful,
- the `-m` for `--minimal` option makes the report machine readable and
+The `-l` for `--list` option lists the names of all of the tests.
+
+The `-s` for `--safe` option enables a security harness that
+ runs tests in isolated processes if `fork()` or `CreateProcess()` is supported.
+The `-d` for `--dangerous` option provides an alternative harness that
+ runs everything in the same process, but provides some stability by
+ attempting to recover from fatal signals like `SIGFPE` and `SIGSEGV`.
+It most likely leads to undefined behavior, but
+ luckily undefined behavior is often defined enough behavior.
+The `-u` for `--unsafe` option disables all security measures.
+
+The `-t` for `--timed` option enables terminating unresponsive processes and
+ the `-e` for `--eternal` option disables doing so.
+
+The `-n` for `--noisy` option enables capturing and printing the contents of
+ the standard streams and the `-q` for `--quiet` option enables them.
+
+As an added bonus the `-c` for `--colorful` option makes everything colorful if
+ the output terminal has ISO/IEC 6429 escape sequence support,
+ the `-m` for `--minimal` option makes those things machine readable and
  the `-x` for `--xml` option does nothing for good measure.
 
-	[user@computer project]$ ./tests -m
+	[user@computer:project]$ ./tests -m
 	8 2 12
 
 The default options depend on the target platform.
 
-Option parsing can be disabled with `--` if
- some of the arguments begin with a dash when they should not.
-
-Extra procedures like `cheat_assert_string(actual, expected)` and
- other convenient things are available in `cheats.h`.
-
-(Make this section less terrible.)
-
 ### 3.4   Extensions
 
-There are things like `cheat_assert_not_long_double_complex(long double actual, long double unexpected)`.
+Specialized assertions can be checked with
+ the matching `cheat_assert_` i `(` t ` actual, ` t ` expected)`, where
+ t is its type and i is an identifier built from the type.
 
-(Pull things from section 7.)
+The `CHEAT_NO_MATH` option disables floating point extensions that
+ use a few mathematical functions and
+ therefore may require compiling the test suite with `-lm` to link `libm`.
 
 ### 3.5   Design Decisions
 
 Empty tests and test suites are both have successful outcomes, because
  every predicate is true for the empty set, so why not choose favorably?
-
-(Explain more things.)
 
 ## 4   Portability
 
@@ -331,7 +418,7 @@ While the project does not rely on a particular compiler,
 Specialized build automation scripts are provided to
  help hammer out common problems and save you from needless frustration.
 
-	[user@computer cheat]$ make -f makefile.gcc
+	[user@computer:cheat]$ make -f makefile.gcc
 
 	computer# make -f makefile.tcc
 
@@ -346,7 +433,7 @@ It abides by ISO/IEC 14882:1998 as far as is reasonable.
 
 Hopefully it is not an issue to wade through a million warnings.
 
-	[user@computer cheat]$ make -e CC=g++ -f makefile.gcc
+	[user@computer:cheat]$ make -e CC=g++ -f makefile.gcc
 
 ## 5   Bugs and Limitations
 
@@ -436,11 +523,11 @@ Here is CHEAT being compiled with Borland Turbo C and
 These form the primary interface.
 
 * `CHEAT_TEST(name, statements)`
+* `CHEAT_IGNORE(name, statements)`
+* `CHEAT_SKIP(name, statements)`
 * `CHEAT_DECLARE(declarations)`
 * `CHEAT_SET_UP(statements)`
 * `CHEAT_TEAR_DOWN(statements)`
-* `CHEAT_IGNORE(name, statements)`
-* `CHEAT_SKIP(name, statements)`
 
 These are the most essential part of it.
 
@@ -452,28 +539,26 @@ These exist for convenience.
 * `CHEAT_GET(name)`
 * `CHEAT_CALL(name)`
 
-This allows some configuration.
+These allow some configuration.
 
+* `size_t CHEAT_LIMIT`
 * `CHEAT_TIME`
 
 These help work around issues.
 
+* `int CHEAT_OFFSET`
+* `CHEAT_NO_MAIN`
+* `CHEAT_NO_WRAP`
+* `CHEAT_UNWRAP(name)`
+* `CHEAT_WRAP(name)`
 * `CHEAT_COMMA`
 * `CHEAT_COMMAS(...)`
 * `CHEAT_COMMAS_1(x1, x2)`
-* `int CHEAT_OFFSET`
-* `CHEAT_UNWRAP(name)`
-* `CHEAT_NO_WRAP`
-
-This is for those who want to do more.
-
-* `CHEAT_NO_MAIN`
 
 These exist by accident.
 
 * `CHEAT_BEGIN`
 * `CHEAT_END`
-* `size_t CHEAT_LIMIT`
 * `type CHEAT_CAST(type, expression)`
 * `size_t CHEAT_INTEGER_LENGTH(type)`
 * `size_t CHEAT_FLOATING_LENGTH(type)`
@@ -518,8 +603,8 @@ These are available as extensions (using `cheats.h` in addition to `cheat.h`).
 * `cheat_assert_not_long_int(long int actual, long int unexpected)`
 * `cheat_assert_long_unsigned_int(long unsigned int actual, long unsigned int expected)`
 * `cheat_assert_not_long_unsigned_int(long unsigned int actual, long unsigned int unexpected)`
-* `cheat_assert_double(double actual, double expected)`
-* `cheat_assert_not_double(double actual, double unexpected)`
+* `cheat_assert_double(double actual, double expected, double tolerance)`
+* `cheat_assert_not_double(double actual, double unexpected, double tolerance)`
 * `cheat_assert_size(size_t actual, size_t expected)`
 * `cheat_assert_not_size(size_t actual, size_t unexpected)`
 * `cheat_assert_ptrdiff(ptrdiff_t actual, ptrdiff_t expected)`
@@ -528,10 +613,10 @@ These are available as extensions (using `cheats.h` in addition to `cheat.h`).
 * `cheat_assert_not_long_long_int(long long int actual, long long int unexpected)`
 * `cheat_assert_long_long_unsigned_int(long long unsigned int actual, long long unsigned int expected)`
 * `cheat_assert_not_long_long_unsigned_int(long long unsigned int actual, long long unsigned int unexpected)`
-* `cheat_assert_float(float actual, float expected)`
-* `cheat_assert_not_float(float actual, float unexpected)`
-* `cheat_assert_long_double(long double actual, long double expected)`
-* `cheat_assert_not_long_double(long double actual, long double unexpected)`
+* `cheat_assert_float(float actual, float expected, float tolerance)`
+* `cheat_assert_not_float(float actual, float unexpected, float tolerance)`
+* `cheat_assert_long_double(long double actual, long double expected, long double tolerance)`
+* `cheat_assert_not_long_double(long double actual, long double unexpected, long double tolerance)`
 * `cheat_assert_int8(int8_t actual, int8_t expected)`
 * `cheat_assert_not_int8(int8_t actual, int8_t unexpected)`
 * `cheat_assert_uint8(uint8_t actual, uint8_t expected)`
@@ -588,12 +673,12 @@ These are available as extensions (using `cheats.h` in addition to `cheat.h`).
 * `cheat_assert_not_intptr(intptr_t actual, intptr_t unexpected)`
 * `cheat_assert_uintptr(uintptr_t actual, uintptr_t expected)`
 * `cheat_assert_not_uintptr(uintptr_t actual, uintptr_t unexpected)`
-* `cheat_assert_float_complex(float actual, float expected)`
-* `cheat_assert_not_float_complex(float actual, float unexpected)`
-* `cheat_assert_double_complex(double actual, double expected)`
-* `cheat_assert_not_double_complex(double actual, double unexpected)`
-* `cheat_assert_long_double_complex(long double actual, long double expected)`
-* `cheat_assert_not_long_double_complex(long double actual, long double unexpected)`
+* `cheat_assert_float_complex(float complex actual, float complex expected, float tolerance)`
+* `cheat_assert_not_float_complex(float complex actual, float complex unexpected, float tolerance)`
+* `cheat_assert_double_complex(double complex actual, double complex expected, double tolerance)`
+* `cheat_assert_not_double_complex(double complex actual, double complex unexpected, double tolerance)`
+* `cheat_assert_long_double_complex(long double complex actual, long double complex expected, long double tolerance)`
+* `cheat_assert_not_long_double_complex(long double complex actual, long double complex unexpected, long double tolerance)`
 * `cheat_assert_signed_char(signed char actual, signed char expected)`
 * `cheat_assert_not_signed_char(signed char actual, signed char unexpected)`
 * `cheat_assert_unsigned_char(unsigned char actual, unsigned char expected)`
@@ -615,7 +700,6 @@ These are the stable parts of the internals.
 
 * `CHEAT_H`
 * `CHEATS_H`
-* `CHEAT_WRAP(name)`
 * `size_t CHEAT_PASS`
 
 ### 7.4   Internal Things
