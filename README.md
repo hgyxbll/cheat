@@ -250,7 +250,7 @@ There are also tests for corner cases,
 	[user@computer:cheat]$ tcc -run meta.c 4
 	[user@computer:cheat]$ rm -i windowed.h
 
-### 3.2   Programming Interface
+### 3.2   Interface
 
 Tests can be defined with `CHEAT_TEST(name, statements)`,
  where `name` must be a valid identifier and `statements` a list of statements.
@@ -335,7 +335,7 @@ The expansion of commas can be delayed with `CHEAT_COMMAS(...)` or,
 For example `CHEAT_COMMAS(int x, y;)`, `int x CHEAT_COMMA y;` and
  `CHEAT_COMMAS_1(int x, y;)` all expand to `int x, y;`.
 
-### 3.3   Command Line Options
+### 3.3   Options
 
 Test suites obey a basic set of command line options so that
  they do not need to be recompiled after every change.
@@ -372,7 +372,7 @@ The `-u` for `--unsafe` option disables all security measures.
 The `-t` for `--timed` option enables terminating unresponsive processes and
  the `-e` for `--eternal` option disables doing so.
 
-The `-n` for `--noisy` option enables capturing and printing the contents of
+The `-n` for `--noisy` option enables capturing and displaying the contents of
  the standard streams and the `-q` for `--quiet` option enables them.
 
 As an added bonus the `-c` for `--colorful` option makes everything colorful if
@@ -488,97 +488,115 @@ It is not possible to attach a breakpoint to
 
 Everyone likes pretty pictures.
 
-Here is CHEAT being compiled with the GNU Compiler Collection and
- run in the Xfce terminal emulator provided by a Linux distribution.
+Here is a picture of CHEAT being compiled with the GNU Compiler Collection and
+ run in the Xfce terminal emulator that is provided by a Linux distribution.
 
 ![Screenshot](http://raw.github.com/Tuplanolla/cheat/master/xfce.png)
 
-Here is CHEAT being compiled with Microsoft C/C++ and
+Here is a picture of CHEAT being compiled with Microsoft C/C++ and
  run in the command prompt of Windows XP.
 
 ![Another Screenshot](http://raw.github.com/Tuplanolla/cheat/master/xp.png)
 
-Here is CHEAT being compiled with Borland Turbo C and
+Here is a picture of CHEAT being compiled with Borland Turbo C and
  run in the default shell of FreeDOS.
 
 ![Yet Another Screenshot](http://raw.github.com/Tuplanolla/cheat/master/dos.png)
 
 ## 7   Reference
 
-### 7.1   Compilation Things
+### 7.1   Main Header
 
-These form the primary interface.
+* `CHEAT_TEST(name, statements)` defines a test
+* `CHEAT_IGNORE(name, statements)` defines a test that does not matter
+* `CHEAT_SKIP(name, statements)` defines a test that is not run
 
-* `CHEAT_TEST(name, statements)`
-* `CHEAT_IGNORE(name, statements)`
-* `CHEAT_SKIP(name, statements)`
-* `CHEAT_DECLARE(declarations)`
-* `CHEAT_SET_UP(statements)`
-* `CHEAT_TEAR_DOWN(statements)`
+---
 
-These are the most useful part of it.
+* `cheat_assert(bool expected)` checks a success condition
+* `cheat_assert_not(bool unexpected)` checks the opposite of a success condition
 
-* `cheat_assert(bool expected)`
-* `cheat_assert_not(bool unexpected)`
+---
 
-These exist for convenience.
+* `CHEAT_DECLARE(declarations)` creates global declarations and definitions
 
-* `CHEAT_GET(name)`
-* `CHEAT_CALL(name)`
+---
 
-These allow some configuration.
+* `CHEAT_SET_UP(statements)` defines what to do before every test
+* `CHEAT_TEAR_DOWN(statements)` defines what to do after every test
 
-* `size_t CHEAT_LIMIT`
-* `CHEAT_TIME`
+---
 
-These help work around issues.
+* `CHEAT_GET(name)` returns a test procedure
+* `CHEAT_CALL(name)` calls a test procedure
 
-* `int CHEAT_OFFSET`
-* `CHEAT_NO_MAIN`
-* `CHEAT_NO_WRAP`
-* `CHEAT_UNWRAP(name)`
-* `CHEAT_WRAP(name)`
-* `CHEAT_COMMA`
-* `CHEAT_COMMAS(...)`
-* `CHEAT_COMMAS_1(x1, x2)`
+---
 
-These exist by accident.
+* `size_t CHEAT_LIMIT` determines the maximum length of string literals
+* `CHEAT_TIME` sets the time after which unresponsive tests are terminated
+* `int CHEAT_OFFSET` changes the range of internal exit codes
+* `CHEAT_NO_MAIN` does not compile `main()`
+* `CHEAT_NO_WRAP` disables wrapping certain procedures
+* `CHEAT_UNWRAP(name)` returns an unwrapped procedure
+* `CHEAT_WRAP(name)` returns a wrapped procedure
+* `CHEAT_COMMA` expands to a comma
+* `CHEAT_COMMAS(...)` separates its arguments with commas
+* `CHEAT_COMMAS_1(x1, x2)` separates its arguments with commas
 
-* `CHEAT_BEGIN`
-* `CHEAT_END`
-* `type CHEAT_CAST(type, expression)`
-* `size_t CHEAT_INTEGER_LENGTH(type)`
-* `size_t CHEAT_FLOATING_LENGTH(type)`
+---
 
-### 7.2   Execution Things
+* `CHEAT_BEGIN` and `CHEAT_END` turn a preprocessor directive into a statement
+* `type CHEAT_CAST(type, expression)` casts pointer types when using C++
+* `size_t CHEAT_INTEGER_LENGTH(type)` returns the string length of an integer
 
-These are available.
+---
 
-* `-c` for `--colorful`
-* `-d` for `--dangerous`
-* `-e` for `--eternal`
-* `-h` for `--help`
-* `-l` for `--list`
-* `-m` for `--minimal`
-* `-n` for `--noisy`
-* `-p` for `--plain`
-* `-s` for `--safe`
-* `-t` for `--timed`
-* `-u` for `--unsafe`
-* `-v` for `--version`
-* `-q` for `--quiet`
+* `size_t CHEAT_PASS` determines the internal state of preprocessing
 
-This one is not.
+---
 
-* `--__hidden`
+* `CHEAT_H` guards the main header
 
-### 7.3   Extension Things
+### 7.2   Command Line
 
-These are available as extensions (using `cheats.h` in addition to `cheat.h`).
+* `-h` or `--help` shows this help
+* `-v` or `--version` prints version information
+* `-l` or `--list` lists test cases
 
-* `cheat_assert_char(char actual, char expected)`
-* `cheat_assert_not_char(char actual, char unexpected)`
-* `cheat_assert_short_int(short int actual, short int expected)`
+---
+
+* `-s` or `--safe` runs tests in isolated subprocesses
+* `-d` or `--dangerous` pretends that crashing tests do nothing harmful
+* `-u` or `--unsafe` lets crashing tests bring down the test suite
+
+---
+
+* `-t` or `--timed` terminates isolated tests that take too long
+* `-e` or `--eternal` allows isolated tests to take their time
+
+---
+
+* `-n` or `--noisy` captures and displays standard streams
+* `-q` or `--quiet` does not capture standard streams
+
+---
+
+* `-c` or `--colorful` uses ISO/IEC 6429 escape codes to color text
+* `-m` or `--minimal` reports statistics in a machine readable format
+* `-p` or `--plain` presents reports in plain text
+
+### 7.3   Extension Header
+
+* `CHEAT_NO_MATH` disables mathematical assertions
+
+---
+
+* `cheat_assert_char(char actual, char expected)` checks a specialized success condition
+* `cheat_assert_not_char(char actual, char unexpected)` checks the opposite of a specialized success condition
+
+---
+
+* `cheat_assert_short_int(short int actual, short int expected)` works the same
 * `cheat_assert_not_short_int(short int actual, short int unexpected)`
 * `cheat_assert_short_unsigned_int(short unsigned int actual, short unsigned int expected)`
 * `cheat_assert_not_short_unsigned_int(short unsigned int actual, short unsigned int unexpected)`
@@ -590,20 +608,38 @@ These are available as extensions (using `cheats.h` in addition to `cheat.h`).
 * `cheat_assert_not_long_int(long int actual, long int unexpected)`
 * `cheat_assert_long_unsigned_int(long unsigned int actual, long unsigned int expected)`
 * `cheat_assert_not_long_unsigned_int(long unsigned int actual, long unsigned int unexpected)`
+
+---
+
 * `cheat_assert_double(double actual, double expected, double tolerance)`
 * `cheat_assert_not_double(double actual, double unexpected, double tolerance)`
+
+---
+
 * `cheat_assert_size(size_t actual, size_t expected)`
 * `cheat_assert_not_size(size_t actual, size_t unexpected)`
 * `cheat_assert_ptrdiff(ptrdiff_t actual, ptrdiff_t expected)`
 * `cheat_assert_not_ptrdiff(ptrdiff_t actual, ptrdiff_t unexpected)`
+
+---
+
 * `cheat_assert_long_long_int(long long int actual, long long int expected)`
 * `cheat_assert_not_long_long_int(long long int actual, long long int unexpected)`
 * `cheat_assert_long_long_unsigned_int(long long unsigned int actual, long long unsigned int expected)`
 * `cheat_assert_not_long_long_unsigned_int(long long unsigned int actual, long long unsigned int unexpected)`
+
+---
+
 * `cheat_assert_float(float actual, float expected, float tolerance)`
 * `cheat_assert_not_float(float actual, float unexpected, float tolerance)`
+
+---
+
 * `cheat_assert_long_double(long double actual, long double expected, long double tolerance)`
 * `cheat_assert_not_long_double(long double actual, long double unexpected, long double tolerance)`
+
+---
+
 * `cheat_assert_int8(int8_t actual, int8_t expected)`
 * `cheat_assert_not_int8(int8_t actual, int8_t unexpected)`
 * `cheat_assert_uint8(uint8_t actual, uint8_t expected)`
@@ -660,42 +696,33 @@ These are available as extensions (using `cheats.h` in addition to `cheat.h`).
 * `cheat_assert_not_intptr(intptr_t actual, intptr_t unexpected)`
 * `cheat_assert_uintptr(uintptr_t actual, uintptr_t expected)`
 * `cheat_assert_not_uintptr(uintptr_t actual, uintptr_t unexpected)`
+
+---
+
 * `cheat_assert_float_complex(float complex actual, float complex expected, float tolerance)`
 * `cheat_assert_not_float_complex(float complex actual, float complex unexpected, float tolerance)`
 * `cheat_assert_double_complex(double complex actual, double complex expected, double tolerance)`
 * `cheat_assert_not_double_complex(double complex actual, double complex unexpected, double tolerance)`
 * `cheat_assert_long_double_complex(long double complex actual, long double complex expected, long double tolerance)`
 * `cheat_assert_not_long_double_complex(long double complex actual, long double complex unexpected, long double tolerance)`
+
+---
+
 * `cheat_assert_signed_char(signed char actual, signed char expected)`
 * `cheat_assert_not_signed_char(signed char actual, signed char unexpected)`
 * `cheat_assert_unsigned_char(unsigned char actual, unsigned char expected)`
 * `cheat_assert_not_unsigned_char(unsigned char actual, unsigned char unexpected)`
-* `cheat_assert_signed_char(signed char actual, signed char expected)`
-* `cheat_assert_not_signed_char(signed char actual, signed char unexpected)`
-* `cheat_assert_unsigned_char(unsigned char actual, unsigned char expected)`
-* `cheat_assert_not_unsigned_char(unsigned char actual, unsigned char unexpected)`
+
+---
+
 * `cheat_assert_pointer(void const* actual, void const* expected)`
 * `cheat_assert_not_pointer(void const* actual, void const* unexpected)`
+
+---
+
 * `cheat_assert_string(char const* actual, char const* expected)`
 * `cheat_assert_not_string(char const* actual, char const* expected)`
 
-This is for working around extension issues.
+---
 
-* `CHEAT_NO_MATH`
-
-These are the stable parts of the internals.
-
-* `CHEAT_H`
-* `CHEATS_H`
-* `size_t CHEAT_PASS`
-
-### 7.4   Internal Things
-
-These are not to be relied on.
-
-* `CHEAT_MODERN`
-* `CHEAT_WINDOWED`
-* `CHEAT_POSIXLY`
-* `CHEAT_VERY_POSIXLY`
-* `CHEAT_POSTMODERN`
-* `CHEAT_GNUTIFUL`
+* `CHEATS_H` guards the extension header
