@@ -445,57 +445,44 @@ Some problems are impossible to fix, so they are collected into this section.
 Identifiers starting with `CHEAT_` and `cheat_` are reserved for
  internal use as C does not have namespaces.
 
-(Rewrite the rest.)
+### 5.2   Base File
 
-### 5.2   File Definitions
+If the compiler does not define `__BASE_FILE__`, then
+ the test suite will fail to compile.
 
-The preprocessor directive `__BASE_FILE__` has to be defined like
+Luckily it can be to set to `__FILE__` at the beginning of the test suite
 
 	#ifndef __BASE_FILE__
 	#define __BASE_FILE__ __FILE__
 	#endif
 
- if the compiler fails to do so.
-For example GCC defines `__BASE_FILE__`, but
- the condition should be used anyway for portability.
+ or defined manually.
 
-### 5.3   Broken Compiler
-
-If the compiler works like Microsoft C/C++ (commonly known as `cl.exe`) and
- defines either `__BASE_FILE__` or `__FILE__` wrong, then
- the test suite will be empty as
- long as it is not manually fed to the compiler.
-
-### 5.4   Include Path
-
-If `cheat.h` is placed in a global include directory (like `/usr/include`) and
- `__BASE_FILE__` is a relative path, then
- CHEAT will not work unless
- `cheat.h` is copied into the project directory.
-
-### 5.5   Commas
+### 5.3   Commas
 
 Using commas directly inside preprocessor directives like
- `CHEAT_TEST()` without `__VA_ARGS__` support causes
- everything that comes after them to
- be interpreted as extra arguments unless
- the commas are wrapped in parentheses,
- replaced with `CHEAT_COMMA` or
- in the worst case passed through
- the matching `CHEAT_COMMAS_` n `(x1, x2,` ... `)` where
- n is the amount of commas.
+ `CHEAT_TEST()` without support for `__VA_ARGS__` causes
+ everything that comes after them to be interpreted as extra arguments.
 
-### 5.6   Expressions
+The solution is to delay the expansion of the commas as described in section 3.2.
 
-The expressions given to `cheat_assert()` should be
- at most 509 characters long since
- they are converted into string literals during compilation.
+### 5.4   Expressions
 
-### 5.7   Debugging
+The expressions given to `cheat_assert()` and friends should be
+ at most 509 characters long since they are converted into string literals and
+ the limit of their length may be that low.
 
-It is not possible to attach a breakpoint to `cheat_assert()`, because
- it is erased by the preprocessor, but
- using `cheat_check()` instead should work.
+### 5.5   Broken Compiler
+
+If the compiler works like Microsoft C/C++ (commonly known as `cl.exe`) and
+ defines both `__BASE_FILE__` and `__FILE__` wrong, then
+ the test suite will be empty unless the path is fed to the compiler manually.
+
+### 5.6   Debugging
+
+It is not possible to attach a breakpoint to
+ any of the identifiers that are part of the programming interface, but
+ attaching them to `CHEAT_GET(name)` or `cheat_check()` should work instead.
 
 ## 6   Screenshots
 
@@ -529,7 +516,7 @@ These form the primary interface.
 * `CHEAT_SET_UP(statements)`
 * `CHEAT_TEAR_DOWN(statements)`
 
-These are the most essential part of it.
+These are the most useful part of it.
 
 * `cheat_assert(bool expected)`
 * `cheat_assert_not(bool unexpected)`
