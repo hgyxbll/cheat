@@ -513,26 +513,26 @@ Here is a picture of CHEAT being compiled with Borland Turbo C and
 * `CHEAT_IGNORE(name, statements)` defines a test that does not matter
 * `CHEAT_SKIP(name, statements)` defines a test that is not run
 
----
+ 
 
 * `cheat_assert(bool expected)` checks a success condition
 * `cheat_assert_not(bool unexpected)` checks the opposite of a success condition
 
----
+ 
 
 * `CHEAT_DECLARE(declarations)` creates global declarations and definitions
 
----
+ 
 
 * `CHEAT_SET_UP(statements)` defines what to do before every test
 * `CHEAT_TEAR_DOWN(statements)` defines what to do after every test
 
----
+ 
 
 * `CHEAT_GET(name)` returns a test procedure
 * `CHEAT_CALL(name)` calls a test procedure
 
----
+ 
 
 * `size_t CHEAT_LIMIT` determines the maximum length of string literals
 * `CHEAT_TIME` sets the time after which unresponsive tests are terminated
@@ -545,17 +545,17 @@ Here is a picture of CHEAT being compiled with Borland Turbo C and
 * `CHEAT_COMMAS(...)` separates its arguments with commas
 * `CHEAT_COMMAS_1(x1, x2)` separates its arguments with commas
 
----
+ 
 
 * `CHEAT_BEGIN` and `CHEAT_END` turn a preprocessor directive into a statement
 * `type CHEAT_CAST(type, expression)` casts pointer types when using C++
 * `size_t CHEAT_INTEGER_LENGTH(type)` returns the string length of an integer
 
----
+ 
 
 * `size_t CHEAT_PASS` determines the internal state of preprocessing
 
----
+ 
 
 * `CHEAT_H` guards the main header
 
@@ -565,23 +565,23 @@ Here is a picture of CHEAT being compiled with Borland Turbo C and
 * `-v` or `--version` prints version information
 * `-l` or `--list` lists test cases
 
----
+ 
 
 * `-s` or `--safe` runs tests in isolated subprocesses
 * `-d` or `--dangerous` pretends that crashing tests do nothing harmful
 * `-u` or `--unsafe` lets crashing tests bring down the test suite
 
----
+ 
 
 * `-t` or `--timed` terminates isolated tests that take too long
 * `-e` or `--eternal` allows isolated tests to take their time
 
----
+ 
 
 * `-n` or `--noisy` captures and displays standard streams
 * `-q` or `--quiet` does not capture standard streams
 
----
+ 
 
 * `-c` or `--colorful` uses ISO/IEC 6429 escape codes to color text
 * `-m` or `--minimal` reports statistics in a machine readable format
@@ -592,7 +592,7 @@ Here is a picture of CHEAT being compiled with Borland Turbo C and
 * `cheat_assert_char(char actual, char expected)` checks a specialized success condition
 * `cheat_assert_not_char(char actual, char unexpected)` checks the opposite of a specialized success condition
 
----
+ 
 
 * `cheat_assert_short_int(short int actual, short int expected)`
 * `cheat_assert_not_short_int(short int actual, short int unexpected)`
@@ -607,36 +607,36 @@ Here is a picture of CHEAT being compiled with Borland Turbo C and
 * `cheat_assert_long_unsigned_int(long unsigned int actual, long unsigned int expected)`
 * `cheat_assert_not_long_unsigned_int(long unsigned int actual, long unsigned int unexpected)`
 
----
+ 
 
 * `cheat_assert_double(double actual, double expected, double tolerance)`
 * `cheat_assert_not_double(double actual, double unexpected, double tolerance)`
 
----
+ 
 
 * `cheat_assert_size(size_t actual, size_t expected)`
 * `cheat_assert_not_size(size_t actual, size_t unexpected)`
 * `cheat_assert_ptrdiff(ptrdiff_t actual, ptrdiff_t expected)`
 * `cheat_assert_not_ptrdiff(ptrdiff_t actual, ptrdiff_t unexpected)`
 
----
+ 
 
 * `cheat_assert_long_long_int(long long int actual, long long int expected)`
 * `cheat_assert_not_long_long_int(long long int actual, long long int unexpected)`
 * `cheat_assert_long_long_unsigned_int(long long unsigned int actual, long long unsigned int expected)`
 * `cheat_assert_not_long_long_unsigned_int(long long unsigned int actual, long long unsigned int unexpected)`
 
----
+ 
 
 * `cheat_assert_float(float actual, float expected, float tolerance)`
 * `cheat_assert_not_float(float actual, float unexpected, float tolerance)`
 
----
+ 
 
 * `cheat_assert_long_double(long double actual, long double expected, long double tolerance)`
 * `cheat_assert_not_long_double(long double actual, long double unexpected, long double tolerance)`
 
----
+ 
 
 * `cheat_assert_int8(int8_t actual, int8_t expected)`
 * `cheat_assert_not_int8(int8_t actual, int8_t unexpected)`
@@ -695,7 +695,7 @@ Here is a picture of CHEAT being compiled with Borland Turbo C and
 * `cheat_assert_uintptr(uintptr_t actual, uintptr_t expected)`
 * `cheat_assert_not_uintptr(uintptr_t actual, uintptr_t unexpected)`
 
----
+ 
 
 * `cheat_assert_float_complex(float complex actual, float complex expected, float tolerance)`
 * `cheat_assert_not_float_complex(float complex actual, float complex unexpected, float tolerance)`
@@ -704,27 +704,27 @@ Here is a picture of CHEAT being compiled with Borland Turbo C and
 * `cheat_assert_long_double_complex(long double complex actual, long double complex expected, long double tolerance)`
 * `cheat_assert_not_long_double_complex(long double complex actual, long double complex unexpected, long double tolerance)`
 
----
+ 
 
 * `cheat_assert_signed_char(signed char actual, signed char expected)`
 * `cheat_assert_not_signed_char(signed char actual, signed char unexpected)`
 * `cheat_assert_unsigned_char(unsigned char actual, unsigned char expected)`
 * `cheat_assert_not_unsigned_char(unsigned char actual, unsigned char unexpected)`
 
----
+ 
 
 * `cheat_assert_pointer(void const* actual, void const* expected)`
 * `cheat_assert_not_pointer(void const* actual, void const* unexpected)`
 
----
+ 
 
 * `cheat_assert_string(char const* actual, char const* expected)`
 * `cheat_assert_not_string(char const* actual, char const* expected)`
 
----
+ 
 
 * `CHEAT_NO_MATH` disables mathematical assertions
 
----
+ 
 
 * `CHEATS_H` guards the extension header
