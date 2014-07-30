@@ -209,7 +209,7 @@ For example stream capturing is currently very limited without POSIX interfaces.
 
 Contributions in the forms of feedback and pull requests are all very welcome!
 
-## 3   Advanced Usage
+## 3   Usage
 
 ### 3.1   Files
 
@@ -224,6 +224,7 @@ You can acquire them by cloning the repository
 	[user@computer:~]$ wget http://github.com/Tuplanolla/cheat/archive/master.zip
 	[user@computer:~]$ unzip master.zip
 	[user@computer:~]$ mv -i cheat-master cheat
+	[user@computer:~]$ cd cheat
 
 In addition to the main header there is an extension header and
  examples of how to use them with various compilers.
@@ -380,9 +381,6 @@ As an added bonus the `-c` for `--colorful` option makes everything colorful if
  the `-m` for `--minimal` option makes those things machine readable and
  the `-x` for `--xml` option does nothing for good measure.
 
-	[user@computer:project]$ ./tests -m
-	8 2 12
-
 The default options depend on the target platform.
 
 ### 3.4   Extensions
@@ -464,7 +462,8 @@ Using commas directly inside preprocessor directives like
  `CHEAT_TEST()` without support for `__VA_ARGS__` causes
  everything that comes after them to be interpreted as extra arguments.
 
-The solution is to delay the expansion of the commas as described in section 3.2.
+The solution is to delay the expansion of the commas as
+ described in section 3.2.
 
 ### 5.4   Expressions
 
@@ -476,13 +475,16 @@ The expressions given to `cheat_assert()` and friends should be
 
 If the compiler works like Microsoft C/C++ (commonly known as `cl.exe`) and
  defines both `__BASE_FILE__` and `__FILE__` wrong, then
- the test suite will be empty unless the path is fed to the compiler manually.
+ the test suite will be empty.
+
+The definition should be fed to the compiler manually.
 
 ### 5.6   Debugging
 
 It is not possible to attach a breakpoint to
- any of the identifiers that are part of the programming interface, but
- attaching them to `CHEAT_GET(name)` or `cheat_check()` should work instead.
+ any of the identifiers that are part of the programming interface.
+
+Attaching one to `CHEAT_GET(name)` or `cheat_check()` should work instead.
 
 ## 6   Screenshots
 
@@ -587,16 +589,12 @@ Here is a picture of CHEAT being compiled with Borland Turbo C and
 
 ### 7.3   Extension Header
 
-* `CHEAT_NO_MATH` disables mathematical assertions
-
----
-
 * `cheat_assert_char(char actual, char expected)` checks a specialized success condition
 * `cheat_assert_not_char(char actual, char unexpected)` checks the opposite of a specialized success condition
 
 ---
 
-* `cheat_assert_short_int(short int actual, short int expected)` works the same
+* `cheat_assert_short_int(short int actual, short int expected)`
 * `cheat_assert_not_short_int(short int actual, short int unexpected)`
 * `cheat_assert_short_unsigned_int(short unsigned int actual, short unsigned int expected)`
 * `cheat_assert_not_short_unsigned_int(short unsigned int actual, short unsigned int unexpected)`
@@ -722,6 +720,10 @@ Here is a picture of CHEAT being compiled with Borland Turbo C and
 
 * `cheat_assert_string(char const* actual, char const* expected)`
 * `cheat_assert_not_string(char const* actual, char const* expected)`
+
+---
+
+* `CHEAT_NO_MATH` disables mathematical assertions
 
 ---
 
