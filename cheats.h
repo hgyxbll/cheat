@@ -10,6 +10,10 @@ The full license can be found in the LICENSE file.
 	#error "the header file \"cheat.h\" is not available"
 #endif
 
+/*
+Identifiers starting with CHEATS_ and cheats_ are reserved for internal use.
+*/
+
 #ifndef CHEATS_H
 #define CHEATS_H
 

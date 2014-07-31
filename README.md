@@ -453,6 +453,7 @@ Some problems are impossible to fix, so they are collected into this section.
 
 Identifiers starting with `CHEAT_` and `cheat_` are reserved for
  internal use as C does not have namespaces.
+Extensions reserve identifiers starting with `CHEATS_` and `cheats_` as well.
 
 ### 5.2   Base File
 

@@ -215,8 +215,8 @@ enum cheat_subtype {
 	CHEAT_NORMAL_TEST,
 	CHEAT_IGNORED_TEST,
 	CHEAT_SKIPPED_TEST,
-	CHEAT_UP_SETTER,
-	CHEAT_DOWN_TEARER,
+	CHEAT_SET_UP_UTILITY,
+	CHEAT_TEAR_DOWN_UTILITY,
 	CHEAT_NOTHING
 };
 
@@ -414,7 +414,7 @@ struct cheat_channel {
 };
 #else
 #ifdef CHEAT_WINDOWED
-struct cheat_channel {
+struct cheat_channel { /* TODO Use this with pipes. */
 	HANDLE reader;
 	HANDLE writer;
 	bool active;
@@ -1630,9 +1630,9 @@ Runs a test from a test suite or
 __attribute__ ((__io__, __nonnull__))
 static void cheat_run_coupled_test(struct cheat_suite* const suite,
 		struct cheat_unit const* const unit) {
-	cheat_run_utilities(suite, CHEAT_UP_SETTER);
+	cheat_run_utilities(suite, CHEAT_SET_UP_UTILITY);
 	cheat_run_test(unit);
-	cheat_run_utilities(suite, CHEAT_DOWN_TEARER);
+	cheat_run_utilities(suite, CHEAT_TEAR_DOWN_UTILITY);
 }
 
 #ifdef CHEAT_WINDOWED
@@ -1722,7 +1722,6 @@ static void cheat_isolate_test(struct cheat_suite* const suite,
 	do {
 		int maximum;
 		fd_set set;
-		struct timeval time;
 		int result;
 
 		FD_ZERO(&set);
@@ -1739,6 +1738,8 @@ static void cheat_isolate_test(struct cheat_suite* const suite,
 				maximum = channels[index].reader;
 
 		if (suite->timed) {
+			struct timeval time;
+
 			time.tv_sec = CHEAT_TIME / 1000;
 			time.tv_usec = CHEAT_TIME % 1000;
 
@@ -2119,7 +2120,7 @@ static void cheat_parse(struct cheat_suite* const suite) {
 	bool version = false;
 	bool quiet = false;
 #ifdef CHEAT_WINDOWED
-	bool hidden = false;
+	bool hidden = false; /* This has to be at the very end. */
 #endif
 
 	cheat_initialize_string_list(&names);
@@ -2225,7 +2226,7 @@ static void cheat_parse(struct cheat_suite* const suite) {
 			&& !(noisy && quiet)
 			&& !(safe && unsafe)
 			&& !(eternal && timed)
-			&& !(timed && (dangerous || unsafe)))
+			&& !(timed && (dangerous || unsafe))) {
 
 #ifdef CHEAT_WINDOWED
 
@@ -2236,20 +2237,15 @@ static void cheat_parse(struct cheat_suite* const suite) {
 			suite->message_stream = stdout;
 
 			cheat_run_hidden(suite, names.items[names.count - 1]);
-
 			cheat_clear_string_list(&names);
 
 			exit(cheat_encode_outcome(suite->outcome));
-		} else
-			cheat_run_suite(suite, &names);
-
-#else
-
-		cheat_run_suite(suite, &names);
+		}
 
 #endif
 
-	else
+		cheat_run_suite(suite, &names);
+	} else
 		cheat_death("invalid combination of options", 0);
 
 	cheat_clear_string_list(&names);
@@ -2560,7 +2556,7 @@ This pass generates a list of the previously declared procedures.
 	{ \
 		NULL, \
 		CHEAT_UTILITY, \
-		CHEAT_UP_SETTER, \
+		CHEAT_SET_UP_UTILITY, \
 		cheat_set_up \
 	},
 
@@ -2568,7 +2564,7 @@ This pass generates a list of the previously declared procedures.
 	{ \
 		NULL, \
 		CHEAT_UTILITY, \
-		CHEAT_DOWN_TEARER, \
+		CHEAT_TEAR_DOWN_UTILITY, \
 		cheat_tear_down \
 	},
 
@@ -2604,7 +2600,7 @@ This pass generates a list of the previously declared procedures.
 	{ \
 		NULL, \
 		CHEAT_UTILITY, \
-		CHEAT_UP_SETTER, \
+		CHEAT_SET_UP_UTILITY, \
 		cheat_set_up \
 	},
 
@@ -2612,7 +2608,7 @@ This pass generates a list of the previously declared procedures.
 	{ \
 		NULL, \
 		CHEAT_UTILITY, \
-		CHEAT_DOWN_TEARER, \
+		CHEAT_TEAR_DOWN_UTILITY, \
 		cheat_tear_down \
 	},
 
