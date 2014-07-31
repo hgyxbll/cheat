@@ -1,8 +1,9 @@
 CC=gcc
 warnings=`cat gcc-4_7_0-release` -Wno-error -Wno-system-headers \
 	-Wno-c++-compat -Wno-traditional -Wno-traditional-conversion \
-	-Wno-format-nonliteral -Wno-missing-format-attribute -Wno-unused-parameter \
-	-Wno-unsuffixed-float-constants
+	-Wno-switch-enum \
+	-Wno-format-nonliteral -Wno-missing-format-attribute \
+	-Wno-unused-parameter -Wno-unsuffixed-float-constants
 debug=$(warnings) -O0 -g
 deploy=-w -O3 -s
 CFLAGS=$(debug) \

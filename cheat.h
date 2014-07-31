@@ -2576,7 +2576,7 @@ This pass generates a list of the previously declared procedures.
 
 #else
 
-#define CHEAT_TEST(name, ...) \
+#define CHEAT_TEST(name, body) \
 	{ \
 		#name, \
 		CHEAT_TESTER, \
@@ -2584,7 +2584,7 @@ This pass generates a list of the previously declared procedures.
 		CHEAT_GET(name) \
 	},
 
-#define CHEAT_IGNORE(name, ...) \
+#define CHEAT_IGNORE(name, body) \
 	{ \
 		#name, \
 		CHEAT_TESTER, \
@@ -2592,7 +2592,7 @@ This pass generates a list of the previously declared procedures.
 		CHEAT_GET(name) \
 	},
 
-#define CHEAT_SKIP(name, ...) \
+#define CHEAT_SKIP(name, body) \
 	{ \
 		#name, \
 		CHEAT_TESTER, \
