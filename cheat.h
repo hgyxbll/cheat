@@ -207,9 +207,17 @@ These are ISO/IEC 6429 escape sequences for
 
 enum cheat_type {
 	CHEAT_TESTER,
+	CHEAT_UTILITY,
+	CHEAT_TERMINATOR
+};
+
+enum cheat_subtype {
+	CHEAT_NORMAL_TEST,
+	CHEAT_IGNORED_TEST,
+	CHEAT_SKIPPED_TEST,
 	CHEAT_UP_SETTER,
 	CHEAT_DOWN_TEARER,
-	CHEAT_TERMINATOR
+	CHEAT_NOTHING
 };
 
 enum cheat_harness {
@@ -307,6 +315,7 @@ It would not hurt to have
 struct cheat_unit {
 	char const* name;
 	enum cheat_type const type;
+	enum cheat_subtype const subtype;
 	cheat_procedure const procedure;
 };
 
@@ -1145,6 +1154,7 @@ __attribute__ ((__io__, __nonnull__))
 static void cheat_print_tests(struct cheat_suite const* const suite) {
 	bool strip = false;
 	bool print_labels = false;
+	bool print_subtypes = false;
 	size_t index;
 	char name_format[] = CHEAT_BOLD "%s"
 		CHEAT_RESET;
@@ -1155,6 +1165,7 @@ static void cheat_print_tests(struct cheat_suite const* const suite) {
 		strip = true;
 	case CHEAT_COLORFUL:
 		print_labels = true;
+		print_subtypes = true;
 		break;
 	case CHEAT_MINIMAL:
 		strip = true;
@@ -1180,6 +1191,18 @@ static void cheat_print_tests(struct cheat_suite const* const suite) {
 				(void )fputs("       ", stdout);
 		}
 		(void )cheat_print(stdout, name_format, 1, suite->units[index].name);
+		if (print_subtypes)
+			switch (suite->units[index].subtype) {
+			case CHEAT_IGNORED_TEST:
+				(void )fputs(" (ignored)", stdout);
+				break;
+			case CHEAT_SKIPPED_TEST:
+				(void )fputs(" (skipped)", stdout);
+			case CHEAT_NORMAL_TEST:
+				break;
+			default:
+				cheat_death("invalid subtype", suite->style);
+			}
 		(void )fputc('\n', stdout);
 	}
 }
@@ -1577,13 +1600,14 @@ Runs all utility procedures of a certain type or
 */
 __attribute__ ((__io__))
 static void cheat_run_utilities(struct cheat_suite* const suite,
-		enum cheat_type const type) {
+		enum cheat_subtype const subtype) {
 	size_t index;
 
 	for (index = 0;
 			suite->units[index].type != CHEAT_TERMINATOR;
 			++index)
-		if (suite->units[index].type == type)
+		if (suite->units[index].type == CHEAT_UTILITY
+				&& suite->units[index].subtype == subtype)
 			(suite->units[index].procedure)();
 }
 
@@ -2025,12 +2049,9 @@ static void cheat_run_all(struct cheat_suite* const suite) {
 
 	for (index = 0;
 			suite->units[index].type != CHEAT_TERMINATOR;
-			++index) {
-		if (suite->units[index].type != CHEAT_TESTER)
-			continue;
-
-		cheat_run_specific(suite, &suite->units[index]);
-	}
+			++index)
+		if (suite->units[index].type == CHEAT_TESTER)
+			cheat_run_specific(suite, &suite->units[index]);
 }
 
 /*
@@ -2515,18 +2536,30 @@ This pass generates a list of the previously declared procedures.
 	{ \
 		#name, \
 		CHEAT_TESTER, \
+		CHEAT_NORMAL_TEST, \
 		CHEAT_GET(name) \
 	},
 
 #define CHEAT_IGNORE(name, ...) \
-	CHEAT_TEST(name, __VA_ARGS__)
+	{ \
+		#name, \
+		CHEAT_TESTER, \
+		CHEAT_IGNORED_TEST, \
+		CHEAT_GET(name) \
+	},
 
 #define CHEAT_SKIP(name, ...) \
-	CHEAT_TEST(name, __VA_ARGS__)
+	{ \
+		#name, \
+		CHEAT_TESTER, \
+		CHEAT_SKIPPED_TEST, \
+		CHEAT_GET(name) \
+	},
 
 #define CHEAT_SET_UP(...) \
 	{ \
 		NULL, \
+		CHEAT_UTILITY, \
 		CHEAT_UP_SETTER, \
 		cheat_set_up \
 	},
@@ -2534,6 +2567,7 @@ This pass generates a list of the previously declared procedures.
 #define CHEAT_TEAR_DOWN(...) \
 	{ \
 		NULL, \
+		CHEAT_UTILITY, \
 		CHEAT_DOWN_TEARER, \
 		cheat_tear_down \
 	},
@@ -2542,22 +2576,34 @@ This pass generates a list of the previously declared procedures.
 
 #else
 
-#define CHEAT_TEST(name, body) \
+#define CHEAT_TEST(name, ...) \
 	{ \
 		#name, \
 		CHEAT_TESTER, \
+		CHEAT_NORMAL_TEST, \
 		CHEAT_GET(name) \
 	},
 
-#define CHEAT_IGNORE(name, body) \
-	CHEAT_TEST(name, body)
+#define CHEAT_IGNORE(name, ...) \
+	{ \
+		#name, \
+		CHEAT_TESTER, \
+		CHEAT_IGNORED_TEST, \
+		CHEAT_GET(name) \
+	},
 
-#define CHEAT_SKIP(name, body) \
-	CHEAT_TEST(name, body)
+#define CHEAT_SKIP(name, ...) \
+	{ \
+		#name, \
+		CHEAT_TESTER, \
+		CHEAT_SKIPPED_TEST, \
+		CHEAT_GET(name) \
+	},
 
 #define CHEAT_SET_UP(body) \
 	{ \
 		NULL, \
+		CHEAT_UTILITY, \
 		CHEAT_UP_SETTER, \
 		cheat_set_up \
 	},
@@ -2565,6 +2611,7 @@ This pass generates a list of the previously declared procedures.
 #define CHEAT_TEAR_DOWN(body) \
 	{ \
 		NULL, \
+		CHEAT_UTILITY, \
 		CHEAT_DOWN_TEARER, \
 		cheat_tear_down \
 	},
@@ -2578,6 +2625,7 @@ static struct cheat_unit const cheat_units[] = {
 	{
 		NULL,
 		CHEAT_TERMINATOR,
+		0,
 		NULL
 	} /* This terminator exists to avoid
 			the problems some compilers have with
