@@ -94,8 +94,8 @@ The resulting executable runs tests in a security harness if possible, so
 	[user@computer:project]$ ./tests
 	..:..??..!..
 	---
-	tests.c:87: assertion in 'philosophy_never_worked' failed: 'heap == stack'
-	tests.c:110: assertion in 'important' failed: 'THIS_TEST == IMPORTANT_TEST'
+	tests.c:81: assertion in 'philosophy_never_worked' failed: 'heap == stack'
+	tests.c:104: assertion in 'important' failed: 'THIS_TEST == IMPORTANT_TEST'
 	---
 	8 successful and 2 failed of 12 run
 	FAILURE
@@ -125,11 +125,20 @@ The outcome is also reflected by the exit code of the process.
 	[user@computer:project]$ echo returned $?
 	returned 1
 
-You can further change the behavior of a test suite with command line options.
+You can change the behavior of the test suite with command line options or
+ force running individual tests by giving their names as arguments.
 
-	[user@computer:project]$ ./tests --help
+	[user@computer:project]$ ./tests --list --minimal | xargs ./tests
+	..:..:.:..!..
+	---
+	example.c:81: assertion in 'philosophy_never_worked' failed: 'heap == stack'
+	example.c:104: assertion in 'important' failed: 'THIS_TEST == IMPORTANT_TEST'
+	example.c:112: assertion in 'pointless' failed: '(0 | ~0) == 0'
+	---
+	9 successful and 4 failed of 13 run
+	FAILURE
 
-They are presented in section 3.3.
+The option syntax is specified in section 3.3.
 
 ### 1.4   Using Extensions
 
@@ -173,7 +182,7 @@ It would be licensed under the GNU GPL, but
 
 ### 2.2   History
 
-The project was started on 2012-08-07 and will be first released on 2014-08-07.
+The project was started on 2012-08-07 and first released on 2014-08-07.
 It was originally written by Guillermo "Tordek" Freschi for
  the entertainment and education of everyone in
  the ISO/IEC 9899 community on Freenode.
@@ -268,8 +277,9 @@ Solutions to that are presented in section 5.5.
 Tests can also be defined with
  `CHEAT_IGNORE(name, statements)` and `CHEAT_SKIP(name, statements)`.
 They work like `CHEAT_TEST(name, statements)` with the exception that
- the outcome of the former is ignored and the latter is not executed at all.
-One could think of them as checked comments.
+ the outcome of the former is ignored and the latter is not executed at all, but
+ only when they are not explicitly requested to be run.
+That feature is explained in section 3.3.
 
 Tests need success conditions called assertions and
  those can be checked with `cheat_assert(bool expected)` or
@@ -286,6 +296,7 @@ Global definitions can also contain assertions and be called from within tests.
 Running code before and after each test can be done with
  `CHEAT_SET_UP(statements)` and `CHEAT_TEAR_DOWN(statements)`, where
  `statements` is a list of statements with the same restrictions as before.
+There can be only one set up and one tear down in a test suite.
 
 The names given to tests are not directly used identifiers, but
  the identifier of a test can be retrieved with `CHEAT_GET(name)`, where
@@ -584,8 +595,8 @@ Here is a picture of CHEAT being compiled with Borland Turbo C and
  
 
 * `-c` or `--colorful` uses ISO/IEC 6429 escape codes to color text
-* `-m` or `--minimal` reports statistics in a machine readable format
-* `-p` or `--plain` presents reports in plain text
+* `-m` or `--minimal` reports things in a machine readable format
+* `-p` or `--plain` presents everything in plain text
 
 ### 7.3   Extension Header
 

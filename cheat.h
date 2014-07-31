@@ -359,6 +359,9 @@ struct cheat_suite {
 	struct cheat_string_array arguments; /* The arguments passed to
 			the entry point (changes for each execution). */
 
+	bool force; /* Whether to force running ignored and
+			skipped tests (changes for each execution). */
+
 	bool timed; /* Whether tests that do not send messages within
 			a time limit are terminated (changes for each execution). */
 
@@ -774,6 +777,8 @@ static void cheat_initialize(struct cheat_suite* const suite) {
 	suite->program = NULL;
 	cheat_initialize_string_array(&suite->arguments);
 
+	suite->force = false;
+
 	suite->timed = false;
 
 	suite->quiet = false;
@@ -1053,7 +1058,7 @@ static void cheat_print_usage(struct cheat_suite const* const suite) {
 		CHEAT_BOLD "-m"
 			CHEAT_RESET "  "
 			CHEAT_BOLD "--minimal"
-			CHEAT_RESET "    Report statistics in a machine readable format",
+			CHEAT_RESET "    Report things in a machine readable format",
 		CHEAT_BOLD "-n"
 			CHEAT_RESET "  "
 			CHEAT_BOLD "--noisy"
@@ -1061,7 +1066,7 @@ static void cheat_print_usage(struct cheat_suite const* const suite) {
 		CHEAT_BOLD "-p"
 			CHEAT_RESET "  "
 			CHEAT_BOLD "--plain"
-			CHEAT_RESET "      Present reports in plain text",
+			CHEAT_RESET "      Present everything in plain text",
 		CHEAT_BOLD "-s"
 			CHEAT_RESET "  "
 			CHEAT_BOLD "--safe"
@@ -2060,10 +2065,12 @@ static void cheat_run_suite(struct cheat_suite* const suite,
 	if (suite->harness == CHEAT_DANGEROUS)
 		cheat_register_handler(suite->handler);
 
-	if (names->count == 0)
-		cheat_run_all(suite);
-	else
+	suite->force = names->count != 0;
+
+	if (suite->force)
 		cheat_run_some(suite, names);
+	else
+		cheat_run_all(suite);
 
 	cheat_print_summary(suite);
 }
@@ -2198,7 +2205,9 @@ static void cheat_parse(struct cheat_suite* const suite) {
 			&& !(safe && unsafe)
 			&& !(eternal && timed)
 			&& !(timed && (dangerous || unsafe)))
+
 #ifdef CHEAT_WINDOWED
+
 		if (hidden) {
 			if (names.count == 0)
 				cheat_death("test not specified", 0);
@@ -2212,9 +2221,13 @@ static void cheat_parse(struct cheat_suite* const suite) {
 			exit(cheat_encode_outcome(suite->outcome));
 		} else
 			cheat_run_suite(suite, &names);
+
 #else
+
 		cheat_run_suite(suite, &names);
+
 #endif
+
 	else
 		cheat_death("invalid combination of options", 0);
 
@@ -2606,19 +2619,18 @@ This pass defines and wraps up the previously listed procedures.
 		{ \
 			__VA_ARGS__ \
 		} \
-		cheat_suite.outcome = CHEAT_IGNORED; \
+		if (!cheat_suite.force) \
+			cheat_suite.outcome = CHEAT_IGNORED; \
 	}
 
 #define CHEAT_SKIP(name, ...) \
 	static void CHEAT_GET(name)(void) { \
 		cheat_suite.test_name = #name; \
-		cheat_suite.outcome = CHEAT_SKIPPED; \
-		return; \
-		{ \
-			__VA_ARGS__ /* This ensures that \
-					the test is checked by the compiler even \
-					if it is optimized out afterwards. */ \
-		} \
+		cheat_suite.outcome = CHEAT_SUCCESSFUL; \
+		if (cheat_suite.force) {\
+			__VA_ARGS__ \
+		} else \
+			cheat_suite.outcome = CHEAT_SKIPPED; \
 	}
 
 #define CHEAT_SET_UP(...) \
@@ -2652,17 +2664,18 @@ This pass defines and wraps up the previously listed procedures.
 		{ \
 			body \
 		} \
-		cheat_suite.outcome = CHEAT_IGNORED; \
+		if (!cheat_suite.force) \
+			cheat_suite.outcome = CHEAT_IGNORED; \
 	}
 
 #define CHEAT_SKIP(name, body) \
 	static void CHEAT_GET(name)(void) { \
 		cheat_suite.test_name = #name; \
-		cheat_suite.outcome = CHEAT_SKIPPED; \
-		return; \
-		{ \
+		cheat_suite.outcome = CHEAT_SUCCESSFUL; \
+		if (cheat_suite.force) {\
 			body \
-		} \
+		} else \
+			cheat_suite.outcome = CHEAT_SKIPPED; \
 	}
 
 #define CHEAT_SET_UP(body) \
