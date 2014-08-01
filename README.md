@@ -26,7 +26,7 @@ Compatibility with other tools and operating systems is addressed in section 4.
 
 First you need to download the main header
 
-	[user@computer:~]$ wget http://github.com/Tuplanolla/cheat/raw/stable/cheat.h
+	[user@computer:~]$ wget http://github.com/Tuplanolla/cheat/raw/master/cheat.h
 
  and move it to a suitable location like the global search path
 
@@ -59,7 +59,7 @@ You can define tests with `CHEAT_TEST(name, statements)` and
  their success conditions called assertions with `cheat_assert(bool expected)`.
 Doing so is demonstrated in the example file.
 
-	[user@computer:project]$ wget http://github.com/Tuplanolla/cheat/raw/stable/example.c
+	[user@computer:project]$ wget http://github.com/Tuplanolla/cheat/raw/master/example.c
 	[user@computer:project]$ mv -i example.c tests.c
 
 The example also shows how you can declare global variables with
@@ -144,7 +144,7 @@ The option syntax is specified in section 3.3.
 
 There is an extension header in addition to the main header.
 
-	[user@computer:project]$ wget http://github.com/Tuplanolla/cheat/raw/stable/cheats.h
+	[user@computer:project]$ wget http://github.com/Tuplanolla/cheat/raw/master/cheats.h
 
 It is supposed to be used as a supplement and
  expects the main header to be included first.
@@ -160,7 +160,7 @@ It provides specialized assertions like
 
 Its features are demonstrated in the additional example file.
 
-	[user@computer:project]$ wget http://github.com/Tuplanolla/cheat/raw/stable/examples.c
+	[user@computer:project]$ wget http://github.com/Tuplanolla/cheat/raw/master/examples.c
 	[user@computer:project]$ mv -i examples.c tests.c
 
 You can read more about the extensions in section 3.4.
@@ -251,8 +251,8 @@ There are also tests for corner cases,
  supplementary reading material
 
 	[user@computer:cheat]$ man ./cheat.7
-	[user@computer:cheat]$ sudo cp -i cheat.7 /usr/share/man/man7
-	[user@computer:cheat]$ sudo gzip /usr/share/man/man7/cheat.7
+	[user@computer:cheat]$ sudo cp -i cheat.7 /usr/man/man7
+	[user@computer:cheat]$ sudo gzip /usr/man/man7/cheat.7
 
  and things used during development.
 
