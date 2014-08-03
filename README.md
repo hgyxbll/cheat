@@ -287,6 +287,13 @@ Repeated tests can be defined with `CHEAT_REPEAT(name, statements)`, which
  `CHEAT_REPETITIONS` is reached.
 Its purpose is to make working with stochastic tests less of a hassle.
 
+Manually interrupting tests that have already failed can be achieved by
+ calling `cheat_yield(void)` in the appropriate place.
+It must not be used outside test cases or compatible procedures, because
+ it can only alter the control flow of the procedure it is called from.
+Here compatible procedures mean procedures that have the same type as
+ `CHEAT_GET(name)` for any valid `name`.
+
 Tests need success conditions called assertions and
  those can be checked with `cheat_assert(bool expected)` or
  its logical complement `cheat_assert_not(bool unexpected)`.
@@ -535,6 +542,10 @@ Here is a picture of CHEAT being compiled with Borland Turbo C and
 * `CHEAT_IGNORE(name, statements)` defines a test that does not matter
 * `CHEAT_SKIP(name, statements)` defines a test that is not run
 * `CHEAT_REPEAT(name, statements)` defines a test that is repeated several times
+
+ 
+
+* `cheat_yield(void)` interrupts a test if it has already failed
 
  
 

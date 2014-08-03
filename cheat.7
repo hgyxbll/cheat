@@ -30,6 +30,10 @@ They work like \fBCHEAT_TEST(\fIname\fB, \fIstatements\fB)\fR with the exception
 Repeated tests can be defined with \fBCHEAT_REPEAT(\fIname\fB, \fIstatements\fB)\fR, which is otherwise identical with \fBCHEAT_TEST(\fIname\fB, \fIstatements\fB)\fR, but the statement list is repeated until a failure or \fBCHEAT_REPETITIONS\fR is reached\.
 Its purpose is to make working with stochastic tests less of a hassle\.
 .PP
+Manually interrupting tests that have already failed can be achieved by calling \fBcheat_yield(void)\fR in the appropriate place\.
+It must not be used outside test cases or compatible procedures, because it can only alter the control flow of the procedure it is called from\.
+Here compatible procedures mean procedures that have the same type as \fBCHEAT_GET(\fIname\fB)\fR for any valid \fIname\fR\.
+.PP
 Tests need success conditions called assertions and those can be checked with \fBcheat_assert(bool \fIexpected\fB)\fR or its logical complement \fBcheat_assert_not(bool \fIunexpected\fB)\fR\.
 The condition is satisfied if \fBexpected\fR is true or, in other words, not zero\.
 .PP

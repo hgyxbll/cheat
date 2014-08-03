@@ -2311,6 +2311,15 @@ These add source information to assertions.
 		__FILE__, __LINE__)
 
 /*
+This stops a test if it has already failed.
+*/
+#define cheat_yield() \
+	CHEAT_BEGIN \
+		if (cheat_suite.outcome != CHEAT_SUCCESSFUL) \
+			return; \
+	CHEAT_END
+
+/*
 These help the user place commas.
 */
 
@@ -2705,10 +2714,10 @@ This pass defines and wraps up the previously listed procedures.
 		cheat_suite.test_name = #name; \
 		cheat_suite.outcome = CHEAT_SUCCESSFUL; \
 		for (cheat_index = 0; \
-				cheat_suite.outcome == CHEAT_SUCCESSFUL \
-					&& cheat_index < CHEAT_REPETITIONS; \
+				cheat_index < CHEAT_REPETITIONS; \
 				++cheat_index) { \
 			__VA_ARGS__ \
+			cheat_yield(); \
 		} \
 	}
 
@@ -2764,10 +2773,10 @@ This pass defines and wraps up the previously listed procedures.
 		cheat_suite.test_name = #name; \
 		cheat_suite.outcome = CHEAT_SUCCESSFUL; \
 		for (cheat_index = 0; \
-				cheat_suite.outcome == CHEAT_SUCCESSFUL \
-					&& cheat_index < CHEAT_REPETITIONS; \
+				cheat_index < CHEAT_REPETITIONS; \
 				++cheat_index) { \
 			body \
+			cheat_yield(); \
 		} \
 	}
 
