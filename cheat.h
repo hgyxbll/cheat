@@ -270,6 +270,13 @@ Isolated tests that take too long to send data are terminated after this time.
 #endif
 
 /*
+Repeated tests are obviously not repeated forever.
+*/
+#ifndef CHEAT_REPETITIONS
+#define CHEAT_REPETITIONS ((size_t )256)
+#endif
+
+/*
 These make preprocessor directives work like statements.
 */
 #define CHEAT_BEGIN do {
@@ -2481,6 +2488,9 @@ These variations eliminate the comma problem.
 #define CHEAT_SKIP(name, ...) \
 	CHEAT_TEST(name, __VA_ARGS__)
 
+#define CHEAT_REPEAT(name, ...) \
+	CHEAT_TEST(name, __VA_ARGS__)
+
 #define CHEAT_SET_UP(...) \
 	static void cheat_set_up(void);
 
@@ -2500,6 +2510,9 @@ These variations eliminate the comma problem.
 #define CHEAT_SKIP(name, body) \
 	CHEAT_TEST(name, body)
 
+#define CHEAT_REPEAT(name, body) \
+	CHEAT_TEST(name, body)
+
 #define CHEAT_SET_UP(body) \
 	static void cheat_set_up(void);
 
@@ -2515,6 +2528,7 @@ These variations eliminate the comma problem.
 #undef CHEAT_TEST
 #undef CHEAT_IGNORE
 #undef CHEAT_SKIP
+#undef CHEAT_REPEAT
 #undef CHEAT_SET_UP
 #undef CHEAT_TEAR_DOWN
 #undef CHEAT_DECLARE
@@ -2551,6 +2565,9 @@ This pass generates a list of the previously declared procedures.
 		CHEAT_SKIPPED_TEST, \
 		CHEAT_GET(name) \
 	},
+
+#define CHEAT_REPEAT(name, ...) \
+	CHEAT_TEST(name, __VA_ARGS__)
 
 #define CHEAT_SET_UP(...) \
 	{ \
@@ -2595,6 +2612,9 @@ This pass generates a list of the previously declared procedures.
 		CHEAT_SKIPPED_TEST, \
 		CHEAT_GET(name) \
 	},
+
+#define CHEAT_REPEAT(name, body) \
+	CHEAT_TEST(name, body)
 
 #define CHEAT_SET_UP(body) \
 	{ \
@@ -2634,6 +2654,7 @@ static struct cheat_unit const cheat_units[] = {
 #undef CHEAT_TEST
 #undef CHEAT_IGNORE
 #undef CHEAT_SKIP
+#undef CHEAT_REPEAT
 #undef CHEAT_SET_UP
 #undef CHEAT_TEAR_DOWN
 #undef CHEAT_DECLARE
@@ -2675,6 +2696,20 @@ This pass defines and wraps up the previously listed procedures.
 			__VA_ARGS__ \
 		} else \
 			cheat_suite.outcome = CHEAT_SKIPPED; \
+	}
+
+#define CHEAT_REPEAT(name, ...) \
+	static void CHEAT_GET(name)(void) { \
+		size_t cheat_index; \
+\
+		cheat_suite.test_name = #name; \
+		cheat_suite.outcome = CHEAT_SUCCESSFUL; \
+		for (cheat_index = 0; \
+				cheat_suite.outcome == CHEAT_SUCCESSFUL \
+					&& cheat_index < CHEAT_REPETITIONS; \
+				++cheat_index) { \
+			__VA_ARGS__ \
+		} \
 	}
 
 #define CHEAT_SET_UP(...) \
@@ -2720,6 +2755,20 @@ This pass defines and wraps up the previously listed procedures.
 			body \
 		} else \
 			cheat_suite.outcome = CHEAT_SKIPPED; \
+	}
+
+#define CHEAT_REPEAT(name, body) \
+	static void CHEAT_GET(name)(void) { \
+		size_t cheat_index; \
+\
+		cheat_suite.test_name = #name; \
+		cheat_suite.outcome = CHEAT_SUCCESSFUL; \
+		for (cheat_index = 0; \
+				cheat_suite.outcome == CHEAT_SUCCESSFUL \
+					&& cheat_index < CHEAT_REPETITIONS; \
+				++cheat_index) { \
+			body \
+		} \
 	}
 
 #define CHEAT_SET_UP(body) \

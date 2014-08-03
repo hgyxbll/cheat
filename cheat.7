@@ -25,7 +25,10 @@ The list of statements must not be empty or ambiguous\.
 For example \fBint \fIx\fB, \fIy\fB;\fR may be interpreted as an invalid parameter list if the compiler does not support \fB__VA_ARGS__\fR\.
 .PP
 Tests can also be defined with \fBCHEAT_IGNORE(\fIname\fB, \fIstatements\fB)\fR and \fBCHEAT_SKIP(\fIname\fB, \fIstatements\fB)\fR\.
-They work like \fBCHEAT_TEST(\fIname\fB, \fIstatements\fB)\fR with the exception that the outcome of the former is ignored and the latter is not executed at all, but only when they are not explicitly requested to be run.
+They work like \fBCHEAT_TEST(\fIname\fB, \fIstatements\fB)\fR with the exception that the outcome of the former is ignored and the latter is not executed at all, but only when they are not explicitly requested to be run\.
+.PP
+Repeated tests can be defined with \fBCHEAT_REPEAT(\fIname\fB, \fIstatements\fB)\fR, which is otherwise identical with \fBCHEAT_TEST(\fIname\fB, \fIstatements\fB)\fR, but the statement list is repeated until a failure or \fBCHEAT_REPETITIONS\fR is reached\.
+Its purpose is to make working with stochastic tests less of a hassle\.
 .PP
 Tests need success conditions called assertions and those can be checked with \fBcheat_assert(bool \fIexpected\fB)\fR or its logical complement \fBcheat_assert_not(bool \fIunexpected\fB)\fR\.
 The condition is satisfied if \fBexpected\fR is true or, in other words, not zero\.
@@ -44,6 +47,9 @@ The convenient \fBCHEAT_CALL(\fIname\fB)\fR is equivalent to \fBCHEAT_GET(\fInam
 .PP
 The behavior of the test suite is primarly controlled with command line options\.
 However some of the options are compiled into the test suite and their default values can be overridden by defining them before including the main header\.
+.PP
+The \fBsize_t CHEAT_REPETITIONS\fR option controls the amount of repetitions done by \fBCHEAT_REPEAT(\fIname\fB, \fIstatements\fB)\fR\.
+Its default value is \fB256\fR\.
 .PP
 The \fBsize_t CHEAT_LIMIT\fR option determines how long string literals in diagnostic messages can be\.
 Its valid values go from \fB3\fR to \fBSIZE_MAX - 1\fR and the default is the maximum length of a string literal required by the standard\.
@@ -88,9 +94,9 @@ Luckily it can be to set to \fB__FILE__\fR at the beginning of the test suite
 .PP
 or defined manually\.
 .PP
-Using commas directly inside preprocessor directives like \fBCHEAT_TEST()\fR without support for \fB__VA_ARGS__\fR causes everything that comes after them to be interpreted as extra arguments\.
+Using commas directly inside preprocessor directives like \fBCHEAT_TEST(\fIname\fB, \fIstatements\fB)\fR without support for \fB__VA_ARGS__\fR causes everything that comes after them to be interpreted as extra arguments\.
 .PP
-The expressions given to \fBcheat_assert()\fR and friends should be at most 509 characters long since they are converted into string literals and the limit of their length may be that low\.
+The expressions given to \fBcheat_assert(bool expected)\fR and friends should be at most 509 characters long since they are converted into string literals and the limit of their length may be that low\.
 .PP
 If the compiler works like Microsoft C\[sl]C\[pl]\[pl] (commonly known as \fIcl.exe\fR) and defines both \fB__BASE_FILE__\fR and \fB__FILE__\fR wrong, then the test suite will be empty\.
 The definition should be fed to the compiler manually\.
@@ -98,7 +104,7 @@ The definition should be fed to the compiler manually\.
 It is not possible to attach a breakpoint to any of the identifiers that are part of the programming interface\.
 Attaching one to \fBCHEAT_GET(\fIname\fB)\fR or \fBcheat_check()\fR should work instead\.
 .SH AUTHOR
-The project was started on 2012-08-07 and first released on 2014-08-07.
+The project was started on 2012-08-07 and first released on 2014-08-07\.
 It was originally written by Guillermo \[lq]Tordek\[rq] Freschi for the entertainment and education of everyone in the ISO\[sl]IEC 9899 community on Freenode\.
 The prototype was later picked up by Sampsa \[lq]Tuplanolla\[rq] Kiiskinen who grew tired of unit testing frameworks that suck and wondered what happened to the one that did not\.
 It was rewritten, stuffed with new features and finally audited in a small scale\.

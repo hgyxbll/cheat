@@ -281,6 +281,12 @@ They work like `CHEAT_TEST(name, statements)` with the exception that
  only when they are not explicitly requested to be run.
 That feature is explained in section 3.3.
 
+Repeated tests can be defined with `CHEAT_REPEAT(name, statements)`, which
+ is otherwise identical with `CHEAT_TEST(name, statements)`, but
+ the statement list is repeated until a failure or
+ `CHEAT_REPETITIONS` is reached.
+Its purpose is to make working with stochastic tests less of a hassle.
+
 Tests need success conditions called assertions and
  those can be checked with `cheat_assert(bool expected)` or
  its logical complement `cheat_assert_not(bool unexpected)`.
@@ -310,6 +316,10 @@ The behavior of the test suite is primarly controlled with command line options.
 However some of the options are compiled into the test suite and
  their default values can be overridden by
  defining them before including the main header.
+
+The `size_t CHEAT_REPETITIONS` option controls the amount of
+ repetitions done by `CHEAT_REPEAT(name, statements)`.
+Its default value is `256`.
 
 The `size_t CHEAT_LIMIT` option determines how long string literals in
  diagnostic messages can be.
@@ -471,7 +481,7 @@ Luckily it can be to set to `__FILE__` at the beginning of the test suite
 ### 5.3   Commas
 
 Using commas directly inside preprocessor directives like
- `CHEAT_TEST()` without support for `__VA_ARGS__` causes
+ `CHEAT_TEST(name, statements)` without support for `__VA_ARGS__` causes
  everything that comes after them to be interpreted as extra arguments.
 
 The solution is to delay the expansion of the commas as
@@ -479,7 +489,7 @@ The solution is to delay the expansion of the commas as
 
 ### 5.4   Expressions
 
-The expressions given to `cheat_assert()` and friends should be
+The expressions given to `cheat_assert(bool expected)` and friends should be
  at most 509 characters long since they are converted into string literals and
  the limit of their length may be that low.
 
@@ -524,6 +534,7 @@ Here is a picture of CHEAT being compiled with Borland Turbo C and
 * `CHEAT_TEST(name, statements)` defines a test
 * `CHEAT_IGNORE(name, statements)` defines a test that does not matter
 * `CHEAT_SKIP(name, statements)` defines a test that is not run
+* `CHEAT_REPEAT(name, statements)` defines a test that is repeated several times
 
  
 
@@ -546,6 +557,7 @@ Here is a picture of CHEAT being compiled with Borland Turbo C and
 
  
 
+* `size_t CHEAT_REPETITIONS` controls the amount of repetitions
 * `size_t CHEAT_LIMIT` determines the maximum length of string literals
 * `CHEAT_TIME` sets the time after which unresponsive tests are terminated
 * `int CHEAT_OFFSET` changes the range of internal exit codes

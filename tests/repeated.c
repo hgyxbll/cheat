@@ -1,19 +1,12 @@
+#define CHEAT_REPETITIONS 27
+
 #include <cheat.h>
+#include <stdlib.h>
 
-CHEAT_TEST(success,
-	size_t index;
-
-	for (index = 1;
-			index < 13;
-			++index)
-		cheat_assert(index % 42);
+CHEAT_REPEAT(success_maybe,
+	cheat_assert(rand() % 42 != 0);
 )
 
-CHEAT_TEST(failure,
-	size_t index;
-
-	for (index = 1;
-			index < 42;
-			++index)
-		cheat_assert(index % 13);
+CHEAT_REPEAT(failure_maybe,
+	cheat_assert(rand() % 13 != 0);
 )
