@@ -20,17 +20,20 @@ Identifiers starting with CHEATS_ and cheats_ are reserved for internal use.
 #include <string.h>
 
 /*
-This prevents having to compile with -lm since
+These prevent having to compile with -lm since
  some assertions make use of fabs() and friends.
 */
+
 #ifndef CHEAT_NO_MATH
 #include <math.h>
 #endif
 
 #ifdef CHEAT_MODERN
-#include <complex.h>
 #include <inttypes.h>
 #include <stdint.h>
+#ifndef CHEAT_NO_MATH
+#include <complex.h>
+#endif
 #endif
 
 /*
@@ -46,8 +49,7 @@ This computes an upper bound for the string length of a floating point type.
 	static void cheat_check_##name(struct cheat_suite* const suite, \
 			bool const negate, type const actual, type const expected, \
 			char const* const file, size_t const line) { \
-		if (cheat_further(suite->outcome) \
-				&& (actual == expected) != !negate) { \
+		if (cheat_further(suite->outcome) && (actual == expected) != !negate) { \
 			char const* comparator; \
 			char* expression; \
 \
@@ -184,8 +186,45 @@ CHEAT_GENERATE_FLOATING(double, double, fabs, "%g")
 
 #endif
 
-CHEAT_GENERATE_INTEGER(size, size_t, CHEAT_SIZE_FORMAT)
-CHEAT_GENERATE_INTEGER(ptrdiff, ptrdiff_t, CHEAT_POINTER_FORMAT)
+#define CHEAT_GENERATE_SPECIAL(name, type, cast, specifier) \
+	__attribute__ ((__io__, __nonnull__ (1, 5), __unused__)) \
+	static void cheat_check_##name(struct cheat_suite* const suite, \
+			bool const negate, type const actual, type const expected, \
+			char const* const file, size_t const line) { \
+		if (cheat_further(suite->outcome) && (actual == expected) != !negate) { \
+			cast cast_actual; \
+			cast cast_expected; \
+			char const* comparator; \
+			char* expression; \
+\
+			suite->outcome = CHEAT_FAILED; \
+\
+			cast_actual = (cast )actual;\
+			cast_expected = (cast )expected;\
+\
+			if (negate) \
+				comparator = "!="; \
+			else \
+				comparator = "=="; \
+\
+			expression = CHEAT_CAST(char*, cheat_allocate_total(4, \
+						CHEAT_INTEGER_LENGTH(cast_actual), strlen(comparator), \
+						CHEAT_INTEGER_LENGTH(cast_expected), (size_t )3)); \
+			if (expression == NULL) \
+				cheat_death("failed to allocate memory", errno); \
+\
+			if (cheat_print_string(expression, \
+						specifier " %s " specifier, \
+						3, cast_actual, comparator, cast_expected) < 0) \
+				cheat_death("failed to build a string", errno); \
+\
+			cheat_print_failure(suite, expression, file, line); \
+		} \
+	}
+
+CHEAT_GENERATE_SPECIAL(size, size_t, CHEAT_SIZE_TYPE, CHEAT_SIZE_FORMAT)
+CHEAT_GENERATE_SPECIAL(ptrdiff, ptrdiff_t,
+		CHEAT_POINTER_TYPE, CHEAT_POINTER_FORMAT)
 
 #define cheat_assert_size(actual, expected) \
 	cheat_check_size(&cheat_suite, false, actual, expected, \
