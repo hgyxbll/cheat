@@ -38,13 +38,11 @@ First you need to download the main header
 
 Then you are ready to write tests.
 
-	[user@computer:~]$ cd project
-
 ### 1.2   Writing Tests
 
 Tests go into their own source file.
 
-	[user@computer:project]$ cat > tests.c
+	[user@computer:~/project]$ cat > tests.c
 	#include <cheat.h>
 
 It is an ordinary file with the exception that it is processed more than once.
@@ -59,8 +57,8 @@ You can define tests with `CHEAT_TEST(name, statements)` and
  their success conditions called assertions with `cheat_assert(bool expected)`.
 Doing so is demonstrated in the example file.
 
-	[user@computer:project]$ wget http://github.com/Tuplanolla/cheat/raw/master/example.c
-	[user@computer:project]$ mv -i example.c tests.c
+	[user@computer:~/project]$ wget http://github.com/Tuplanolla/cheat/raw/master/example.c
+	[user@computer:~/project]$ mv -i example.c tests.c
 
 The example also shows how you can declare global variables with
  `CHEAT_DECLARE(declarations)` and manage them with
@@ -78,7 +76,7 @@ It is time to run your new tests.
 
 Tests compile into an executable
 
-	[user@computer:project]$ gcc -I . -o tests tests.c
+	[user@computer:~/project]$ gcc -I . -o tests tests.c
 
  that takes care of running the tests and reporting their outcomes.
 There are two things that need to be taken care of when compiling a test suite.
@@ -91,7 +89,7 @@ The reason is related to the previous oddity and again found in section 2.3.
 The resulting executable runs tests in a security harness if possible, so
  the suite does not crash or hang if one of its tests does.
 
-	[user@computer:project]$ ./tests
+	[user@computer:~/project]$ ./tests
 	..:..??..!..
 	---
 	tests.c:81: assertion in 'philosophy_never_worked' failed: 'heap == stack'
@@ -122,13 +120,13 @@ A test suite is considered successful if and only if
  every single one of its tests completes without failing a single assertion.
 The outcome is also reflected by the exit code of the process.
 
-	[user@computer:project]$ echo returned $?
+	[user@computer:~/project]$ echo returned $?
 	returned 1
 
 You can change the behavior of the test suite with command line options or
  force running individual tests by giving their names as arguments.
 
-	[user@computer:project]$ ./tests --list --minimal | xargs ./tests
+	[user@computer:~/project]$ ./tests --list --minimal | xargs ./tests
 	..:..:.:..!..
 	---
 	example.c:81: assertion in 'philosophy_never_worked' failed: 'heap == stack'
@@ -144,12 +142,12 @@ The option syntax is specified in section 3.3.
 
 There is an extension header in addition to the main header.
 
-	[user@computer:project]$ wget http://github.com/Tuplanolla/cheat/raw/master/cheats.h
+	[user@computer:~/project]$ wget http://github.com/Tuplanolla/cheat/raw/master/cheats.h
 
 It is supposed to be used as a supplement and
  expects the main header to be included first.
 
-	[user@computer:project]$ cat > tests.c
+	[user@computer:~/project]$ cat > tests.c
 	#include <cheat.h>
 	#include <cheats.h>
 
@@ -160,8 +158,8 @@ It provides specialized assertions like
 
 Its features are demonstrated in the additional example file.
 
-	[user@computer:project]$ wget http://github.com/Tuplanolla/cheat/raw/master/examples.c
-	[user@computer:project]$ mv -i examples.c tests.c
+	[user@computer:~/project]$ wget http://github.com/Tuplanolla/cheat/raw/master/examples.c
+	[user@computer:~/project]$ mv -i examples.c tests.c
 
 You can read more about the extensions in section 3.4.
 
@@ -238,27 +236,27 @@ You can acquire them by cloning the repository
 In addition to the main header there is an extension header and
  examples of how to use them with various compilers.
 
-	[user@computer:cheat]$ less example.c examples.c
-	[user@computer:cheat]$ make -f makefile.gcc
+	[user@computer:~/cheat]$ less example.c examples.c
+	[user@computer:~/cheat]$ make -f makefile.gcc
 
 The extensions are introduced in section 3.4.
 
 There are also tests for corner cases,
 
-	[user@computer:cheat]$ ls tests
-	[user@computer:cheat]$ ./test
+	[user@computer:~/cheat]$ ls tests
+	[user@computer:~/cheat]$ ./test
 
  supplementary reading material
 
-	[user@computer:cheat]$ man ./cheat.7
-	[user@computer:cheat]$ sudo cp -i cheat.7 /usr/man/man7
-	[user@computer:cheat]$ sudo gzip /usr/man/man7/cheat.7
+	[user@computer:~/cheat]$ man ./cheat.7
+	[user@computer:~/cheat]$ sudo cp -i cheat.7 /usr/man/man7
+	[user@computer:~/cheat]$ sudo gzip /usr/man/man7/cheat.7
 
  and things used during development.
 
-	[user@computer:cheat]$ xdot streams.dot
-	[user@computer:cheat]$ tcc -run meta.c 4
-	[user@computer:cheat]$ rm -i windowed.h
+	[user@computer:~/cheat]$ xdot streams.dot
+	[user@computer:~/cheat]$ tcc -run meta.c 4
+	[user@computer:~/cheat]$ rm -i windowed.h
 
 ### 3.2   Interface
 
@@ -444,7 +442,7 @@ While the project does not rely on a particular compiler,
 Specialized build automation scripts are provided to
  help hammer out common problems and save you from needless frustration.
 
-	[user@computer:cheat]$ make -f makefile.gcc
+	[user@computer:~/cheat]$ make -f makefile.gcc
 
 	computer# make -f makefile.tcc
 
@@ -459,7 +457,7 @@ It abides by ISO/IEC 14882:1998 as far as is reasonable.
 
 Hopefully it is not an issue to wade through a million warnings.
 
-	[user@computer:cheat]$ make -e CC=g++ -f makefile.gcc
+	[user@computer:~/cheat]$ make -e CC=g++ -f makefile.gcc
 
 ## 5   Bugs and Limitations
 
