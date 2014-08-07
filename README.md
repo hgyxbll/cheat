@@ -26,7 +26,7 @@ Compatibility with other tools and operating systems is addressed in section 4.
 
 First you need to download the main header
 
-	[user@computer:~]$ wget http://github.com/Tuplanolla/cheat/raw/master/cheat.h
+	[user@computer:~]$ wget http://github.com/Tuplanolla/cheat/raw/1.0.0/cheat.h
 
  and move it to a suitable location like the global search path
 
@@ -57,7 +57,7 @@ You can define tests with `CHEAT_TEST(name, statements)` and
  their success conditions called assertions with `cheat_assert(bool expected)`.
 Doing so is demonstrated in the example file.
 
-	[user@computer:~/project]$ wget http://github.com/Tuplanolla/cheat/raw/master/example.c
+	[user@computer:~/project]$ wget http://github.com/Tuplanolla/cheat/raw/1.0.0/example.c
 	[user@computer:~/project]$ mv -i example.c tests.c
 
 The example also shows how you can declare global variables with
@@ -142,7 +142,7 @@ The option syntax is specified in section 3.3.
 
 There is an extension header in addition to the main header.
 
-	[user@computer:~/project]$ wget http://github.com/Tuplanolla/cheat/raw/master/cheats.h
+	[user@computer:~/project]$ wget http://github.com/Tuplanolla/cheat/raw/1.0.0/cheats.h
 
 It is supposed to be used as a supplement and
  expects the main header to be included first.
@@ -158,7 +158,7 @@ It provides specialized assertions like
 
 Its features are demonstrated in the additional example file.
 
-	[user@computer:~/project]$ wget http://github.com/Tuplanolla/cheat/raw/master/examples.c
+	[user@computer:~/project]$ wget http://github.com/Tuplanolla/cheat/raw/1.0.0/examples.c
 	[user@computer:~/project]$ mv -i examples.c tests.c
 
 You can read more about the extensions in section 3.4.
@@ -228,9 +228,9 @@ You can acquire them by cloning the repository
 
  or downloading the clone directly.
 
-	[user@computer:~]$ wget http://github.com/Tuplanolla/cheat/archive/master.zip
-	[user@computer:~]$ unzip master.zip
-	[user@computer:~]$ mv -i cheat-master cheat
+	[user@computer:~]$ wget http://github.com/Tuplanolla/cheat/archive/1.0.0.zip
+	[user@computer:~]$ unzip 1.0.0.zip
+	[user@computer:~]$ mv -i cheat-1.0.0 cheat
 	[user@computer:~]$ cd cheat
 
 In addition to the main header there is an extension header and
@@ -520,17 +520,17 @@ Everyone likes pretty pictures.
 Here is a picture of CHEAT being compiled with the GNU Compiler Collection and
  run in the Xfce terminal emulator that is provided by a Linux distribution.
 
-![Screenshot](http://raw.github.com/Tuplanolla/cheat/master/pictures/xfce.png)
+![Screenshot](http://raw.github.com/Tuplanolla/cheat/1.0.0/pictures/xfce.png)
 
 Here is a picture of CHEAT being compiled with Microsoft C/C++ and
  run in the command prompt of Windows XP.
 
-![Another Screenshot](http://raw.github.com/Tuplanolla/cheat/master/pictures/xp.png)
+![Another Screenshot](http://raw.github.com/Tuplanolla/cheat/1.0.0/pictures/xp.png)
 
 Here is a picture of CHEAT being compiled with Borland Turbo C and
  run in the default shell of FreeDOS.
 
-![Yet Another Screenshot](http://raw.github.com/Tuplanolla/cheat/master/pictures/dos.png)
+![Yet Another Screenshot](http://raw.github.com/Tuplanolla/cheat/1.0.0/pictures/dos.png)
 
 ## 7   Reference
 
