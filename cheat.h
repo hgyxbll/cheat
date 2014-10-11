@@ -2478,7 +2478,7 @@ These determine the reserved names.
 	(CHEAT_GET(name)())
 
 /*
-This pass declare the prototypes of test and utility procedures.
+This pass declares the prototypes of test and utility procedures.
 */
 #define CHEAT_PASS 1 /* This is informational. */
 

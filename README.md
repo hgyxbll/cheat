@@ -111,7 +111,7 @@ The first part is the progress bar, where
 The second part contains diagnostic messages in
  a format similar to what many popular C compilers produce.
 
-The third and fourth part, which is omitted here, holds the contents of
+The third and fourth parts, which are omitted here, hold the contents of
  the captured standard output and error streams.
 
 The fifth and last part, which is always shown, briefly summarizes what
@@ -444,7 +444,11 @@ Specialized build automation scripts are provided to
 
 	[user@computer:~/cheat]$ make -f makefile.gcc
 
+ 
+
 	computer# make -f makefile.tcc
+
+ 
 
 	E:\CHEAT> makefile.bat
 
@@ -509,9 +513,18 @@ The definition should be fed to the compiler manually.
 ### 5.6   Debugging
 
 It is not possible to attach a breakpoint to
- any of the identifiers that are part of the programming interface.
+ any of the identifiers that are part of the public interface,
+ because they are all preprocessor directives.
 
 Attaching one to `CHEAT_GET(name)` or `cheat_check()` should work instead.
+
+### 5.7   Printing
+
+Streams are captured by default, so
+ it is not possible to print things on the screen while the tests are running.
+
+However using the `CHEAT_NO_WRAP` option with
+ the `--dangerous` option allows bypassing stream capturing.
 
 ## 6   Screenshots
 

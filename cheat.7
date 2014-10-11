@@ -105,9 +105,12 @@ The expressions given to \fBcheat_assert(bool expected)\fR and friends should be
 If the compiler works like Microsoft C\[sl]C\[pl]\[pl] (commonly known as \fIcl.exe\fR) and defines both \fB__BASE_FILE__\fR and \fB__FILE__\fR wrong, then the test suite will be empty\.
 The definition should be fed to the compiler manually\.
 .PP
-It is not possible to attach a breakpoint to any of the identifiers that are part of the programming interface\.
+It is not possible to attach a breakpoint to any of the identifiers that are part of the public interface, because they are all preprocessor directives.
 Attaching one to \fBCHEAT_GET(\fIname\fB)\fR or \fBcheat_check()\fR should work instead\.
-.SH AUTHOR
+.PP
+Streams are captured by default, so it is not possible to print things on the screen while the tests are running\.
+However using the \fBCHEAT_NO_WRAP\fR option with the \fB--dangerous\fR option allows bypassing stream capturing\.
+.SH AUTHORS
 The project was started on 2012-08-07 and first released on 2014-08-07\.
 It was originally written by Guillermo \[lq]Tordek\[rq] Freschi for the entertainment and education of everyone in the ISO\[sl]IEC 9899 community on Freenode\.
 The prototype was later picked up by Sampsa \[lq]Tuplanolla\[rq] Kiiskinen who grew tired of unit testing frameworks that suck and wondered what happened to the one that did not\.
