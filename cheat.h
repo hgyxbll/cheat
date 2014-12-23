@@ -1220,7 +1220,7 @@ terminates the program in case of a failure.
 */
 __attribute__ ((__io__))
 static void cheat_print_version(void) {
-	(void )fputs("CHEAT 1.0.0", stdout); /* This is always boring. */
+	(void )fputs("CHEAT 1.0.1", stdout); /* This is always boring. */
 	(void )fputc('\n', stdout);
 }
 
