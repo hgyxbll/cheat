@@ -1,0 +1,90 @@
+digraph dependencies {
+	layout = neato
+	overlap = false
+
+	node [shape = oval]
+
+	example [label = "example.c"]
+
+	node [shape = diamond]
+
+	cheat [label = "cheat.h"]
+
+	example -> cheat
+
+	node [shape = rectangle]
+
+	ctype [label = "ctype.h"]
+	errno [label = "errno.h"]
+	limits [label = "limits.h"]
+	setjmp [label = "setjmp.h"]
+	signal [label = "signal.h"]
+	stdarg [label = "stdarg.h"]
+	stddef [label = "stddef.h"]
+	stdio [label = "stdio.h"]
+	stdlib [label = "stdlib.h"]
+	string [label = "string.h"]
+
+	cheat -> errno
+	cheat -> ctype
+	cheat -> limits
+	cheat -> setjmp
+	cheat -> signal
+	cheat -> stdarg
+	cheat -> stddef
+	cheat -> stdio
+	cheat -> stdlib
+	cheat -> string
+	example -> stddef
+	example -> stdio
+	example -> string
+
+	node [style = dashed]
+	edge [style = dashed]
+
+	node [shape = oval]
+
+	examples [label = "examples.c"]
+
+	node [shape = diamond]
+
+	cheats [label = "cheats.h"]
+
+	examples -> cheat
+	examples -> cheats
+
+	node [shape = rectangle]
+
+	complex [label = "complex.h"]
+	inttypes [label = "inttypes.h"]
+	math [label = "math.h"]
+	stdbool [label = "stdbool.h"]
+	stdint [label = "stdint.h"]
+
+	cheat -> stdbool
+	cheat -> stdint
+	cheats -> complex
+	cheats -> inttypes
+	cheats -> math
+	cheats -> stdint
+	cheats -> string
+	examples -> stddef
+	examples -> string
+
+	node [style = dotted]
+	edge [style = dotted]
+
+	types [label = "sys/types.h"]
+	wait [label = "sys/wait.h"]
+	select [label = "sys/select.h"]
+	time [label = "sys/time.h"]
+	unistd [label = "unistd.h"]
+	windows [label = "windows.h"]
+
+	cheat -> types
+	cheat -> wait
+	cheat -> select
+	cheat -> time
+	cheat -> unistd
+	cheat -> windows
+}

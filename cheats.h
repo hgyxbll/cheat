@@ -21,7 +21,7 @@ Identifiers starting with CHEATS_ and cheats_ are reserved for internal use.
 
 /*
 These prevent having to compile with -lm since
- some assertions make use of fabs() and friends.
+some assertions make use of fabs() and friends.
 */
 
 #ifndef CHEAT_NO_MATH
