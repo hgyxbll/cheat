@@ -287,7 +287,7 @@ This computes an upper bound for the string length of an unsigned integer type.
 */
 #define CHEAT_INTEGER_LENGTH(type) \
 	(CHAR_BIT * sizeof type / 3 + 1) /* This is derived from
-		the base 2 logarithm of 10. */
+			the base 2 logarithm of 10. */
 
 /*
 This prints an error message and terminates the program.
@@ -301,7 +301,7 @@ might only contain the least significant bytes of the actual error code.
 				__FILE__, __LINE__, message, (unsigned int )number); \
 		exit(EXIT_FAILURE); \
 	CHEAT_END /* Using cheat_print(), cheat_exit() and
-		cheat_suite is intentionally avoided here. */
+			cheat_suite is intentionally avoided here. */
 
 /*
 These could be defined as function types instead of function pointer types, but
@@ -2048,6 +2048,10 @@ static void cheat_run_specific(struct cheat_suite* const suite,
 		cheat_isolate_test(suite, unit);
 		break;
 	case CHEAT_DANGEROUS:
+		if (suite->harness == CHEAT_DANGEROUS)
+			cheat_register_handler(suite->handler); /* This is here, because
+					signal handlers may be cleared after each use. */
+
 		status = setjmp(suite->environment);
 		if (status == 0)
 			cheat_run_coupled_test(suite, unit);
@@ -2110,9 +2114,6 @@ terminates the program in case of a failure.
 __attribute__ ((__io__, __nonnull__))
 static void cheat_run_suite(struct cheat_suite* const suite,
 		struct cheat_string_list const* const names) {
-	if (suite->harness == CHEAT_DANGEROUS)
-		cheat_register_handler(suite->handler);
-
 	suite->force = names->count != 0;
 
 	if (suite->force)
