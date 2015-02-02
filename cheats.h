@@ -47,30 +47,33 @@ This computes an upper bound for the string length of a floating point type.
 #define CHEAT_GENERATE_INTEGER(name, type, specifier) \
 	__attribute__ ((__io__, __nonnull__ (1, 5), __unused__)) \
 	static void cheat_check_##name(struct cheat_suite* const suite, \
-			bool const negate, type const actual, type const expected, \
-			char const* const file, size_t const line) { \
+			bool const negate, \
+			type const actual, \
+			type const expected, \
+			char const* const file, \
+			size_t const line) { \
 		if (cheat_further(suite->outcome) && (actual == expected) != !negate) { \
 			char const* comparator; \
 			char* expression; \
-\
+			\
 			suite->outcome = CHEAT_FAILED; \
-\
+			\
 			if (negate) \
 				comparator = "!="; \
 			else \
 				comparator = "=="; \
-\
+			\
 			expression = CHEAT_CAST(char*, cheat_allocate_total(4, \
 						CHEAT_INTEGER_LENGTH(actual), strlen(comparator), \
 						CHEAT_INTEGER_LENGTH(expected), (size_t )3)); \
 			if (expression == NULL) \
 				cheat_death("failed to allocate memory", errno); \
-\
+			\
 			if (cheat_print_string(expression, \
 						specifier " %s " specifier, \
 						3, actual, comparator, expected) < 0) \
 				cheat_death("failed to build a string", errno); \
-\
+			\
 			cheat_print_failure(suite, expression, file, line); \
 		} \
 	}
@@ -144,32 +147,35 @@ CHEAT_GENERATE_INTEGER(long_unsigned_int, long unsigned int, "%lu")
 #define CHEAT_GENERATE_FLOATING(name, type, abs, specifier) \
 	__attribute__ ((__io__, __nonnull__ (1, 6), __unused__)) \
 	static void cheat_check_##name(struct cheat_suite* const suite, \
-			bool const negate, type const tolerance, \
-			type const actual, type const expected, \
-			char const* const file, size_t const line) { \
+			bool const negate, \
+			type const tolerance, \
+			type const actual, \
+			type const expected, \
+			char const* const file, \
+			size_t const line) { \
 		if (cheat_further(suite->outcome) \
 				&& (abs(actual - expected) <= tolerance) != !negate) { \
 			char const* comparator; \
 			char* expression; \
-\
+			\
 			suite->outcome = CHEAT_FAILED; \
-\
+			\
 			if (negate) \
 				comparator = "~!="; \
 			else \
 				comparator = "~=="; \
-\
+			\
 			expression = CHEAT_CAST(char*, cheat_allocate_total(4, \
 						CHEAT_FLOATING_LENGTH(actual), strlen(comparator), \
 						CHEAT_FLOATING_LENGTH(expected), (size_t )3)); \
 			if (expression == NULL) \
 				cheat_death("failed to allocate memory", errno); \
-\
+			\
 			if (cheat_print_string(expression, \
 						specifier " %s " specifier, \
 						3, actual, comparator, expected) < 0) \
 				cheat_death("failed to build a string", errno); \
-\
+			\
 			cheat_print_failure(suite, expression, file, line); \
 		} \
 	}
@@ -189,35 +195,38 @@ CHEAT_GENERATE_FLOATING(double, double, fabs, "%g")
 #define CHEAT_GENERATE_SPECIAL(name, type, cast, specifier) \
 	__attribute__ ((__io__, __nonnull__ (1, 5), __unused__)) \
 	static void cheat_check_##name(struct cheat_suite* const suite, \
-			bool const negate, type const actual, type const expected, \
-			char const* const file, size_t const line) { \
+			bool const negate, \
+			type const actual, \
+			type const expected, \
+			char const* const file, \
+			size_t const line) { \
 		if (cheat_further(suite->outcome) && (actual == expected) != !negate) { \
 			cast cast_actual; \
 			cast cast_expected; \
 			char const* comparator; \
 			char* expression; \
-\
+			\
 			suite->outcome = CHEAT_FAILED; \
-\
+			\
 			cast_actual = (cast )actual;\
 			cast_expected = (cast )expected;\
-\
+			\
 			if (negate) \
 				comparator = "!="; \
 			else \
 				comparator = "=="; \
-\
+			\
 			expression = CHEAT_CAST(char*, cheat_allocate_total(4, \
 						CHEAT_INTEGER_LENGTH(cast_actual), strlen(comparator), \
 						CHEAT_INTEGER_LENGTH(cast_expected), (size_t )3)); \
 			if (expression == NULL) \
 				cheat_death("failed to allocate memory", errno); \
-\
+			\
 			if (cheat_print_string(expression, \
 						specifier " %s " specifier, \
 						3, cast_actual, comparator, cast_expected) < 0) \
 				cheat_death("failed to build a string", errno); \
-\
+			\
 			cheat_print_failure(suite, expression, file, line); \
 		} \
 	}
@@ -547,34 +556,37 @@ CHEAT_GENERATE_INTEGER(uintptr, uintptr_t, "%" PRIuPTR)
 #define CHEAT_GENERATE_COMPLEX(name, type, abs, real, imag, specifier) \
 	__attribute__ ((__io__, __nonnull__ (1, 6), __unused__)) \
 	static void cheat_check_##name(struct cheat_suite* const suite, \
-			bool const negate, type const tolerance, \
-			type complex const actual, type complex const expected, \
-			char const* const file, size_t const line) { \
+			bool const negate, \
+			type const tolerance, \
+			type complex const actual, \
+			type complex const expected, \
+			char const* const file, \
+			size_t const line) { \
 		if (cheat_further(suite->outcome) \
 				&& (abs(actual - expected) <= tolerance) != !negate) { \
 			char const* comparator; \
 			char* expression; \
-\
+			\
 			suite->outcome = CHEAT_FAILED; \
-\
+			\
 			if (negate) \
 				comparator = "~!="; \
 			else \
 				comparator = "~=="; \
-\
+			\
 			expression = CHEAT_CAST(char*, cheat_allocate_total(4, \
 						CHEAT_FLOATING_LENGTH(actual), strlen(comparator), \
 						CHEAT_FLOATING_LENGTH(expected), (size_t )7)); \
 			if (expression == NULL) \
 				cheat_death("failed to allocate memory", errno); \
-\
+			\
 			if (cheat_print_string(expression, \
 						specifier "+" specifier "i" \
 						" %s " specifier "+" specifier "i", \
 						5, real(actual), imag(actual), comparator, \
 						real(expected), imag(expected)) < 0) \
 				cheat_death("failed to build a string", errno); \
-\
+			\
 			cheat_print_failure(suite, expression, file, line); \
 		} \
 	}
@@ -648,8 +660,11 @@ CHEAT_GENERATE_INTEGER(pointer, void const*, "%p")
 
 __attribute__ ((__io__, __nonnull__ (1, 5), __unused__))
 static void cheat_check_string(struct cheat_suite* const suite,
-		bool const negate, char const* const actual, char const* const expected,
-		char const* const file, size_t const line) {
+		bool const negate,
+		char const* const actual,
+		char const* const expected,
+		char const* const file,
+		size_t const line) {
 	if (cheat_further(suite->outcome)
 			&& (actual == expected
 				|| (actual != NULL && expected != NULL
@@ -665,8 +680,8 @@ static void cheat_check_string(struct cheat_suite* const suite,
 			comparator = "==";
 
 		expression = CHEAT_CAST(char*, cheat_allocate_total(4,
-					strlen(actual), strlen(comparator), strlen(expected),
-					(size_t )7));
+					strlen(actual), strlen(comparator),
+					strlen(expected), (size_t )7));
 		if (expression == NULL)
 			cheat_death("failed to allocate memory", errno);
 

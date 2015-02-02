@@ -260,8 +260,8 @@ and things used during development.
 
 ### 3.2   Interface
 
-Tests can be defined with `CHEAT_TEST(name, statements)`,
-where `name` must be a valid identifier and `statements` a list of statements.
+Tests can be defined with `CHEAT_TEST(name, statements)`, where
+`name` must be a valid identifier and `statements` a list of statements.
 The identifier must not conflict with an existing preprocessor directive.
 For example `putc` is not a valid identifier, because
 it is reserved by the standard library and
@@ -513,8 +513,8 @@ The definition should be fed to the compiler manually.
 ### 5.6   Debugging
 
 It is not possible to attach a breakpoint to
-any of the identifiers that are part of the public interface,
-because they are all preprocessor directives.
+any of the identifiers that are part of the public interface, because
+they are all preprocessor directives.
 
 Attaching one to `CHEAT_GET(name)` or `cheat_check()` should work instead.
 

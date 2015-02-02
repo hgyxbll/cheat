@@ -18,76 +18,123 @@ CHEAT\[ru]TEST(mathematics\[ru]still\[ru]work,
 )
 .fi
 .SH USAGE
-Tests can be defined with \fBCHEAT_TEST(\fIname\fB, \fIstatements\fB)\fR, where \fIname\fR must be a valid identifier and \fIstatements\fR a list of statements\.
+Tests can be defined with \fBCHEAT_TEST(\fIname\fB, \fIstatements\fB)\fR, where
+\fIname\fR must be a valid identifier and \fIstatements\fR a list of statements\.
 The identifier must not conflict with an existing preprocessor directive\.
-For example \fIputc\fR is not a valid identifier, because it is reserved by the standard library and \fIexit\fR and \fIwrite\fR may not be valid unless \fBCHEAT_NO_WRAP\fR is defined, because procedures that resemble continuations or effects are wrapped by default\.
+For example \fIputc\fR is not a valid identifier, because
+it is reserved by the standard library and
+\fIexit\fR and \fIwrite\fR may not be valid unless \fBCHEAT_NO_WRAP\fR is defined, because
+procedures that resemble continuations or effects are wrapped by default\.
 The list of statements must not be empty or ambiguous\.
-For example \fBint \fIx\fB, \fIy\fB;\fR may be interpreted as an invalid parameter list if the compiler does not support \fB__VA_ARGS__\fR\.
+For example \fBint \fIx\fB, \fIy\fB;\fR may be interpreted as an invalid parameter list if
+the compiler does not support \fB__VA_ARGS__\fR\.
 .PP
-Tests can also be defined with \fBCHEAT_IGNORE(\fIname\fB, \fIstatements\fB)\fR and \fBCHEAT_SKIP(\fIname\fB, \fIstatements\fB)\fR\.
-They work like \fBCHEAT_TEST(\fIname\fB, \fIstatements\fB)\fR with the exception that the outcome of the former is ignored and the latter is not executed at all, but only when they are not explicitly requested to be run\.
+Tests can also be defined with
+\fBCHEAT_IGNORE(\fIname\fB, \fIstatements\fB)\fR and \fBCHEAT_SKIP(\fIname\fB, \fIstatements\fB)\fR\.
+They work like \fBCHEAT_TEST(\fIname\fB, \fIstatements\fB)\fR with the exception that
+the outcome of the former is ignored and the latter is not executed at all, but
+only when they are not explicitly requested to be run\.
 .PP
-Repeated tests can be defined with \fBCHEAT_REPEAT(\fIname\fB, \fIstatements\fB)\fR, which is otherwise identical with \fBCHEAT_TEST(\fIname\fB, \fIstatements\fB)\fR, but the statement list is repeated until a failure or \fBCHEAT_REPETITIONS\fR is reached\.
+Repeated tests can be defined with \fBCHEAT_REPEAT(\fIname\fB, \fIstatements\fB)\fR, which
+is otherwise identical with \fBCHEAT_TEST(\fIname\fB, \fIstatements\fB)\fR, but
+the statement list is repeated until a failure or
+\fBCHEAT_REPETITIONS\fR is reached\.
 Its purpose is to make working with stochastic tests less of a hassle\.
 .PP
-Manually interrupting tests that have already failed can be achieved by calling \fBcheat_yield(void)\fR in the appropriate place\.
-It must not be used outside test cases or compatible procedures, because it can only alter the control flow of the procedure it is called from\.
-Here compatible procedures mean procedures that have the same type as \fBCHEAT_GET(\fIname\fB)\fR for any valid \fIname\fR\.
+Manually interrupting tests that have already failed can be achieved by
+calling \fBcheat_yield(void)\fR in the appropriate place\.
+It must not be used outside test cases or compatible procedures, because
+it can only alter the control flow of the procedure it is called from\.
+Here compatible procedures mean procedures that have the same type as
+\fBCHEAT_GET(\fIname\fB)\fR for any valid \fIname\fR\.
 .PP
-Tests need success conditions called assertions and those can be checked with \fBcheat_assert(bool \fIexpected\fB)\fR or its logical complement \fBcheat_assert_not(bool \fIunexpected\fB)\fR\.
+Tests need success conditions called assertions and
+those can be checked with \fBcheat_assert(bool \fIexpected\fB)\fR or
+its logical complement \fBcheat_assert_not(bool \fIunexpected\fB)\fR\.
 The condition is satisfied if \fBexpected\fR is true or, in other words, not zero\.
 .PP
-In addition to tests it is possible to write global declarations by putting them inside \fBCHEAT_DECLARE(\fIdeclarations\fB)\fR, where \fBdeclarations\fR must be a valid list of top level declarations or definitions\.
-Preprocessor directives do not need it since an \fB#ifndef\fR condition works similarly\.
+In addition to tests it is possible to write global declarations by
+putting them inside \fBCHEAT_DECLARE(\fIdeclarations\fB)\fR, where
+\fBdeclarations\fR must be a valid list of top level declarations or definitions\.
+Preprocessor directives do not need it since
+an \fB#ifndef\fR condition works similarly\.
 Global definitions can also contain assertions and be called from within tests\.
 .PP
-Running code before and after each test can be done with \fBCHEAT_SET_UP(\fIstatements\fB)\fR and \fBCHEAT_TEAR_DOWN(\fIstatements\fB)\fR, where \fBstatements\fR is a list of statements with the same restrictions as before\.
+Running code before and after each test can be done with
+\fBCHEAT_SET_UP(\fIstatements\fB)\fR and \fBCHEAT_TEAR_DOWN(\fIstatements\fB)\fR, where
+\fBstatements\fR is a list of statements with the same restrictions as before\.
 There can be only one set up and one tear down in a test suite\.
 .PP
-The names given to tests are not directly used identifiers, but the identifier of a test can be retrieved with \fBCHEAT_GET(\fIname\fB)\fR, where \fIname\fR must match the name of the test\.
-Pointers to test procedures have the type \fBcheat_procedure\fR or equivalently \fBvoid (*)(void)\fR\.
+The names given to tests are not directly used identifiers, but
+the identifier of a test can be retrieved with \fBCHEAT_GET(\fIname\fB)\fR, where
+\fIname\fR must match the name of the test\.
+Pointers to test procedures have the type \fBcheat_procedure\fR or
+equivalently \fBvoid (*)(void)\fR\.
 .PP
 The convenient \fBCHEAT_CALL(\fIname\fB)\fR is equivalent to \fBCHEAT_GET(\fIname\fB)()\fR\.
 .PP
 The behavior of the test suite is primarly controlled with command line options\.
-However some of the options are compiled into the test suite and their default values can be overridden by defining them before including the main header\.
+However some of the options are compiled into the test suite and
+their default values can be overridden by
+defining them before including the main header\.
 .PP
-The \fBsize_t CHEAT_REPETITIONS\fR option controls the amount of repetitions done by \fBCHEAT_REPEAT(\fIname\fB, \fIstatements\fB)\fR\.
+The \fBsize_t CHEAT_REPETITIONS\fR option controls the amount of
+repetitions done by \fBCHEAT_REPEAT(\fIname\fB, \fIstatements\fB)\fR\.
 Its default value is \fB256\fR\.
 .PP
-The \fBsize_t CHEAT_LIMIT\fR option determines how long string literals in diagnostic messages can be\.
-Its valid values go from \fB3\fR to \fBSIZE_MAX - 1\fR and the default is the maximum length of a string literal required by the standard\.
+The \fBsize_t CHEAT_LIMIT\fR option determines how long string literals in
+diagnostic messages can be\.
+Its valid values go from \fB3\fR to \fBSIZE_MAX - 1\fR and
+the default is the maximum length of a string literal required by the standard\.
 .PP
-The \fBCHEAT_TIME\fR option sets the maximum time after which unresponsive tests are terminated if such a thing is possible\.
+The \fBCHEAT_TIME\fR option sets the maximum time after which
+unresponsive tests are terminated if such a thing is possible\.
 It is always stored in milliseconds, but its type is implementation defined\.
 The default value is two thousand and therefore equal to two seconds\.
 .PP
-The \fBint CHEAT_OFFSET\fR option changes the range of exit codes used for internal interprocess communication\.
-The only reason it exists is to stop serious crashes that use reserved error numbers from showing up with the wrong outcome\.
+The \fBint CHEAT_OFFSET\fR option changes the range of
+exit codes used for internal interprocess communication\.
+The only reason it exists is to stop serious crashes that
+use reserved error numbers from showing up with the wrong outcome\.
 .PP
-The \fBCHEAT_NO_MAIN\fR option removes the \fImain\fR procedure from the test suite, making it possible to link it with other object files\.
+The \fBCHEAT_NO_MAIN\fR option removes the \fImain\fR procedure from the test suite,
+making it possible to link it with other object files\.
 It is not very useful\.
 .PP
-The \fBCHEAT_NO_WRAP\fR option prevents wrapping procedures that resemble continuations or effects\.
+The \fBCHEAT_NO_WRAP\fR option prevents wrapping procedures that
+resemble continuations or effects\.
 Such procedures include \fIexit\fR, \fIprintf\fR, \fIfwrite\fR, \fIfflush\fR and \fIperror\fR\.
-It is only useful if the tests rely on the exact way they call standard library and system procedures or their names clash with existing preprocessor directives\.
+It is only useful if the tests rely on
+the exact way they call standard library and system procedures or
+their names clash with existing preprocessor directives\.
 .PP
-Wrapping can be undone with \fBCHEAT_UNWRAP(\fIname\fB)\fR instead of turning it off or repeated with \fBCHEAT_WRAP(\fIname\fB)\fR if it is already turned off\.
+Wrapping can be undone with \fBCHEAT_UNWRAP(\fIname\fB)\fR instead of turning it off or
+repeated with \fBCHEAT_WRAP(\fIname\fB)\fR if it is already turned off\.
 .PP
-The expansion of commas can be delayed with \fBCHEAT_COMMAS(...)\fR or, in case \fB__VA_ARGS__\fR is not available, with \fBCHEAT_COMMA\fR or the matching \fBCHEAT_COMMAS_\fR \fIn\fR \fB(x1, x2,\fR ... \fB)\fR, where \fIn\fR is the amount of commas in the argument list\.
-For example \fBCHEAT_COMMAS(int \fIx\fB, \fIy\fB;)\fR, \fBint \fIx\fB CHEAT_COMMA \fIy\fB;\fR and \fBCHEAT_COMMAS_1(int \fIx\fB, \fIy\fB;)\fR all expand to \fBint \fIx\fB, \fIy\fB;\fR\.
+The expansion of commas can be delayed with \fBCHEAT_COMMAS(...)\fR or,
+in case \fB__VA_ARGS__\fR is not available, with \fBCHEAT_COMMA\fR or
+the matching \fBCHEAT_COMMAS_\fR \fIn\fR \fB(x1, x2,\fR ... \fB)\fR, where
+\fIn\fR is the amount of commas in the argument list\.
+For example \fBCHEAT_COMMAS(int \fIx\fB, \fIy\fB;)\fR, \fBint \fIx\fB CHEAT_COMMA \fIy\fB;\fR and
+\fBCHEAT_COMMAS_1(int \fIx\fB, \fIy\fB;)\fR all expand to \fBint \fIx\fB, \fIy\fB;\fR\.
 .PP
-Specialized assertions can be checked with the matching \fBcheat_assert_\fR \fIi\fR \fB(\fR \fIt\fR \fB actual, \fR \fIt\fR \fB expected)\fR, where \fIt\fR is its type and \fIi\fR is an identifier built from the type\.
+Specialized assertions can be checked with
+the matching \fBcheat_assert_\fR \fIi\fR \fB(\fR \fIt\fR \fB actual, \fR \fIt\fR \fB expected)\fR, where
+\fIt\fR is its type and \fIi\fR is an identifier built from the type\.
 .PP
-The \fBCHEAT_NO_MATH\fR option disables floating point extensions that use a few mathematical functions and therefore may require compiling the test suite with \fB-lm\fR to link \fIlibm\fR\.
+The \fBCHEAT_NO_MATH\fR option disables floating point extensions that
+use a few mathematical functions and
+therefore may require compiling the test suite with \fB-lm\fR to link \fIlibm\fR\.
 .SH BUGS
 .PP
 CHEAT is naturally fickle, because it is built with heavy preprocessor abuse\.
 .PP
-Identifiers starting with \fBCHEAT_\fR and \fBcheat_\fR are reserved for internal use as C does not have namespaces\.
+Identifiers starting with \fBCHEAT_\fR and \fBcheat_\fR are reserved for
+internal use as C does not have namespaces\.
 Extensions reserve identifiers starting with \fBCHEATS_\fR and \fBcheats_\fR as well\.
 .PP
-If the compiler does not define \fB__BASE_FILE__\fR, then the test suite will fail to compile\.
+If the compiler does not define \fB__BASE_FILE__\fR, then
+the test suite will fail to compile\.
 Luckily it can be to set to \fB__FILE__\fR at the beginning of the test suite
 .PP
 .nf
@@ -98,20 +145,34 @@ Luckily it can be to set to \fB__FILE__\fR at the beginning of the test suite
 .PP
 or defined manually\.
 .PP
-Using commas directly inside preprocessor directives like \fBCHEAT_TEST(\fIname\fB, \fIstatements\fB)\fR without support for \fB__VA_ARGS__\fR causes everything that comes after them to be interpreted as extra arguments\.
+Using commas directly inside preprocessor directives like
+\fBCHEAT_TEST(\fIname\fB, \fIstatements\fB)\fR without support for \fB__VA_ARGS__\fR causes
+everything that comes after them to be interpreted as extra arguments\.
 .PP
-The expressions given to \fBcheat_assert(bool expected)\fR and friends should be at most 509 characters long since they are converted into string literals and the limit of their length may be that low\.
+The expressions given to \fBcheat_assert(bool expected)\fR and friends should be
+at most 509 characters long since they are converted into string literals and
+the limit of their length may be that low\.
 .PP
-If the compiler works like Microsoft C\[sl]C\[pl]\[pl] (commonly known as \fIcl.exe\fR) and defines both \fB__BASE_FILE__\fR and \fB__FILE__\fR wrong, then the test suite will be empty\.
+If the compiler works like Microsoft C\[sl]C\[pl]\[pl] (commonly known as \fIcl.exe\fR) and
+defines both \fB__BASE_FILE__\fR and \fB__FILE__\fR wrong, then the test suite will be empty\.
 The definition should be fed to the compiler manually\.
 .PP
-It is not possible to attach a breakpoint to any of the identifiers that are part of the public interface, because they are all preprocessor directives.
+It is not possible to attach a breakpoint to
+any of the identifiers that are part of the public interface, because
+they are all preprocessor directives.
 Attaching one to \fBCHEAT_GET(\fIname\fB)\fR or \fBcheat_check()\fR should work instead\.
 .PP
-Streams are captured by default, so it is not possible to print things on the screen while the tests are running\.
-However using the \fBCHEAT_NO_WRAP\fR option with the \fB--dangerous\fR option allows bypassing stream capturing\.
+Streams are captured by default, so
+it is not possible to print things on the screen while the tests are running\.
+However using the \fBCHEAT_NO_WRAP\fR option with
+the \fB--dangerous\fR option allows bypassing stream capturing\.
 .SH AUTHORS
-The project was started on 2012-08-07 and first released on 2014-08-07\.
-It was originally written by Guillermo \[lq]Tordek\[rq] Freschi for the entertainment and education of everyone in the ISO\[sl]IEC 9899 community on Freenode\.
-The prototype was later picked up by Sampsa \[lq]Tuplanolla\[rq] Kiiskinen who grew tired of unit testing frameworks that suck and wondered what happened to the one that did not\.
-It was rewritten, stuffed with new features and finally audited in a small scale\.
+The project was started on 2012\(en08\(en07 and first released on 2014\(en08\(en07\.
+It was originally written by Guillermo \[lq]Tordek\[rq] Freschi for
+the entertainment and education of everyone in
+the ISO\[sl]IEC 9899 community on Freenode\.
+The prototype was later picked up by Sampsa \[lq]Tuplanolla\[rq] Kiiskinen who
+grew tired of unit testing frameworks that suck and
+wondered what happened to the one that did not\.
+It was rewritten, stuffed with new features and
+finally audited in a small scale\.
