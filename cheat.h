@@ -346,7 +346,6 @@ struct cheat_character_array {
 struct cheat_string_list {
 	size_t count;
 	size_t capacity;
-	size_t cap;
 	char** items;
 };
 
@@ -809,7 +808,6 @@ __attribute__ ((__nonnull__))
 static void cheat_initialize_string_list(struct cheat_string_list* const list) {
 	list->count = 0;
 	list->capacity = 0;
-	list->cap = SIZE_MAX; /* TODO Mind the cap. */
 	list->items = NULL;
 }
 
@@ -902,6 +900,14 @@ static void cheat_clear_lists(struct cheat_suite* const suite) {
 	cheat_clear_list(&suite->messages);
 	cheat_clear_list(&suite->outputs);
 	cheat_clear_list(&suite->errors);
+}
+
+/*
+Checks whethr a character array list is empty.
+*/
+__attribute__ ((__pure__))
+static bool cheat_list_is_empty(struct cheat_character_array_list* const list) {
+	return list == NULL || list->count == 0 || list->items[0].size == 0;
 }
 
 /*
@@ -1047,17 +1053,13 @@ static void cheat_purge(struct cheat_character_array_list* const list) {
 	cheat_cap(list, cap);
 }
 
-/* TODO These are still buggy, because they are a mere draft.  */
-
 /*
 Rewinds a handle to the first element of an array list, which
 is one element past the end of an empty list.
 */
 __attribute__ ((__nonnull__))
 static void cheat_rewind(cheat_handle* const handle) {
-	if (handle->list == NULL
-			|| handle->list->count == 0
-			|| handle->list->items[0].size == 0) {
+	if (cheat_list_is_empty(handle->list)) {
 		handle->bof = false;
 		handle->eof = true;
 	} else {
@@ -1074,9 +1076,7 @@ is one element past the beginning of an empty list.
 */
 __attribute__ ((__nonnull__, __unused__))
 static void cheat_fast_forward(cheat_handle* const handle) {
-	if (handle->list == NULL
-			|| handle->list->count == 0
-			|| handle->list->items[0].size == 0) {
+	if (cheat_list_is_empty(handle->list)) {
 		handle->bof = true;
 		handle->eof = false;
 	} else {
@@ -1114,8 +1114,12 @@ static int cheat_read_and_advance(cheat_handle* const handle) {
 		return CHEAT_EOF;
 
 	if (value == CHEAT_BOF) {
-		handle->item = 0;
-		handle->element = 0;
+		if (cheat_list_is_empty(handle->list))
+			handle->eof = true;
+		else {
+			handle->item = 0;
+			handle->element = 0;
+		}
 		handle->bof = false;
 
 		return CHEAT_BOF;
@@ -1145,8 +1149,12 @@ static int cheat_read_and_retreat(cheat_handle* const handle) {
 		return CHEAT_BOF;
 
 	if (value == CHEAT_EOF) {
-		handle->item = handle->list->count - 1;
-		handle->element = handle->list->items[handle->item].size - 1;
+		if (cheat_list_is_empty(handle->list))
+			handle->bof = true;
+		else {
+			handle->item = handle->list->count - 1;
+			handle->element = handle->list->items[handle->item].size - 1;
+		}
 		handle->eof = false;
 
 		return CHEAT_EOF;
