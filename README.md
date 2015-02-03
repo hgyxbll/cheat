@@ -366,13 +366,21 @@ For example `CHEAT_COMMAS(int x, y;)`, `int x CHEAT_COMMA y;` and
 
 This should be explained somewhere.
 
-	typedef bool (* cheat_scanner)(cheat_handle*, cheat_reader, cheat_reader)
+	void cheat_cap_messages(size_t)
+
+	void cheat_purge_messages(void)
+
+	CHEAT_SCAN_TYPE
+
+	CHEAT_SCAN_TYPE cheat_scan_messages(cheat_scanner scanner)
 
 	void cheat_rewind(cheat_handle* handle)
 
 	void cheat_fast_forward(cheat_handle* handle)
 
-	bool cheat_scan(struct cheat_character_array_list* list, cheat_scanner scanner)
+	cheat_scanner
+	/* or equivalently */
+	CHEAT_SCAN_TYPE (*)(cheat_handle*, cheat_reader, cheat_reader)
 
 ### 3.3   Options
 

@@ -287,6 +287,13 @@ Bidirectional stream operations make use of these.
 #endif
 
 /*
+This sets the return type of scanners.
+*/
+#ifndef CHEAT_SCAN_TYPE
+#define CHEAT_SCAN_TYPE bool
+#endif
+
+/*
 These make preprocessor directives work like statements.
 */
 #define CHEAT_BEGIN do {
@@ -334,7 +341,7 @@ typedef void (* cheat_handler)(int); /* A recovery procedure. */
 typedef int (* cheat_reader)(cheat_handle*); /* A procedure that
 		reads a character from a handle and
 		returns it as an unsigned char cast to an int or CHEAT_EOF. */
-typedef bool (* cheat_scanner)(cheat_handle*,
+typedef CHEAT_SCAN_TYPE (* cheat_scanner)(cheat_handle*,
 		cheat_reader,
 		cheat_reader); /* A procedure that can read bytes from a handle and
 				produces a value for an assertion. */
@@ -1011,7 +1018,19 @@ __attribute__ ((__nonnull__, __unused__))
 static size_t cheat_cap(struct cheat_character_array_list* const list,
 		size_t const size) {
 	list->cap = size;
-	/* ...and purge the rest. */
+	/* ...and purge the rest:
+	if (actual size < capped size)
+		nothing
+	the droppening:
+	extra size = actual size - capped size
+	if (extra size == first chunk size)
+		drop first chunk
+	if (extra size < first chunk size)
+		shift first chunk back by extra size
+	if (extra size > first chunk size)
+		drop first chunk
+		go back to the droppening
+	*/
 	cheat_death("not implemented", __LINE__);
 }
 
@@ -1149,7 +1168,7 @@ Runs a predicate through a captured stream and returns its value or
 terminates the program in case of a failure.
 */
 __attribute__ ((__nonnull__, __unused__))
-static bool cheat_scan(struct cheat_character_array_list* const list,
+static CHEAT_SCAN_TYPE cheat_scan(struct cheat_character_array_list* const list,
 		cheat_scanner const scanner) {
 	cheat_handle handle;
 
@@ -1967,7 +1986,8 @@ static void cheat_isolate_test(struct cheat_suite* const suite,
 			cheat_death("failed to select a pipe", errno);
 		else if (result == 0) {
 			due = true;
-			break; /* TODO Make sense of this control flow. */
+			break; /* TODO Make sense of this control flow
+					(perhaps put the loop in a procedure that returns due). */
 		} else {
 			char buffer[BUFSIZ];
 			ssize_t size;
