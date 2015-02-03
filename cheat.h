@@ -96,10 +96,10 @@ typedef int bool;
 
 /*
 All nested conditions use
-  #else
-  #if
+ #else
+ #if
 instead of
-  #elif
+ #elif
 since some compilers choke on the shorter form.
 */
 #ifdef CHEAT_POSIXLY
@@ -247,15 +247,15 @@ Test outcomes are reported through exit codes, but
 some of them are reserved for the operating system, so
 this is needed to move them out of the way.
 For example POSIX allows
-  0 ... 255
+ 0 ... 255
 and in that range Windows allows
-  35, 37, 40 ... 49, 73 ... 79, 81, 90 ... 99, 115 ... 116, 163, 165 ... 166,
-  168 ... 169, 171 ... 172, 175 ... 179, 181, 184 ... 185, 204, 211, 213,
-  217 ... 229, 235 ... 239 and 241 ... 253
+ 35, 37, 40 ... 49, 73 ... 79, 81, 90 ... 99, 115 ... 116, 163, 165 ... 166,
+ 168 ... 169, 171 ... 172, 175 ... 179, 181, 184 ... 185, 204, 211, 213,
+ 217 ... 229, 235 ... 239 and 241 ... 253
 of which long enough are
-  40 ... 49 (9), 90 ... 99 (9), 217 ... 229 (12) and 241 ... 253 (12).
+ 40 ... 49 (9), 90 ... 99 (9), 217 ... 229 (12) and 241 ... 253 (12).
 Therefore an
-  #ifdef
+ #ifdef
 maze is not necessary.
 */
 #ifndef CHEAT_OFFSET /* This can be set externally. */
@@ -274,6 +274,16 @@ Repeated tests are obviously not repeated forever.
 */
 #ifndef CHEAT_REPETITIONS
 #define CHEAT_REPETITIONS ((size_t )256)
+#endif
+
+/*
+Bidirectional stream operations make use of these.
+*/
+#ifndef CHEAT_EOF
+#define CHEAT_EOF EOF
+#endif
+#ifndef CHEAT_BOF
+#define CHEAT_BOF (CHEAT_EOF == -1 ? -2 : -1)
 #endif
 
 /*
@@ -310,6 +320,8 @@ typedef struct {
 	size_t item;
 	size_t element;
 	struct cheat_character_array_list* list;
+	bool bof;
+	bool eof;
 } cheat_handle;
 
 /*
@@ -319,17 +331,17 @@ confuse some compilers.
 */
 typedef void (* cheat_procedure)(void); /* A test or a utility procedure. */
 typedef void (* cheat_handler)(int); /* A recovery procedure. */
-typedef bool (* cheat_reader)(char*, cheat_handle*); /* A procedure that
+typedef int (* cheat_reader)(cheat_handle*); /* A procedure that
 		reads a character from a handle and
-		returns whether there is still more to read. */
+		returns it as an unsigned char cast to an int or CHEAT_EOF. */
 typedef bool (* cheat_scanner)(cheat_handle*,
 		cheat_reader,
 		cheat_reader); /* A procedure that can read bytes from a handle and
-				produce a value for an assertion. */
+				produces a value for an assertion. */
 
 /*
 It would not hurt to have
-  __attribute__ ((__reorder__))
+ __attribute__ ((__reorder__))
 on any of these structures since they are only for internal use.
 */
 
@@ -361,14 +373,14 @@ struct cheat_character_array {
 struct cheat_string_list {
 	size_t count;
 	size_t capacity;
-	size_t cap; /* TODO Mind the cap. */
+	size_t cap;
 	char** items;
 };
 
 struct cheat_character_array_list {
 	size_t count;
 	size_t capacity;
-	size_t cap; /* TODO Mind the cap. */
+	size_t cap;
 	struct cheat_character_array* items;
 };
 
@@ -391,15 +403,6 @@ struct cheat_suite {
 	struct cheat_string_array arguments; /* The arguments passed to
 			the entry point (changes for each execution). */
 
-	bool force; /* Whether to force running ignored and
-			skipped tests (changes for each execution). */
-
-	bool timed; /* Whether tests that do not send messages within
-			a time limit are terminated (changes for each execution). */
-
-	bool quiet; /* Whether to capture output from
-			stdout and stderr (changes for each execution). */
-
 	enum cheat_harness harness; /* The security measures to
 			use (changes for each execution). */
 
@@ -413,6 +416,19 @@ struct cheat_suite {
 			the most recently run test (changes for each test). */
 	enum cheat_outcome outcome; /* The outcome of
 			the most recently run test (changes for each test). */
+
+	/*
+	These are further than other related fields to achieve better packing.
+	*/
+
+	bool force; /* Whether to force running ignored and
+			skipped tests (changes for each execution). */
+
+	bool timed; /* Whether tests that do not send messages within
+			a time limit are terminated (changes for each execution). */
+
+	bool quiet; /* Whether to show captured output from
+			stdout and stderr (changes for each execution). */
 
 	FILE* message_stream; /* The auxiliary stream that
 			gathers internal messages (changes for each test). */
@@ -432,16 +448,16 @@ struct cheat_suite {
 struct cheat_channel {
 	int reader;
 	int writer;
-	bool active;
 	struct cheat_character_array_list* list;
+	bool active;
 };
 #else
 #ifdef CHEAT_WINDOWED
 struct cheat_channel { /* TODO Use this with pipes. */
 	HANDLE reader;
 	HANDLE writer;
-	bool active;
 	struct cheat_character_array_list* list;
+	bool active;
 };
 #endif
 #endif
@@ -686,10 +702,11 @@ static int cheat_print(FILE* const stream,
 }
 
 /*
-This procedure does not have
-  __attribute__ ((__io__))
-even though it uses cheat_death(), because it is reserved for failures.
+These procedures must not have
+ __attribute__ ((__const__))
+as they may fail and print diagnostics.
 */
+
 /*
 Converts an outcome into an exit status.
 */
@@ -766,8 +783,6 @@ Initializes an undefined handle.
 */
 __attribute__ ((__nonnull__))
 static void cheat_initialize_handle(cheat_handle* const handle) {
-	handle->item = 0;
-	handle->element = 0;
 	handle->list = NULL;
 }
 
@@ -787,7 +802,7 @@ __attribute__ ((__nonnull__))
 static void cheat_initialize_string_list(struct cheat_string_list* const list) {
 	list->count = 0;
 	list->capacity = 0;
-	list->cap = SIZE_MAX;
+	list->cap = SIZE_MAX; /* TODO Mind the cap. */
 	list->items = NULL;
 }
 
@@ -798,7 +813,7 @@ __attribute__ ((__nonnull__))
 static void cheat_initialize_list(struct cheat_character_array_list* const list) {
 	list->count = 0;
 	list->capacity = 0;
-	list->cap = SIZE_MAX;
+	list->cap = SIZE_MAX; /* TODO Mind the cap. */
 	list->items = NULL;
 }
 
@@ -967,7 +982,7 @@ Checks whether a stream should be captured.
 __attribute__ ((__pure__, __unused__, __warn_unused_result__))
 static bool cheat_capture(struct cheat_suite const* const suite,
 		FILE const* const stream) {
-	return !suite->quiet && (stream == stdout || stream == stderr);
+	return stream == stdout || stream == stderr;
 }
 
 /*
@@ -992,7 +1007,7 @@ static bool cheat_hide(struct cheat_suite const* const suite,
 Sets a length limit for a captured stream or
 terminates the program in case of a failure.
 */
-__attribute__ ((__nonnull__ (1), __unused__))
+__attribute__ ((__nonnull__, __unused__))
 static size_t cheat_cap(struct cheat_character_array_list* const list,
 		size_t const size) {
 	list->cap = size;
@@ -1004,78 +1019,145 @@ static size_t cheat_cap(struct cheat_character_array_list* const list,
 Clears a captured stream or
 terminates the program in case of a failure.
 */
-__attribute__ ((__nonnull__ (1), __unused__))
+__attribute__ ((__nonnull__, __unused__))
 static void cheat_purge(struct cheat_character_array_list* const list) {
-	/* Perhaps make use of cheat_cap(list, 0). */
-	cheat_death("not implemented", __LINE__);
+	size_t cap;
+
+	cap = list->cap;
+	cheat_cap(list, 0);
+	cheat_cap(list, cap);
+}
+
+/* TODO These are still buggy, because they are a mere draft.  */
+
+/*
+Rewinds a handle to the first element of an array list, which
+is one element past the end of an empty list.
+*/
+__attribute__ ((__nonnull__))
+static void cheat_rewind(cheat_handle* const handle) {
+	if (handle->list == NULL
+			|| handle->list->count == 0
+			|| handle->list->items[0].size == 0) {
+		handle->bof = false;
+		handle->eof = true;
+	} else {
+		handle->item = 0;
+		handle->element = 0;
+		handle->bof = false;
+		handle->eof = false;
+	}
+}
+
+/*
+Fast forwards a handle to the last element of an array list, which
+is one element past the beginning of an empty list.
+*/
+__attribute__ ((__nonnull__, __unused__))
+static void cheat_fast_forward(cheat_handle* const handle) {
+	if (handle->list == NULL
+			|| handle->list->count == 0
+			|| handle->list->items[0].size == 0) {
+		handle->bof = true;
+		handle->eof = false;
+	} else {
+		handle->item = handle->list->count - 1;
+		handle->element = handle->list->items[0].size - 1;
+		handle->bof = false;
+		handle->eof = false;
+	}
 }
 
 /*
 Reads a character from a handle.
 */
-__attribute__ ((__nonnull__ (2)))
-static void cheat_static_reader(char* const character,
-		cheat_handle const* const handle) {
-	if (character != NULL)
-		*character = handle->list->items[handle->item].elements[handle->element];
+__attribute__ ((__nonnull__, __pure__))
+static int cheat_read(cheat_handle const* const handle) {
+	if (handle->bof)
+		return CHEAT_BOF;
+
+	if (handle->eof)
+		return CHEAT_EOF;
+
+	return (int )(unsigned char )handle->list->items[handle->item].elements[handle->element];
 }
 
 /*
 Reads a character from a handle and moves the position of the handle forward.
 */
-__attribute__ ((__nonnull__ (2)))
-static bool cheat_advancing_reader(char* const character,
-		cheat_handle* const handle) {
-	size_t next_item;
-	size_t next_element;
+__attribute__ ((__nonnull__))
+static int cheat_read_and_advance(cheat_handle* const handle) {
+	int value;
 
-	/* TODO This is a hint of a broken interface. */
-	if (handle->list->count == 0
-			|| handle->list->items[0].size == 0)
-		return false;
+	value = cheat_read(handle);
 
-	cheat_static_reader(character, handle);
+	if (value == CHEAT_EOF)
+		return CHEAT_EOF;
 
-	next_element = handle->element + 1; /* TODO Think about overflows. */
-	if (next_element < handle->list->items[handle->item].size) {
-		handle->element = next_element;
-
-		return true;
-	}
-
-	next_item = handle->item + 1;
-	if (next_item < handle->list->count) {
-		handle->item = next_item;
+	if (value == CHEAT_BOF) {
+		handle->item = 0;
 		handle->element = 0;
+		handle->bof = false;
 
-		return true;
+		return CHEAT_BOF;
 	}
 
-	return false;
+	if (handle->element < handle->list->items[handle->item].size - 1)
+		++handle->element;
+	else if (handle->item < handle->list->count - 1) {
+		++handle->item;
+		handle->element = 0;
+	} else
+		handle->eof = true;
+
+	return value;
 }
 
 /*
 Reads a character from a handle and moves the position of the handle backward.
 */
-__attribute__ ((__nonnull__ (2)))
-static bool cheat_retreating_reader(char* const character,
-		cheat_handle* const handle) {
-	cheat_death("not implemented", __LINE__);
+__attribute__ ((__nonnull__))
+static int cheat_read_and_retreat(cheat_handle* const handle) {
+	int value;
+
+	value = cheat_read(handle);
+
+	if (value == CHEAT_BOF)
+		return CHEAT_BOF;
+
+	if (value == CHEAT_EOF) {
+		handle->item = handle->list->count - 1;
+		handle->element = handle->list->items[handle->item].size - 1;
+		handle->eof = false;
+
+		return CHEAT_EOF;
+	}
+
+	if (handle->element > 0)
+		--handle->element;
+	else if (handle->item > 0) {
+		--handle->item;
+		handle->element = handle->list->items[handle->item].size - 1;
+	} else
+		handle->bof = true;
+
+	return value;
 }
 
 /*
 Runs a predicate through a captured stream and returns its value or
 terminates the program in case of a failure.
 */
-__attribute__ ((__nonnull__ (1, 2), __unused__))
+__attribute__ ((__nonnull__, __unused__))
 static bool cheat_scan(struct cheat_character_array_list* const list,
 		cheat_scanner const scanner) {
 	cheat_handle handle;
 
 	cheat_initialize_handle(&handle);
 	handle.list = list;
+	cheat_rewind(&handle);
 
-	return scanner(&handle, cheat_advancing_reader, cheat_retreating_reader);
+	return scanner(&handle, cheat_read_and_advance, cheat_read_and_retreat);
 }
 
 /*
@@ -1551,14 +1633,16 @@ static void cheat_print_summary(struct cheat_suite const* const suite) {
 			cheat_print_separator(suite);
 		separate = true;
 
-		cheat_print_list(&suite->outputs);
+		if (!suite->quiet)
+			cheat_print_list(&suite->outputs);
 	}
 	if (print_errors && any_errors) {
 		if (separate)
 			cheat_print_separator(suite);
 		separate = true;
 
-		cheat_print_list(&suite->errors);
+		if (!suite->quiet)
+			cheat_print_list(&suite->errors);
 	}
 	if (print_summary) {
 		if (separate)
@@ -1903,7 +1987,7 @@ static void cheat_isolate_test(struct cheat_suite* const suite,
 				cheat_death("failed to read from a pipe", errno);
 			if (size == 0)
 				channels[index].active = false;
-			else if (!(suite->quiet && (index == 1 || index == 2))) /* Urgh! */
+			else
 				cheat_append_list(channels[index].list, buffer, (size_t )size);
 		}
 	} while (true);

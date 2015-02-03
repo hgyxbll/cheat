@@ -362,6 +362,18 @@ n is the amount of commas in the argument list.
 For example `CHEAT_COMMAS(int x, y;)`, `int x CHEAT_COMMA y;` and
 `CHEAT_COMMAS_1(int x, y;)` all expand to `int x, y;`.
 
+### 3.2+½   New Feature
+
+This should be explained somewhere.
+
+	typedef bool (* cheat_scanner)(cheat_handle*, cheat_reader, cheat_reader)
+
+	void cheat_rewind(cheat_handle* handle)
+
+	void cheat_fast_forward(cheat_handle* handle)
+
+	bool cheat_scan(struct cheat_character_array_list* list, cheat_scanner scanner)
+
 ### 3.3   Options
 
 Test suites obey a basic set of command line options so that

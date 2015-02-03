@@ -120,28 +120,39 @@ CHEAT_TEST(story,
 )
 
 CHEAT_DECLARE(
-	static bool find_fopen(cheat_handle* handle,
-			cheat_reader advancing_reader,
-			cheat_reader retreating_reader) {
-		char const expected[] = "fopen";
+	static bool find(char const* const expected,
+			cheat_handle* handle,
+			cheat_reader reader,
+			int const terminator) {
 		char const* actual;
-		bool scanning;
+		int character;
 
 		actual = expected;
-		do {
-			char character;
-
-			scanning = advancing_reader(&character, handle);
-
-			if (character == actual[0]) {
+		while ((character = reader(handle)) != terminator) {
+			if ((char )character == actual[0]) {
 				++actual;
 				if (actual[0] == '\0')
 					return true;
 			} else
 				actual = expected;
-		} while (scanning);
+		}
 
 		return false;
+	}
+
+	static bool find_fopen(cheat_handle* handle,
+			cheat_reader advancing_reader,
+			cheat_reader retreating_reader) {
+		bool result = true;
+
+		result &= find("fopen", handle, advancing_reader, CHEAT_EOF);
+		cheat_rewind(handle);
+		result &= find("fopen:", handle, advancing_reader, CHEAT_EOF);
+		result &= find("nepof", handle, retreating_reader, CHEAT_BOF);
+		cheat_fast_forward(handle);
+		result &= find(":nepof", handle, retreating_reader, CHEAT_BOF);
+
+		return result;
 	}
 )
 
@@ -156,11 +167,11 @@ CHEAT_TEST(streams_get_captured,
 	} else
 		fclose(file);
 
-	cheat_assert(cheat_scan_errors(find_fopen)); /* This may not work. */
+	cheat_assert(cheat_scan_errors(find_fopen)); /* This is unreliable. */
 )
 
 CHEAT_TEST(streams_get_scanned,
-	cheat_assert(cheat_scan_errors(find_fopen)); /* This will work. */
+	cheat_assert(cheat_scan_errors(find_fopen)); /* This is reliable. */
 )
 
 CHEAT_TEST(crash,
