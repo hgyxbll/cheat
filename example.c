@@ -119,12 +119,48 @@ CHEAT_TEST(story,
 	(void )puts("Once upon a time I ran a test.");
 )
 
+CHEAT_DECLARE(
+	static bool find_fopen(cheat_handle* handle,
+			cheat_reader advancing_reader,
+			cheat_reader retreating_reader) {
+		char const expected[] = "fopen";
+		char const* actual;
+		bool scanning;
+
+		actual = expected;
+		do {
+			char character;
+
+			scanning = advancing_reader(&character, handle);
+
+			if (character == actual[0]) {
+				++actual;
+				if (actual[0] == '\0')
+					return true;
+			} else
+				actual = expected;
+		} while (scanning);
+
+		return false;
+	}
+)
+
 CHEAT_TEST(streams_get_captured,
-	if (fopen(".PHONY", "r") == NULL) {
+	FILE* file;
+
+	file = fopen(".PHONY", "r");
+	if (file == NULL) {
 		(void )fwrite(" [\n", 1, 3, stderr);
 		perror("fopen");
 		(void )fputc(']', stderr);
-	}
+	} else
+		fclose(file);
+
+	cheat_assert(cheat_scan_errors(find_fopen)); /* This may not work. */
+)
+
+CHEAT_TEST(streams_get_scanned,
+	cheat_assert(cheat_scan_errors(find_fopen)); /* This will work. */
 )
 
 CHEAT_TEST(crash,

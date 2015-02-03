@@ -1,7 +1,7 @@
 # CHEAT
 
 CHEAT stands for C Header Embedded Automated Testing or something like that.
-It is a minimal unit testing framework for the C programming language.
+It is a convenient unit testing framework for the C programming language.
 It has no dependencies and requires no installation or configuration.
 Only a header file and a test case is needed.
 

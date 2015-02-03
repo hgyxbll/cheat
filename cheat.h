@@ -285,8 +285,8 @@ These make preprocessor directives work like statements.
 /*
 This computes an upper bound for the string length of an unsigned integer type.
 */
-#define CHEAT_INTEGER_LENGTH(type) \
-	(CHAR_BIT * sizeof type / 3 + 1) /* This is derived from
+#define CHEAT_INTEGER_LENGTH(name) \
+	(CHAR_BIT * sizeof name / 3 + 1) /* This is derived from
 			the base 2 logarithm of 10. */
 
 /*
@@ -296,12 +296,21 @@ might only contain the least significant bytes of the actual error code.
 */
 #define cheat_death(message, number) \
 	CHEAT_BEGIN \
-		(void )fprintf(stderr, \
-				"%s:%d: %s (0x%x)\n", \
-				__FILE__, __LINE__, message, (unsigned int )number); \
+		(void )fprintf(stderr, "%s:%d: %s (0x%x)\n", \
+				__FILE__, __LINE__, message, (unsigned int )(number)); \
 		exit(EXIT_FAILURE); \
 	CHEAT_END /* Using cheat_print(), cheat_exit() and
 			cheat_suite is intentionally avoided here. */
+
+/*
+This is defined unlike other types, because
+pointers to it are meant for external use.
+*/
+typedef struct {
+	size_t item;
+	size_t element;
+	struct cheat_character_array_list* list;
+} cheat_handle;
 
 /*
 These could be defined as function types instead of function pointer types, but
@@ -310,8 +319,13 @@ confuse some compilers.
 */
 typedef void (* cheat_procedure)(void); /* A test or a utility procedure. */
 typedef void (* cheat_handler)(int); /* A recovery procedure. */
-typedef void (* cheat_copier)(char*, char const*, size_t); /* A procedure for
-		copying strings. */
+typedef bool (* cheat_reader)(char*, cheat_handle*); /* A procedure that
+		reads a character from a handle and
+		returns whether there is still more to read. */
+typedef bool (* cheat_scanner)(cheat_handle*,
+		cheat_reader,
+		cheat_reader); /* A procedure that can read bytes from a handle and
+				produce a value for an assertion. */
 
 /*
 It would not hurt to have
@@ -347,12 +361,14 @@ struct cheat_character_array {
 struct cheat_string_list {
 	size_t count;
 	size_t capacity;
+	size_t cap; /* TODO Mind the cap. */
 	char** items;
 };
 
 struct cheat_character_array_list {
 	size_t count;
 	size_t capacity;
+	size_t cap; /* TODO Mind the cap. */
 	struct cheat_character_array* items;
 };
 
@@ -746,6 +762,16 @@ static struct cheat_unit const* cheat_find(struct cheat_unit const* const units,
 }
 
 /*
+Initializes an undefined handle.
+*/
+__attribute__ ((__nonnull__))
+static void cheat_initialize_handle(cheat_handle* const handle) {
+	handle->item = 0;
+	handle->element = 0;
+	handle->list = NULL;
+}
+
+/*
 Initializes an undefined array of strings.
 */
 __attribute__ ((__nonnull__))
@@ -761,6 +787,7 @@ __attribute__ ((__nonnull__))
 static void cheat_initialize_string_list(struct cheat_string_list* const list) {
 	list->count = 0;
 	list->capacity = 0;
+	list->cap = SIZE_MAX;
 	list->items = NULL;
 }
 
@@ -771,6 +798,7 @@ __attribute__ ((__nonnull__))
 static void cheat_initialize_list(struct cheat_character_array_list* const list) {
 	list->count = 0;
 	list->capacity = 0;
+	list->cap = SIZE_MAX;
 	list->items = NULL;
 }
 
@@ -961,12 +989,94 @@ static bool cheat_hide(struct cheat_suite const* const suite,
 }
 
 /*
-Here goes:
-
-cheat_limit_output(size_t)
-cheat_purge_output(void)
-cheat_scan_output(bool (*)(char const*, size_t))
+Sets a length limit for a captured stream or
+terminates the program in case of a failure.
 */
+__attribute__ ((__nonnull__ (1), __unused__))
+static size_t cheat_cap(struct cheat_character_array_list* const list,
+		size_t const size) {
+	list->cap = size;
+	/* ...and purge the rest. */
+	cheat_death("not implemented", __LINE__);
+}
+
+/*
+Clears a captured stream or
+terminates the program in case of a failure.
+*/
+__attribute__ ((__nonnull__ (1), __unused__))
+static void cheat_purge(struct cheat_character_array_list* const list) {
+	/* Perhaps make use of cheat_cap(list, 0). */
+	cheat_death("not implemented", __LINE__);
+}
+
+/*
+Reads a character from a handle.
+*/
+__attribute__ ((__nonnull__ (2)))
+static void cheat_static_reader(char* const character,
+		cheat_handle const* const handle) {
+	if (character != NULL)
+		*character = handle->list->items[handle->item].elements[handle->element];
+}
+
+/*
+Reads a character from a handle and moves the position of the handle forward.
+*/
+__attribute__ ((__nonnull__ (2)))
+static bool cheat_advancing_reader(char* const character,
+		cheat_handle* const handle) {
+	size_t next_item;
+	size_t next_element;
+
+	/* TODO This is a hint of a broken interface. */
+	if (handle->list->count == 0
+			|| handle->list->items[0].size == 0)
+		return false;
+
+	cheat_static_reader(character, handle);
+
+	next_element = handle->element + 1; /* TODO Think about overflows. */
+	if (next_element < handle->list->items[handle->item].size) {
+		handle->element = next_element;
+
+		return true;
+	}
+
+	next_item = handle->item + 1;
+	if (next_item < handle->list->count) {
+		handle->item = next_item;
+		handle->element = 0;
+
+		return true;
+	}
+
+	return false;
+}
+
+/*
+Reads a character from a handle and moves the position of the handle backward.
+*/
+__attribute__ ((__nonnull__ (2)))
+static bool cheat_retreating_reader(char* const character,
+		cheat_handle* const handle) {
+	cheat_death("not implemented", __LINE__);
+}
+
+/*
+Runs a predicate through a captured stream and returns its value or
+terminates the program in case of a failure.
+*/
+__attribute__ ((__nonnull__ (1, 2), __unused__))
+static bool cheat_scan(struct cheat_character_array_list* const list,
+		cheat_scanner const scanner) {
+	cheat_handle handle;
+
+	cheat_initialize_handle(&handle);
+	handle.list = list;
+
+	return scanner(&handle, cheat_advancing_reader, cheat_retreating_reader);
+}
 
 /*
 Adds the outcome of a single test to a test suite or
@@ -1630,7 +1740,7 @@ static void cheat_run_utilities(struct cheat_suite* const suite,
 			++index)
 		if (suite->units[index].type == CHEAT_UTILITY
 				&& suite->units[index].subtype == subtype)
-			(suite->units[index].procedure)();
+			suite->units[index].procedure();
 }
 
 /*
@@ -1640,7 +1750,7 @@ terminates the program in case of a failure.
 __attribute__ ((__io__, __nonnull__))
 static void cheat_run_test(struct cheat_unit const* const unit) {
 	if (unit->type == CHEAT_TESTER)
-		(unit->procedure)();
+		unit->procedure();
 	else
 		cheat_death("not a test", unit->type);
 }
@@ -2338,6 +2448,22 @@ This stops a test if it has already failed.
 		if (cheat_suite.outcome != CHEAT_SUCCESSFUL) \
 			return; \
 	CHEAT_END
+
+/*
+These allow scanning captured streams.
+*/
+
+#define cheat_cap_messages(size) cheat_cap(&cheat_suite.messages, size)
+#define cheat_cap_outputs(size) cheat_cap(&cheat_suite.outputs, size)
+#define cheat_cap_errors(size) cheat_cap(&cheat_suite.errors, size)
+
+#define cheat_purge_messages() cheat_purge(&cheat_suite.messages)
+#define cheat_purge_outputs() cheat_purge(&cheat_suite.outputs)
+#define cheat_purge_errors() cheat_purge(&cheat_suite.errors)
+
+#define cheat_scan_messages(scanner) cheat_scan(&cheat_suite.messages, scanner)
+#define cheat_scan_outputs(scanner) cheat_scan(&cheat_suite.outputs, scanner)
+#define cheat_scan_errors(scanner) cheat_scan(&cheat_suite.errors, scanner)
 
 /*
 These help the user place commas.
