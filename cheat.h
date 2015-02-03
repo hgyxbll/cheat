@@ -320,44 +320,10 @@ might only contain the least significant bytes of the actual error code.
 			cheat_suite is intentionally avoided here. */
 
 /*
-This is defined unlike other types, because
-pointers to it are meant for external use.
-*/
-typedef struct {
-	size_t item;
-	size_t element;
-	struct cheat_character_array_list* list;
-	bool bof;
-	bool eof;
-} cheat_handle;
-
-/*
-These could be defined as function types instead of function pointer types, but
-that would be inconsistent with the standard library and
-confuse some compilers.
-*/
-typedef void (* cheat_procedure)(void); /* A test or a utility procedure. */
-typedef void (* cheat_handler)(int); /* A recovery procedure. */
-typedef int (* cheat_reader)(cheat_handle*); /* A procedure that
-		reads a character from a handle and
-		returns it as an unsigned char cast to an int or CHEAT_EOF. */
-typedef CHEAT_SCAN_TYPE (* cheat_scanner)(cheat_handle*,
-		cheat_reader,
-		cheat_reader); /* A procedure that can read bytes from a handle and
-				produces a value for an assertion. */
-
-/*
 It would not hurt to have
  __attribute__ ((__reorder__))
 on any of these structures since they are only for internal use.
 */
-
-struct cheat_unit {
-	char const* name;
-	enum cheat_type const type;
-	enum cheat_subtype const subtype;
-	cheat_procedure const procedure;
-};
 
 /*
 This naming convention used here follows the notion that
@@ -396,6 +362,40 @@ struct cheat_statistics {
 			not tests that are skipped. */
 	size_t successful; /* This includes tests that did nothing. */
 	size_t failed; /* This includes tests that exited, crashed or timed out. */
+};
+
+/*
+This is defined unlike other types, because
+pointers to it are meant for external use.
+*/
+typedef struct {
+	size_t item;
+	size_t element;
+	struct cheat_character_array_list* list;
+	bool bof;
+	bool eof;
+} cheat_handle;
+
+/*
+These could be defined as function types instead of function pointer types, but
+that would be inconsistent with the standard library and
+confuse some compilers.
+*/
+typedef void (* cheat_procedure)(void); /* A test or a utility procedure. */
+typedef void (* cheat_handler)(int); /* A recovery procedure. */
+typedef int (* cheat_reader)(cheat_handle*); /* A procedure that
+		reads a character from a handle and
+		returns it as an unsigned char cast to an int or CHEAT_EOF. */
+typedef CHEAT_SCAN_TYPE (* cheat_scanner)(cheat_handle*,
+		cheat_reader,
+		cheat_reader); /* A procedure that can read bytes from a handle and
+				produces a value for an assertion. */
+
+struct cheat_unit {
+	char const* name;
+	enum cheat_type const type;
+	enum cheat_subtype const subtype;
+	cheat_procedure const procedure;
 };
 
 struct cheat_suite {
