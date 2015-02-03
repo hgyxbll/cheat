@@ -373,22 +373,27 @@ There will be a way to limit captured streams,
 clear them
 
 	void cheat_purge_messages(void)
+	void cheat_purge_outputs(size_t)
+	void cheat_purge_errors(size_t)
 
 and scan them with a custom parser.
 
-	CHEAT_SCAN_TYPE cheat_scan_messages(cheat_scanner scanner)
+	CHEAT_SCAN_TYPE cheat_scan_messages(cheat_scanner)
+	CHEAT_SCAN_TYPE cheat_scan_outputs(cheat_scanner)
+	CHEAT_SCAN_TYPE cheat_scan_errors(cheat_scanner)
 
 The scanner has the type `cheat_scanner` or
 equivalently `CHEAT_SCAN_TYPE (*)(cheat_handle*)`, where
 `CHEAT_SCAN_TYPE` is (kind of) polymorphic.
 The handle can be used with bidirectional stream functions that
-are similar to `fgetc` from the standard library.
+are similar to `fgetc` from the standard library
+(however instead of `EOF` there are `CHEAT_EOF == EOF` and `CHEAT_BOF != EOF`).
 
-	void cheat_read(cheat_handle const*)
-	void cheat_advancing_read(cheat_handle*)
-	void cheat_retreating_read(cheat_handle*)
-	void cheat_rewind(cheat_handle*)
-	void cheat_fast_forward(cheat_handle*)
+	int cheat_read(cheat_handle const*)
+	int cheat_advancing_read(cheat_handle*)
+	int cheat_retreating_read(cheat_handle*)
+	int cheat_rewind(cheat_handle*)
+	int cheat_fast_forward(cheat_handle*)
 
 Fun times.
 

@@ -1060,7 +1060,7 @@ Sets a length limit for a captured stream or
 terminates the program in case of a failure.
 */
 __attribute__ ((__nonnull__, __unused__))
-static size_t cheat_cap(struct cheat_character_array_list* const list,
+static void cheat_cap(struct cheat_character_array_list* const list,
 		size_t const size) {
 	list->cap = size;
 	/* ...and purge the rest:
