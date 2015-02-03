@@ -385,16 +385,14 @@ typedef void (* cheat_handler)(int); /* A recovery procedure. */
 typedef int (* cheat_reader)(cheat_handle*); /* A procedure that
 		reads a character from a handle and
 		returns it as an unsigned char cast to an int or CHEAT_EOF. */
-typedef CHEAT_SCAN_TYPE (* cheat_scanner)(cheat_handle*,
-		cheat_reader,
-		cheat_reader); /* A procedure that can read bytes from a handle and
-				produces a value for an assertion. */
+typedef CHEAT_SCAN_TYPE (* cheat_scanner)(cheat_handle*); /* A procedure that
+				can read bytes from a handle and produce a value. */
 
 struct cheat_unit {
 	char const* name;
 	enum cheat_type const type;
 	enum cheat_subtype const subtype;
-	cheat_procedure const procedure;
+	cheat_procedure const run;
 };
 
 struct cheat_suite {
@@ -906,7 +904,7 @@ static void cheat_clear_lists(struct cheat_suite* const suite) {
 Checks whether a character array list is empty.
 */
 __attribute__ ((__pure__))
-static bool cheat_list_is_empty(struct cheat_character_array_list* const list) {
+static bool cheat_list_is_empty(struct cheat_character_array_list const* const list) {
 	return list == NULL || list->count == 0 || list->items[0].size == 0;
 }
 
@@ -981,8 +979,7 @@ static void cheat_append_list(struct cheat_character_array_list* const list,
 		cheat_death("too many items", list->count);
 	count = list->count + 1;
 
-	/*
-	...and like:
+	/* ...and like:
 	size_t total_size;
 
 	total_size = cheat_list_size(list);
@@ -1148,7 +1145,7 @@ static int cheat_read(cheat_handle const* const handle) {
 Reads a character from a handle and moves the position of the handle forward.
 */
 __attribute__ ((__nonnull__))
-static int cheat_read_and_advance(cheat_handle* const handle) {
+static int cheat_advancing_read(cheat_handle* const handle) {
 	int value;
 
 	value = cheat_read(handle);
@@ -1183,7 +1180,7 @@ static int cheat_read_and_advance(cheat_handle* const handle) {
 Reads a character from a handle and moves the position of the handle backward.
 */
 __attribute__ ((__nonnull__))
-static int cheat_read_and_retreat(cheat_handle* const handle) {
+static int cheat_retreating_read(cheat_handle* const handle) {
 	int value;
 
 	value = cheat_read(handle);
@@ -1227,7 +1224,7 @@ static CHEAT_SCAN_TYPE cheat_scan(struct cheat_character_array_list* const list,
 	handle.list = list;
 	cheat_rewind(&handle);
 
-	return scanner(&handle, cheat_read_and_advance, cheat_read_and_retreat);
+	return scanner(&handle);
 }
 
 /*
@@ -1894,7 +1891,7 @@ static void cheat_run_utilities(struct cheat_suite* const suite,
 			++index)
 		if (suite->units[index].type == CHEAT_UTILITY
 				&& suite->units[index].subtype == subtype)
-			suite->units[index].procedure();
+			suite->units[index].run();
 }
 
 /*
@@ -1904,7 +1901,7 @@ terminates the program in case of a failure.
 __attribute__ ((__io__, __nonnull__))
 static void cheat_run_test(struct cheat_unit const* const unit) {
 	if (unit->type == CHEAT_TESTER)
-		unit->procedure();
+		unit->run();
 	else
 		cheat_death("not a test", unit->type);
 }

@@ -121,14 +121,14 @@ CHEAT_TEST(story,
 
 CHEAT_DECLARE(
 	static bool find(char const* const expected,
-			cheat_handle* handle,
-			cheat_reader reader,
+			cheat_handle* const handle,
+			cheat_reader const read,
 			int const terminator) {
 		char const* actual;
 		int character;
 
 		actual = expected;
-		while ((character = reader(handle)) != terminator) {
+		while ((character = read(handle)) != terminator) {
 			if ((char )character == actual[0]) {
 				++actual;
 				if (actual[0] == '\0')
@@ -140,17 +140,15 @@ CHEAT_DECLARE(
 		return false;
 	}
 
-	static bool find_fopen(cheat_handle* handle,
-			cheat_reader advancing_reader,
-			cheat_reader retreating_reader) {
+	static bool find_fopen(cheat_handle* const handle) {
 		bool result = true;
 
-		result &= find("fopen", handle, advancing_reader, CHEAT_EOF);
+		result &= find("fopen", handle, cheat_advancing_read, CHEAT_EOF);
 		cheat_rewind(handle);
-		result &= find("fopen:", handle, advancing_reader, CHEAT_EOF);
-		result &= find("nepof", handle, retreating_reader, CHEAT_BOF);
+		result &= find("fopen:", handle, cheat_advancing_read, CHEAT_EOF);
+		result &= find("nepof", handle, cheat_retreating_read, CHEAT_BOF);
 		cheat_fast_forward(handle);
-		result &= find(":nepof", handle, retreating_reader, CHEAT_BOF);
+		result &= find(":nepof", handle, cheat_retreating_read, CHEAT_BOF);
 
 		return result;
 	}

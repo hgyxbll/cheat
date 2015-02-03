@@ -362,25 +362,35 @@ n is the amount of commas in the argument list.
 For example `CHEAT_COMMAS(int x, y;)`, `int x CHEAT_COMMA y;` and
 `CHEAT_COMMAS_1(int x, y;)` all expand to `int x, y;`.
 
-### 3.2+½   New Feature
+#### 3.2.1   New Features
 
-This should be explained somewhere.
+There will be a way to limit captured streams,
 
 	void cheat_cap_messages(size_t)
+	void cheat_cap_outputs(size_t)
+	void cheat_cap_errors(size_t)
+
+clear them
 
 	void cheat_purge_messages(void)
 
-	CHEAT_SCAN_TYPE
+and scan them with a custom parser.
 
 	CHEAT_SCAN_TYPE cheat_scan_messages(cheat_scanner scanner)
 
-	void cheat_rewind(cheat_handle* handle)
+The scanner has the type `cheat_scanner` or
+equivalently `CHEAT_SCAN_TYPE (*)(cheat_handle*)`, where
+`CHEAT_SCAN_TYPE` is (kind of) polymorphic.
+The handle can be used with bidirectional stream functions that
+are similar to `fgetc` from the standard library.
 
-	void cheat_fast_forward(cheat_handle* handle)
+	void cheat_read(cheat_handle const*)
+	void cheat_advancing_read(cheat_handle*)
+	void cheat_retreating_read(cheat_handle*)
+	void cheat_rewind(cheat_handle*)
+	void cheat_fast_forward(cheat_handle*)
 
-	cheat_scanner
-	/* or equivalently */
-	CHEAT_SCAN_TYPE (*)(cheat_handle*, cheat_reader, cheat_reader)
+Fun times.
 
 ### 3.3   Options
 
