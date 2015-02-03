@@ -818,7 +818,7 @@ __attribute__ ((__nonnull__))
 static void cheat_initialize_list(struct cheat_character_array_list* const list) {
 	list->count = 0;
 	list->capacity = 0;
-	list->cap = SIZE_MAX; /* TODO Mind the cap. */
+	list->cap = SIZE_MAX;
 	list->items = NULL;
 }
 
@@ -903,11 +903,30 @@ static void cheat_clear_lists(struct cheat_suite* const suite) {
 }
 
 /*
-Checks whethr a character array list is empty.
+Checks whether a character array list is empty.
 */
 __attribute__ ((__pure__))
 static bool cheat_list_is_empty(struct cheat_character_array_list* const list) {
 	return list == NULL || list->count == 0 || list->items[0].size == 0;
+}
+
+/*
+Calculates the length of an array list.
+*/
+__attribute__ ((__pure__))
+static size_t cheat_list_size(struct cheat_character_array_list const* const list) {
+	size_t size;
+	size_t index;
+
+	if (cheat_list_is_empty(list))
+		return 0;
+
+	for (index = 0;
+			index < list->count;
+			++index)
+		size += list->items[index].size; /* TODO Check overflows elsewhere. */
+
+	return size;
 }
 
 /*
@@ -961,6 +980,29 @@ static void cheat_append_list(struct cheat_character_array_list* const list,
 	if (list->count == SIZE_MAX)
 		cheat_death("too many items", list->count);
 	count = list->count + 1;
+
+	/*
+	...and like:
+	size_t total_size;
+
+	total_size = cheat_list_size(list);
+
+	while (total_size + size > list->cap) {
+		size_t surplus;
+
+		surplus = total_size + size - list->cap;
+
+		if (list->count != 0 && list->items[0].size < surplus) {
+			surplus -= list->items[0].size;
+			pop_item(list, 0);
+		}
+	}
+	if (first chunk exists)
+		from first chunk cut surplus
+	else
+		from new chunk cut surplus
+	add new chunk
+	*/
 
 	if (list->count == list->capacity) {
 		size_t capacity;
@@ -1037,7 +1079,8 @@ static size_t cheat_cap(struct cheat_character_array_list* const list,
 		drop first chunk
 		go back to the droppening
 	*/
-	cheat_death("not implemented", __LINE__);
+	cheat_death("not implemented", __LINE__); /* TODO Might need
+			a data structure overhaul. */
 }
 
 /*
