@@ -1870,11 +1870,84 @@ static void cheat_run_coupled_test(struct cheat_suite* const suite,
 	cheat_run_utilities(suite, CHEAT_TEAR_DOWN_UTILITY);
 }
 
+#ifdef CHEAT_POSIXLY
+
+/*
+Multiplexes reading and capturing streams or
+terminates the program in case of a failure.
+*/
+__attribute__ ((__io__, __nonnull__))
+static bool cheat_multiplex(struct cheat_channel* const channels,
+		size_t const channel_count,
+		bool const timed) {
+	int result;
+
+	do {
+		size_t index;
+		int maximum;
+		fd_set set;
+
+		FD_ZERO(&set);
+		for (index = 0;
+				index < channel_count;
+				++index)
+			FD_SET(channels[index].reader, &set);
+
+		maximum = channels[0].reader;
+		for (index = 1;
+				index < channel_count;
+				++index)
+			if (channels[index].reader > maximum)
+				maximum = channels[index].reader;
+
+		if (timed) {
+			struct timeval time;
+
+			time.tv_sec = CHEAT_TIME / 1000;
+			time.tv_usec = CHEAT_TIME % 1000;
+
+			result = select(maximum + 1, &set, NULL, NULL, &time);
+		} else
+			result = select(maximum + 1, &set, NULL, NULL, NULL);
+
+		if (result == -1)
+			cheat_death("failed to select a pipe", errno);
+		else if (result != 0) {
+			char buffer[BUFSIZ];
+			ssize_t size;
+
+			for (index = 0;
+					index < channel_count;
+					++index)
+				if (channels[index].active
+						&& FD_ISSET(channels[index].reader, &set))
+					break;
+
+			if (index == channel_count)
+				return false;
+
+			size = read(channels[index].reader, buffer, sizeof buffer);
+			if (size == -1)
+				cheat_death("failed to read from a pipe", errno);
+			if (size == 0)
+				channels[index].active = false;
+			else
+				cheat_append_list(channels[index].list, buffer, (size_t )size);
+		}
+	} while (result != 0);
+
+	return true;
+}
+
+#else
+
 #ifdef CHEAT_WINDOWED
 
 #define CHEAT_PIPE "\\\\.\\pipe\\cheat" /* This is the pipe name prefix. */
 
 #define CHEAT_OPTION "--__hidden" /* This is the option to emulate fork(). */
+
+#endif
 
 #endif
 
@@ -1953,64 +2026,7 @@ static void cheat_isolate_test(struct cheat_suite* const suite,
 		if (close(channels[index].writer) == -1)
 			cheat_death("failed to close the write end of a pipe", errno);
 
-	due = false;
-	do {
-		int maximum;
-		fd_set set;
-		int result;
-
-		FD_ZERO(&set);
-		for (index = 0;
-				index < channel_count;
-				++index)
-			FD_SET(channels[index].reader, &set);
-
-		maximum = channels[0].reader;
-		for (index = 1;
-				index < channel_count;
-				++index)
-			if (channels[index].reader > maximum)
-				maximum = channels[index].reader;
-
-		if (suite->timed) {
-			struct timeval time;
-
-			time.tv_sec = CHEAT_TIME / 1000;
-			time.tv_usec = CHEAT_TIME % 1000;
-
-			result = select(maximum + 1, &set, NULL, NULL, &time);
-		} else
-			result = select(maximum + 1, &set, NULL, NULL, NULL);
-
-		if (result == -1)
-			cheat_death("failed to select a pipe", errno);
-		else if (result == 0) {
-			due = true;
-			break; /* TODO Make sense of this control flow
-					(perhaps put the loop in a procedure that returns due). */
-		} else {
-			char buffer[BUFSIZ];
-			ssize_t size;
-
-			for (index = 0;
-					index < channel_count;
-					++index)
-				if (channels[index].active
-						&& FD_ISSET(channels[index].reader, &set))
-					break;
-
-			if (index == channel_count)
-				break;
-
-			size = read(channels[index].reader, buffer, sizeof buffer);
-			if (size == -1)
-				cheat_death("failed to read from a pipe", errno);
-			if (size == 0)
-				channels[index].active = false;
-			else
-				cheat_append_list(channels[index].list, buffer, (size_t )size);
-		}
-	} while (true);
+	due = cheat_multiplex(channels, channel_count, suite->timed);
 
 	for (index = 0;
 			index < channel_count;

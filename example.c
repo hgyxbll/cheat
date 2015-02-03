@@ -167,11 +167,9 @@ CHEAT_TEST(streams_get_captured,
 	} else
 		fclose(file);
 
-	cheat_assert(cheat_scan_errors(find_fopen)); /* This is unreliable. */
 )
 
 CHEAT_TEST(streams_get_scanned,
-	cheat_assert(cheat_scan_errors(find_fopen)); /* This is reliable. */
 )
 
 CHEAT_TEST(crash,
