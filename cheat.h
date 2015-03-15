@@ -1763,7 +1763,7 @@ static void cheat_isolate_test(struct cheat_suite* const suite,
 			struct timeval time;
 
 			time.tv_sec = CHEAT_TIME / 1000;
-			time.tv_usec = CHEAT_TIME % 1000;
+			time.tv_usec = (CHEAT_TIME % 1000) * 1000;
 
 			result = select(maximum + 1, &set, NULL, NULL, &time);
 		} else
