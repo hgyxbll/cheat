@@ -392,8 +392,8 @@ are similar to `fgetc` from the standard library
 	int cheat_read(cheat_handle const*)
 	int cheat_advancing_read(cheat_handle*)
 	int cheat_retreating_read(cheat_handle*)
-	int cheat_rewind(cheat_handle*)
-	int cheat_fast_forward(cheat_handle*)
+	void cheat_rewind(cheat_handle*)
+	void cheat_fast_forward(cheat_handle*)
 
 Fun times.
 

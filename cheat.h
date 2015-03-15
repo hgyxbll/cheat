@@ -1952,7 +1952,7 @@ static bool cheat_multiplex(struct cheat_channel* const channels,
 			struct timeval time;
 
 			time.tv_sec = CHEAT_TIME / 1000;
-			time.tv_usec = CHEAT_TIME % 1000;
+			time.tv_usec = (CHEAT_TIME % 1000) * 1000;
 
 			result = select(maximum + 1, &set, NULL, NULL, &time);
 		} else
