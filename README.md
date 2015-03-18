@@ -1,7 +1,7 @@
 # CHEAT
 
 CHEAT stands for C Header Embedded Automated Testing or something like that.
-It is a minimal unit testing framework for the C programming language.
+It is a convenient unit testing framework for the C programming language.
 It has no dependencies and requires no installation or configuration.
 Only a header file and a test case is needed.
 
@@ -26,7 +26,7 @@ Compatibility with other tools and operating systems is addressed in section 4.
 
 First you need to download the main header
 
-	[user@computer:~]$ wget http://github.com/Tuplanolla/cheat/raw/1.0.1/cheat.h
+	[user@computer:~]$ wget http://github.com/Tuplanolla/cheat/raw/1.0.2/cheat.h
 
 and move it to a suitable location like the global search path
 
@@ -57,7 +57,7 @@ You can define tests with `CHEAT_TEST(name, statements)` and
 their success conditions called assertions with `cheat_assert(bool expected)`.
 Doing so is demonstrated in the example file.
 
-	[user@computer:~/project]$ wget http://github.com/Tuplanolla/cheat/raw/1.0.1/example.c
+	[user@computer:~/project]$ wget http://github.com/Tuplanolla/cheat/raw/1.0.2/example.c
 	[user@computer:~/project]$ mv -i example.c tests.c
 
 The example also shows how you can declare global variables with
@@ -142,7 +142,7 @@ The option syntax is specified in section 3.3.
 
 There is an extension header in addition to the main header.
 
-	[user@computer:~/project]$ wget http://github.com/Tuplanolla/cheat/raw/1.0.1/cheats.h
+	[user@computer:~/project]$ wget http://github.com/Tuplanolla/cheat/raw/1.0.2/cheats.h
 
 It is supposed to be used as a supplement and
 expects the main header to be included first.
@@ -158,7 +158,7 @@ they require less typing and provide more detailed diagnostic messages.
 
 Its features are demonstrated in the additional example file.
 
-	[user@computer:~/project]$ wget http://github.com/Tuplanolla/cheat/raw/1.0.1/examples.c
+	[user@computer:~/project]$ wget http://github.com/Tuplanolla/cheat/raw/1.0.2/examples.c
 	[user@computer:~/project]$ mv -i examples.c tests.c
 
 You can read more about the extensions in section 3.4.
@@ -228,9 +228,9 @@ You can acquire them by cloning the repository
 
 or downloading the clone directly.
 
-	[user@computer:~]$ wget http://github.com/Tuplanolla/cheat/archive/1.0.1.zip
-	[user@computer:~]$ unzip 1.0.1.zip
-	[user@computer:~]$ mv -i cheat-1.0.1 cheat
+	[user@computer:~]$ wget http://github.com/Tuplanolla/cheat/archive/1.0.2.zip
+	[user@computer:~]$ unzip 1.0.2.zip
+	[user@computer:~]$ mv -i cheat-1.0.2 cheat
 	[user@computer:~]$ cd cheat
 
 In addition to the main header there is an extension header and
@@ -260,8 +260,8 @@ and things used during development.
 
 ### 3.2   Interface
 
-Tests can be defined with `CHEAT_TEST(name, statements)`,
-where `name` must be a valid identifier and `statements` a list of statements.
+Tests can be defined with `CHEAT_TEST(name, statements)`, where
+`name` must be a valid identifier and `statements` a list of statements.
 The identifier must not conflict with an existing preprocessor directive.
 For example `putc` is not a valid identifier, because
 it is reserved by the standard library and
@@ -513,8 +513,8 @@ The definition should be fed to the compiler manually.
 ### 5.6   Debugging
 
 It is not possible to attach a breakpoint to
-any of the identifiers that are part of the public interface,
-because they are all preprocessor directives.
+any of the identifiers that are part of the public interface, because
+they are all preprocessor directives.
 
 Attaching one to `CHEAT_GET(name)` or `cheat_check()` should work instead.
 
@@ -533,17 +533,17 @@ Everyone likes pretty pictures.
 Here is a picture of CHEAT being compiled with the GNU Compiler Collection and
 run in the Xfce terminal emulator that is provided by a Linux distribution.
 
-![Screenshot](http://raw.github.com/Tuplanolla/cheat/1.0.1/pictures/xfce.png)
+![Screenshot](http://raw.github.com/Tuplanolla/cheat/1.0.2/pictures/xfce.png)
 
 Here is a picture of CHEAT being compiled with Microsoft C/C++ and
 run in the command prompt of Windows XP.
 
-![Another Screenshot](http://raw.github.com/Tuplanolla/cheat/1.0.1/pictures/xp.png)
+![Another Screenshot](http://raw.github.com/Tuplanolla/cheat/1.0.2/pictures/xp.png)
 
 Here is a picture of CHEAT being compiled with Borland Turbo C and
 run in the default shell of FreeDOS.
 
-![Yet Another Screenshot](http://raw.github.com/Tuplanolla/cheat/1.0.1/pictures/dos.png)
+![Yet Another Screenshot](http://raw.github.com/Tuplanolla/cheat/1.0.2/pictures/dos.png)
 
 ## 7   Reference
 

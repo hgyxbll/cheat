@@ -9,11 +9,14 @@ CHEAT_TEST(mathematics_still_work,
 )
 
 CHEAT_DECLARE(
-	static double f(double const x, double const y) {
+	static double f(double const x,
+			double const y) {
 		return 2 / (x * x) - y * y / 2;
 	}
 
-	static bool p(double const x, double const y, double const e) {
+	static bool p(double const x,
+			double const y,
+			double const e) {
 		double d;
 
 		if (x < y)
