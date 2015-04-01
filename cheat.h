@@ -2059,6 +2059,9 @@ static void cheat_isolate_test(struct cheat_suite* const suite,
 				streams opened from file descriptors are not flushed when
 				the file descriptors are closed. */
 
+		fflush(stdout);
+		fflush(stderr);
+
 		for (index = 0;
 				index < channel_count;
 				++index)
@@ -3276,7 +3279,7 @@ static int CHEAT_WRAP(vfprintf)(FILE* const stream,
 			result = vsprintf(buffer, format, list);
 			if (stream == stdout)
 				cheat_append_list(&cheat_suite.outputs, buffer, length);
-			else
+			else if (stream == stderr)
 				cheat_append_list(&cheat_suite.errors, buffer, length);
 
 			free(buffer);
@@ -3476,7 +3479,7 @@ static size_t CHEAT_WRAP(fwrite)(void const* const buffer,
 		if (cheat_capture(&cheat_suite, stream)) {
 			if (stream == stdout)
 				cheat_append_list(&cheat_suite.outputs, buffer, size * count);
-			else
+			else if (stream == stderr)
 				cheat_append_list(&cheat_suite.errors, buffer, size * count);
 		}
 
