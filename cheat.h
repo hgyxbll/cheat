@@ -2055,12 +2055,20 @@ static void cheat_isolate_test(struct cheat_suite* const suite,
 
 		cheat_run_coupled_test(suite, test);
 
-		fflush(suite->message_stream); /* This is very important, because
-				streams opened from file descriptors are not flushed when
-				the file descriptors are closed. */
+		/*
+		These are very important, because
+		streams opened from file descriptors are not flushed when
+		the file descriptors are closed.
+		*/
 
-		fflush(stdout);
-		fflush(stderr);
+		if (fflush(suite->message_stream) == EOF)
+			cheat_death("failed to flush the message stream", errno);
+
+		if (fflush(stdout) == EOF)
+			cheat_death("failed to flush the standard output stream", errno);
+
+		if (fflush(stderr) == EOF)
+			cheat_death("failed to flush the standard error stream", errno);
 
 		for (index = 0;
 				index < channel_count;
