@@ -478,7 +478,7 @@ __attribute__ ((__const__, __warn_unused_result__))
 static size_t cheat_mean(size_t const size,
 		size_t const another_size) {
 	if (another_size < size)
-		return cheat_mean(another_size, size);
+		return another_size + (size - another_size) / 2;
 
 	return size + (another_size - size) / 2;
 }
