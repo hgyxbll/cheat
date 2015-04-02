@@ -428,7 +428,8 @@ every predicate is true for the empty set, so why not choose favorably?
 
 ### 4.1   Standards Compliance
 
-CHEAT follows the original language specification, ISO/IEC 9899:1990, and
+CHEAT follows the original language specification,
+ANSI X3.159-1989 or ISO/IEC 9899:1990, and
 the first POSIX specification, IEEE Std 1003.1-1988, to the letter.
 It also takes the newer revisions, both
 ISO/IEC 9899:1999 and IEEE Std 1003.1-2001, into account whenever possible.
