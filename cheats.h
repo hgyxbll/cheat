@@ -1,9 +1,9 @@
 /*
-Copyright (c) 2012, Guillermo "Tordek" Freschi
-Copyright (c) 2013, Sampsa "Tuplanolla" Kiiskinen
-All rights reserved.
+Copyright (c) 2012 Guillermo "Tordek" Freschi
+Copyright (c) 2013 Sampsa "Tuplanolla" Kiiskinen
 
-The full license can be found in the LICENSE file.
+This is free software, and you are welcome to redistribute it
+under certain conditions; see the LICENSE file for details.
 */
 
 #ifndef CHEAT_H
