@@ -805,75 +805,84 @@ static struct cheat_unit const* cheat_find(struct cheat_unit const* const units,
 	return NULL;
 }
 
-/* These are for managing captured stream buffers. */
-
+/* Initialize an undefined stream buffer. */
 __attribute__ ((__nonnull__))
 static void cheat_buffer_initialize(struct cheat_buffer* const buffer) {
-	buffer->list.next = NULL;
-	buffer->list.previous = NULL;
+	buffer->list.first = NULL;
+	buffer->list.last = NULL;
 	buffer->bounds.size = SIZE_MAX;
 	buffer->bounds.element_size = SIZE_MAX;
 	buffer->cache.element_size = 0;
 	buffer->cache.link_count = 0;
 }
 
+/* Add to the end. */
 __attribute__ ((__nonnull__))
 static bool cheat_buffer_add(struct cheat_buffer* const buffer,
 		char* const elements,
 		size_t const size) {
+	void* data;
 	struct cheat_link* link;
+	char* copy;
 
-	link = CHEAT_CAST(struct cheat_link*, malloc(sizeof *link));
-	if (link == NULL)
+	/* TODO Manage bounds. */
+	/* ...and like:
+	size_t total_size;
+
+	total_size = cheat_list_size(buffer);
+
+	while (total_size + size > buffer->cap) {
+		size_t surplus;
+
+		surplus = total_size + size - buffer->cap;
+
+		if (buffer->count != 0 && buffer->items[0].size < surplus) {
+			surplus -= buffer->items[0].size;
+			pop_item(buffer, 0);
+		}
+	}
+	if (first chunk exists)
+		from first chunk cut surplus
+	else
+		from new chunk cut surplus
+	add new chunk
+	*/
+
+	data = malloc(sizeof *link + size);
+	if (data == NULL)
 		return false;
+
+	link = CHEAT_CAST(struct cheat_link*, data);
+	copy = (char* )&((unsigned char* )data)[sizeof *link];
+
+	memcpy(copy, elements, size);
 
 	link->next = NULL;
 	link->previous = buffer->list.last;
-	link->item.elements = elements;
+	link->item.elements = copy;
 	link->item.size = size;
 
 	buffer->list.last = link;
 	if (buffer->list.first == NULL)
 		buffer->list.first = link;
 
+	buffer->cache.element_size += size;
+	++buffer->cache.link_count;
+
 	return true;
 }
 
+/* Remove from the beginning. */
 __attribute__ ((__nonnull__))
-static bool cheat_buffer_add_copy(struct cheat_buffer* const buffer,
-		char* const elements,
-		size_t const size) {
-	char* copy;
-
-	copy = CHEAT_CAST(char*, malloc(size));
-	if (link == NULL)
-		return false;
-
-	if (!cheat_buffer_add(buffer, copy, size)) {
-		free(copy);
-
-		return false;
-	}
-
-	memcpy(copy, elements, size);
-
-	return true;
-}
-
-__attribute__ ((__nonnull__ (1)))
-static bool cheat_buffer_remove(struct cheat_buffer* const buffer,
-		char** const elements,
-		size_t* const size) {
+static bool cheat_buffer_remove(struct cheat_buffer* const buffer) {
 	struct cheat_link* link;
 
 	link = buffer->list.first;
-	if (link == NULL)
-		return false;
+	if (link == NULL) {
+		errno = EINVAL;
 
-	if (elements != NULL)
-		*elements = link->item.elements;
-	if (size != NULL)
-		*size = link->item.size;
+		return false;
+	}
 
 	buffer->list.first = link->next;
 	if (buffer->list.first == NULL)
@@ -881,31 +890,13 @@ static bool cheat_buffer_remove(struct cheat_buffer* const buffer,
 
 	free(link);
 
-	if (buffer->list.first == NULL)
-}
-
-__attribute__ ((__nonnull__ (1)))
-static bool cheat_buffer_remove_copy(struct cheat_buffer* const buffer,
-		char* const elements,
-		size_t* const size) {
-	char* copy;
-
-	if (buffer->list.first == NULL)
-		return false;
-
-	cheat_buffer_remove(buffer, &copy, size);
-
-	memcpy(elements, copy, size);
-
-	free(copy);
-
 	return true;
 }
 
 __attribute__ ((__nonnull__))
 static void cheat_buffer_clear(struct cheat_buffer* const buffer) {
 	while (buffer->list.first != NULL)
-		cheat_buffer_remove_copy(buffer, NULL, NULL);
+		cheat_buffer_remove(buffer);
 }
 
 /*
@@ -974,9 +965,9 @@ static void cheat_initialize(struct cheat_suite* const suite) {
 
 	suite->message_stream = NULL;
 
-	cheat_initialize_buffer(&suite->messages);
-	cheat_initialize_buffer(&suite->outputs);
-	cheat_initialize_buffer(&suite->errors);
+	cheat_buffer_initialize(&suite->messages);
+	cheat_buffer_initialize(&suite->outputs);
+	cheat_buffer_initialize(&suite->errors);
 
 	/* Do not touch suite->environment either. */
 }
@@ -1080,28 +1071,6 @@ static void cheat_append_list(struct cheat_buffer* const buffer,
 	if (buffer->count == SIZE_MAX)
 		cheat_death("too many items", buffer->count);
 	count = buffer->count + 1;
-
-	/* ...and like:
-	size_t total_size;
-
-	total_size = cheat_list_size(buffer);
-
-	while (total_size + size > buffer->cap) {
-		size_t surplus;
-
-		surplus = total_size + size - buffer->cap;
-
-		if (buffer->count != 0 && buffer->items[0].size < surplus) {
-			surplus -= buffer->items[0].size;
-			pop_item(buffer, 0);
-		}
-	}
-	if (first chunk exists)
-		from first chunk cut surplus
-	else
-		from new chunk cut surplus
-	add new chunk
-	*/
 
 	if (buffer->count == buffer->capacity) {
 		size_t capacity;
