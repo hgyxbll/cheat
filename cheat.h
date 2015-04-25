@@ -96,10 +96,10 @@ typedef int bool;
 
 /*
 All nested conditions use
- #else
- #if
+  #else
+  #if
 instead of
- #elif
+  #elif
 since some compilers choke on the shorter form.
 */
 #ifdef CHEAT_POSIXLY
@@ -188,22 +188,22 @@ communicating text attributes to terminal emulators.
 */
 #define CHEAT_RESET "\033[0m" /* Some compilers do not understand '\x1b'. */
 #define CHEAT_BOLD "\033[1m"
-#define CHEAT_FOREGROUND_GRAY "\033[30;1m"
-#define CHEAT_FOREGROUND_RED "\033[31;1m"
-#define CHEAT_FOREGROUND_GREEN "\033[32;1m"
-#define CHEAT_FOREGROUND_YELLOW "\033[33;1m"
-#define CHEAT_FOREGROUND_BLUE "\033[34;1m"
-#define CHEAT_FOREGROUND_MAGENTA "\033[35;1m"
-#define CHEAT_FOREGROUND_CYAN "\033[36;1m"
-#define CHEAT_FOREGROUND_WHITE "\033[37;1m"
-#define CHEAT_BACKGROUND_BLACK "\033[40;1m"
-#define CHEAT_BACKGROUND_RED "\033[41;1m"
-#define CHEAT_BACKGROUND_GREEN "\033[42;1m"
-#define CHEAT_BACKGROUND_YELLOW "\033[43;1m"
-#define CHEAT_BACKGROUND_BLUE "\033[44;1m"
-#define CHEAT_BACKGROUND_MAGENTA "\033[45;1m"
-#define CHEAT_BACKGROUND_CYAN "\033[46;1m"
-#define CHEAT_BACKGROUND_GRAY "\033[47;1m"
+#define CHEAT_FG_GRAY "\033[30;1m"
+#define CHEAT_FG_RED "\033[31;1m"
+#define CHEAT_FG_GREEN "\033[32;1m"
+#define CHEAT_FG_YELLOW "\033[33;1m"
+#define CHEAT_FG_BLUE "\033[34;1m"
+#define CHEAT_FG_MAGENTA "\033[35;1m"
+#define CHEAT_FG_CYAN "\033[36;1m"
+#define CHEAT_FG_WHITE "\033[37;1m"
+#define CHEAT_BG_BLACK "\033[40;1m"
+#define CHEAT_BG_RED "\033[41;1m"
+#define CHEAT_BG_GREEN "\033[42;1m"
+#define CHEAT_BG_YELLOW "\033[43;1m"
+#define CHEAT_BG_BLUE "\033[44;1m"
+#define CHEAT_BG_MAGENTA "\033[45;1m"
+#define CHEAT_BG_CYAN "\033[46;1m"
+#define CHEAT_BG_GRAY "\033[47;1m"
 
 enum cheat_type {
 	CHEAT_TESTER,
@@ -247,15 +247,15 @@ Test outcomes are reported through exit codes, but
 some of them are reserved for the operating system, so
 this is needed to move them out of the way.
 For example POSIX allows
- 0 ... 255
+  0 ... 255
 and in that range Windows allows
- 35, 37, 40 ... 49, 73 ... 79, 81, 90 ... 99, 115 ... 116, 163, 165 ... 166,
- 168 ... 169, 171 ... 172, 175 ... 179, 181, 184 ... 185, 204, 211, 213,
- 217 ... 229, 235 ... 239 and 241 ... 253
+  35, 37, 40 ... 49, 73 ... 79, 81, 90 ... 99, 115 ... 116, 163, 165 ... 166,
+  168 ... 169, 171 ... 172, 175 ... 179, 181, 184 ... 185, 204, 211, 213,
+  217 ... 229, 235 ... 239 and 241 ... 253
 of which long enough are
- 40 ... 49 (9), 90 ... 99 (9), 217 ... 229 (12) and 241 ... 253 (12).
+  40 ... 49 (9), 90 ... 99 (9), 217 ... 229 (12) and 241 ... 253 (12).
 Therefore an
- #ifdef
+  #ifdef
 maze is not necessary.
 */
 #ifndef CHEAT_OFFSET /* This can be set externally. */
@@ -321,7 +321,7 @@ might only contain the least significant bytes of the actual error code.
 
 /*
 It would not hurt to have
- __attribute__ ((__reorder__))
+  __attribute__ ((__reorder__))
 on any of these structures since they are only for internal use.
 */
 
@@ -707,7 +707,7 @@ static int cheat_print(FILE* const stream,
 
 /*
 These procedures must not have
- __attribute__ ((__const__))
+  __attribute__ ((__const__))
 as they may fail and print diagnostics.
 */
 
@@ -1076,8 +1076,8 @@ static void cheat_cap(struct cheat_character_array_list* const list,
 		drop first chunk
 		go back to the droppening
 	*/
-	cheat_death("not implemented", __LINE__); /* TODO Might need
-			a data structure overhaul. */
+	cheat_death("not implemented", __LINE__); /* TODO Definitely needs
+			a data structure overhaul (linked lists instead of array lists). */
 }
 
 /*
@@ -1502,17 +1502,17 @@ __attribute__ ((__io__, __nonnull__))
 static void cheat_print_outcome(struct cheat_suite const* const suite) {
 	bool strip = false;
 	bool print_outcome = false;
-	char successful_string[] = CHEAT_BACKGROUND_GREEN "."
+	char successful_string[] = CHEAT_BG_GREEN "."
 		CHEAT_RESET;
-	char failed_string[] = CHEAT_BACKGROUND_RED ":"
+	char failed_string[] = CHEAT_BG_RED ":"
 		CHEAT_RESET;
-	char exited_string[] = CHEAT_BACKGROUND_RED "!"
+	char exited_string[] = CHEAT_BG_RED "!"
 		CHEAT_RESET;
-	char crashed_string[] = CHEAT_BACKGROUND_RED "!"
+	char crashed_string[] = CHEAT_BG_RED "!"
 		CHEAT_RESET;
-	char timed_out_string[] = CHEAT_BACKGROUND_YELLOW "!"
+	char timed_out_string[] = CHEAT_BG_YELLOW "!"
 		CHEAT_RESET;
-	char ignored_string[] = CHEAT_BACKGROUND_YELLOW "?"
+	char ignored_string[] = CHEAT_BG_YELLOW "?"
 		CHEAT_RESET;
 	char skipped_string[] = "";
 
@@ -1573,7 +1573,7 @@ __attribute__ ((__io__, __nonnull__))
 static void cheat_print_separator(struct cheat_suite const* const suite) {
 	bool strip = false;
 	bool print_separator = false;
-	char separator_string[] = CHEAT_FOREGROUND_GRAY "---"
+	char separator_string[] = CHEAT_FG_GRAY "---"
 		CHEAT_RESET;
 
 	switch (suite->style) {
@@ -1616,20 +1616,20 @@ static void cheat_print_summary(struct cheat_suite const* const suite) {
 	bool print_errors = false;
 	bool print_summary = false;
 	bool print_conclusion = false;
-	char long_successful_format[] = CHEAT_FOREGROUND_GREEN
+	char long_successful_format[] = CHEAT_FG_GREEN
 		CHEAT_SIZE_FORMAT " successful"
 		CHEAT_RESET;
 	char long_and_string[] = " and ";
-	char long_failed_format[] = CHEAT_FOREGROUND_RED
+	char long_failed_format[] = CHEAT_FG_RED
 		CHEAT_SIZE_FORMAT " failed"
 		CHEAT_RESET;
 	char long_of_string[] = " of ";
-	char long_run_format[] = CHEAT_FOREGROUND_YELLOW
+	char long_run_format[] = CHEAT_FG_YELLOW
 		CHEAT_SIZE_FORMAT " run"
 		CHEAT_RESET;
-	char success_string[] = CHEAT_FOREGROUND_GREEN "SUCCESS"
+	char success_string[] = CHEAT_FG_GREEN "SUCCESS"
 		CHEAT_RESET;
-	char failure_string[] = CHEAT_FOREGROUND_RED "FAILURE"
+	char failure_string[] = CHEAT_FG_RED "FAILURE"
 		CHEAT_RESET;
 	char short_format[] = CHEAT_SIZE_FORMAT;
 	char short_string[] = " ";
