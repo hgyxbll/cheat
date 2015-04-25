@@ -313,7 +313,7 @@ might only contain the least significant bytes of the actual error code.
 */
 #define cheat_death(message, number) \
 	CHEAT_BEGIN \
-		(void )fprintf(stderr, "%s:%d: %s (0x%x)\n", \
+		(void )fprintf(stderr, "%s:%d: %s (%u)\n", \
 				__FILE__, __LINE__, message, (unsigned int )(number)); \
 		exit(EXIT_FAILURE); \
 	CHEAT_END /* Using cheat_print(), cheat_exit() and
@@ -334,26 +334,49 @@ arrays of primitive types have sizes.
 */
 
 struct cheat_string_array {
-	size_t count;
 	char** elements;
-};
-
-struct cheat_character_array {
-	size_t size;
-	char* elements;
+	size_t count;
 };
 
 struct cheat_string_list {
+	char** items;
 	size_t count;
 	size_t capacity;
-	char** items;
 };
 
-struct cheat_character_array_list {
-	size_t count;
-	size_t capacity;
-	size_t cap;
-	struct cheat_character_array* items;
+/* A string that may contain '\0' characters. */
+struct cheat_string {
+	char* elements;
+	size_t size;
+};
+
+struct cheat_link {
+	struct cheat_link* next;
+	struct cheat_link* previous;
+	struct cheat_string item;
+};
+
+/* A two-way unrolled linked list. */
+struct cheat_linked_list {
+	struct cheat_link* first;
+	struct cheat_link* last;
+};
+
+struct cheat_buffer_bounds {
+	size_t size;
+	size_t element_size;
+};
+
+struct cheat_buffer_cache {
+	size_t element_size;
+	size_t link_count;
+};
+
+/* A bounded buffer for captured character streams. */
+struct cheat_buffer {
+	struct cheat_linked_list list;
+	struct cheat_buffer_bounds bounds;
+	struct cheat_buffer_cache cache;
 };
 
 struct cheat_statistics {
@@ -370,7 +393,7 @@ pointers to it are meant for external use.
 typedef struct {
 	size_t item;
 	size_t element;
-	struct cheat_character_array_list* list;
+	struct cheat_buffer* buffer;
 	bool bof;
 	bool eof;
 } cheat_handle;
@@ -437,11 +460,11 @@ struct cheat_suite {
 	FILE* message_stream; /* The auxiliary stream that
 			gathers internal messages (changes for each test). */
 
-	struct cheat_character_array_list messages; /* The messages related to
+	struct cheat_buffer messages; /* The messages related to
 			the test suite (changes for each test). */
-	struct cheat_character_array_list outputs; /* The captured output from
+	struct cheat_buffer outputs; /* The captured output from
 			stdout (changes for each test). */
-	struct cheat_character_array_list errors; /* The captured output from
+	struct cheat_buffer errors; /* The captured output from
 			stderr (changes for each test). */
 
 	jmp_buf environment; /* The recovery point in case of
@@ -452,7 +475,7 @@ struct cheat_suite {
 struct cheat_channel {
 	int reader;
 	int writer;
-	struct cheat_character_array_list* list;
+	struct cheat_buffer* buffer;
 	bool active;
 };
 #else
@@ -460,7 +483,7 @@ struct cheat_channel {
 struct cheat_channel { /* TODO Use this with pipes. */
 	HANDLE reader;
 	HANDLE writer;
-	struct cheat_character_array_list* list;
+	struct cheat_buffer* buffer;
 	bool active;
 };
 #endif
@@ -782,12 +805,115 @@ static struct cheat_unit const* cheat_find(struct cheat_unit const* const units,
 	return NULL;
 }
 
+/* These are for managing captured stream buffers. */
+
+__attribute__ ((__nonnull__))
+static void cheat_buffer_initialize(struct cheat_buffer* const buffer) {
+	buffer->list.next = NULL;
+	buffer->list.previous = NULL;
+	buffer->bounds.size = SIZE_MAX;
+	buffer->bounds.element_size = SIZE_MAX;
+	buffer->cache.element_size = 0;
+	buffer->cache.link_count = 0;
+}
+
+__attribute__ ((__nonnull__))
+static bool cheat_buffer_add(struct cheat_buffer* const buffer,
+		char* const elements,
+		size_t const size) {
+	struct cheat_link* link;
+
+	link = CHEAT_CAST(struct cheat_link*, malloc(sizeof *link));
+	if (link == NULL)
+		return false;
+
+	link->next = NULL;
+	link->previous = buffer->list.last;
+	link->item.elements = elements;
+	link->item.size = size;
+
+	buffer->list.last = link;
+	if (buffer->list.first == NULL)
+		buffer->list.first = link;
+
+	return true;
+}
+
+__attribute__ ((__nonnull__))
+static bool cheat_buffer_add_copy(struct cheat_buffer* const buffer,
+		char* const elements,
+		size_t const size) {
+	char* copy;
+
+	copy = CHEAT_CAST(char*, malloc(size));
+	if (link == NULL)
+		return false;
+
+	if (!cheat_buffer_add(buffer, copy, size)) {
+		free(copy);
+
+		return false;
+	}
+
+	memcpy(copy, elements, size);
+
+	return true;
+}
+
+__attribute__ ((__nonnull__ (1)))
+static bool cheat_buffer_remove(struct cheat_buffer* const buffer,
+		char** const elements,
+		size_t* const size) {
+	struct cheat_link* link;
+
+	link = buffer->list.first;
+	if (link == NULL)
+		return false;
+
+	if (elements != NULL)
+		*elements = link->item.elements;
+	if (size != NULL)
+		*size = link->item.size;
+
+	buffer->list.first = link->next;
+	if (buffer->list.first == NULL)
+		buffer->list.last = NULL;
+
+	free(link);
+
+	if (buffer->list.first == NULL)
+}
+
+__attribute__ ((__nonnull__ (1)))
+static bool cheat_buffer_remove_copy(struct cheat_buffer* const buffer,
+		char* const elements,
+		size_t* const size) {
+	char* copy;
+
+	if (buffer->list.first == NULL)
+		return false;
+
+	cheat_buffer_remove(buffer, &copy, size);
+
+	memcpy(elements, copy, size);
+
+	free(copy);
+
+	return true;
+}
+
+__attribute__ ((__nonnull__))
+static void cheat_buffer_clear(struct cheat_buffer* const buffer) {
+	while (buffer->list.first != NULL)
+		cheat_buffer_remove_copy(buffer, NULL, NULL);
+}
+
 /*
 Initializes an undefined handle.
 */
 __attribute__ ((__nonnull__))
 static void cheat_initialize_handle(cheat_handle* const handle) {
-	handle->list = NULL;
+	handle->buffer = NULL;
 }
 
 /*
@@ -806,17 +932,6 @@ __attribute__ ((__nonnull__))
 static void cheat_initialize_string_list(struct cheat_string_list* const list) {
 	list->count = 0;
 	list->capacity = 0;
-	list->items = NULL;
-}
-
-/*
-Initializes an undefined list of character arrays.
-*/
-__attribute__ ((__nonnull__))
-static void cheat_initialize_list(struct cheat_character_array_list* const list) {
-	list->count = 0;
-	list->capacity = 0;
-	list->cap = SIZE_MAX;
 	list->items = NULL;
 }
 
@@ -859,9 +974,9 @@ static void cheat_initialize(struct cheat_suite* const suite) {
 
 	suite->message_stream = NULL;
 
-	cheat_initialize_list(&suite->messages);
-	cheat_initialize_list(&suite->outputs);
-	cheat_initialize_list(&suite->errors);
+	cheat_initialize_buffer(&suite->messages);
+	cheat_initialize_buffer(&suite->outputs);
+	cheat_initialize_buffer(&suite->errors);
 
 	/* Do not touch suite->environment either. */
 }
@@ -878,51 +993,38 @@ static void cheat_clear_string_list(struct cheat_string_list* const list) {
 }
 
 /*
-Clears a list of character arrays.
-*/
-__attribute__ ((__nonnull__))
-static void cheat_clear_list(struct cheat_character_array_list* const list) {
-	while (list->count > 0)
-		free(list->items[--list->count].elements);
-
-	list->capacity = 0;
-	free(list->items);
-	list->items = NULL;
-}
-
-/*
 Clears all the character array lists in a test suite.
 */
 __attribute__ ((__nonnull__))
 static void cheat_clear_lists(struct cheat_suite* const suite) {
-	cheat_clear_list(&suite->messages);
-	cheat_clear_list(&suite->outputs);
-	cheat_clear_list(&suite->errors);
+	cheat_buffer_clear(&suite->messages);
+	cheat_buffer_clear(&suite->outputs);
+	cheat_buffer_clear(&suite->errors);
 }
 
 /*
 Checks whether a character array list is empty.
 */
 __attribute__ ((__pure__))
-static bool cheat_list_is_empty(struct cheat_character_array_list const* const list) {
-	return list == NULL || list->count == 0 || list->items[0].size == 0;
+static bool cheat_list_is_empty(struct cheat_buffer const* const buffer) {
+	return buffer == NULL || buffer->count == 0 || buffer->items[0].size == 0;
 }
 
 /*
 Calculates the length of an array list.
 */
 __attribute__ ((__pure__))
-static size_t cheat_list_size(struct cheat_character_array_list const* const list) {
+static size_t cheat_list_size(struct cheat_buffer const* const buffer) {
 	size_t size;
 	size_t index;
 
-	if (cheat_list_is_empty(list))
+	if (cheat_list_is_empty(buffer))
 		return 0;
 
 	for (index = 0;
-			index < list->count;
+			index < buffer->count;
 			++index)
-		size += list->items[index].size; /* TODO Check overflows elsewhere. */
+		size += buffer->items[index].size; /* TODO Check overflows elsewhere. */
 
 	return size;
 }
@@ -966,7 +1068,7 @@ Copies a message form a character array to the end of a list or
 terminates the program in case of a failure.
 */
 __attribute__ ((__nonnull__ (1)))
-static void cheat_append_list(struct cheat_character_array_list* const list,
+static void cheat_append_list(struct cheat_buffer* const buffer,
 		char const* const buffer,
 		size_t const size) {
 	size_t count;
@@ -975,23 +1077,23 @@ static void cheat_append_list(struct cheat_character_array_list* const list,
 	if (buffer == NULL || size == 0)
 		return;
 
-	if (list->count == SIZE_MAX)
-		cheat_death("too many items", list->count);
-	count = list->count + 1;
+	if (buffer->count == SIZE_MAX)
+		cheat_death("too many items", buffer->count);
+	count = buffer->count + 1;
 
 	/* ...and like:
 	size_t total_size;
 
-	total_size = cheat_list_size(list);
+	total_size = cheat_list_size(buffer);
 
-	while (total_size + size > list->cap) {
+	while (total_size + size > buffer->cap) {
 		size_t surplus;
 
-		surplus = total_size + size - list->cap;
+		surplus = total_size + size - buffer->cap;
 
-		if (list->count != 0 && list->items[0].size < surplus) {
-			surplus -= list->items[0].size;
-			pop_item(list, 0);
+		if (buffer->count != 0 && buffer->items[0].size < surplus) {
+			surplus -= buffer->items[0].size;
+			pop_item(buffer, 0);
 		}
 	}
 	if (first chunk exists)
@@ -1001,21 +1103,21 @@ static void cheat_append_list(struct cheat_character_array_list* const list,
 	add new chunk
 	*/
 
-	if (list->count == list->capacity) {
+	if (buffer->count == buffer->capacity) {
 		size_t capacity;
-		struct cheat_character_array* items;
+		struct cheat_string* items;
 
-		capacity = cheat_expand(list->capacity);
-		if (capacity == list->capacity)
-			cheat_death("item capacity exceeded", list->capacity);
+		capacity = cheat_expand(buffer->capacity);
+		if (capacity == buffer->capacity)
+			cheat_death("item capacity exceeded", buffer->capacity);
 
-		items = CHEAT_CAST(struct cheat_character_array*, cheat_reallocate_array(list->items,
-					capacity, sizeof *list->items));
+		items = CHEAT_CAST(struct cheat_string*, cheat_reallocate_array(buffer->items,
+					capacity, sizeof *buffer->items));
 		if (items == NULL)
 			cheat_death("failed to allocate more memory", errno);
 
-		list->capacity = capacity;
-		list->items = items;
+		buffer->capacity = capacity;
+		buffer->items = items;
 	}
 
 	elements = CHEAT_CAST(char*, malloc(size));
@@ -1023,9 +1125,9 @@ static void cheat_append_list(struct cheat_character_array_list* const list,
 		cheat_death("failed to allocate memory", errno);
 	memcpy(elements, buffer, size);
 
-	list->items[list->count].size = size;
-	list->items[list->count].elements = elements;
-	list->count = count;
+	buffer->items[buffer->count].size = size;
+	buffer->items[buffer->count].elements = elements;
+	buffer->count = count;
 }
 
 /*
@@ -1060,9 +1162,9 @@ Sets a length limit for a captured stream or
 terminates the program in case of a failure.
 */
 __attribute__ ((__nonnull__, __unused__))
-static void cheat_cap(struct cheat_character_array_list* const list,
+static void cheat_cap(struct cheat_buffer* const buffer,
 		size_t const size) {
-	list->cap = size;
+	buffer->cap = size;
 	/* ...and purge the rest:
 	if (actual size < capped size)
 		nothing
@@ -1085,12 +1187,12 @@ Clears a captured stream or
 terminates the program in case of a failure.
 */
 __attribute__ ((__nonnull__, __unused__))
-static void cheat_purge(struct cheat_character_array_list* const list) {
+static void cheat_purge(struct cheat_buffer* const buffer) {
 	size_t cap;
 
-	cap = list->cap;
-	cheat_cap(list, 0);
-	cheat_cap(list, cap);
+	cap = buffer->cap;
+	cheat_cap(buffer, 0);
+	cheat_cap(buffer, cap);
 }
 
 /*
@@ -1099,7 +1201,7 @@ is one element past the end of an empty list.
 */
 __attribute__ ((__nonnull__))
 static void cheat_rewind(cheat_handle* const handle) {
-	if (cheat_list_is_empty(handle->list)) {
+	if (cheat_list_is_empty(handle->buffer)) {
 		handle->bof = false;
 		handle->eof = true;
 	} else {
@@ -1116,12 +1218,12 @@ is one element past the beginning of an empty list.
 */
 __attribute__ ((__nonnull__, __unused__))
 static void cheat_fast_forward(cheat_handle* const handle) {
-	if (cheat_list_is_empty(handle->list)) {
+	if (cheat_list_is_empty(handle->buffer)) {
 		handle->bof = true;
 		handle->eof = false;
 	} else {
-		handle->item = handle->list->count - 1;
-		handle->element = handle->list->items[0].size - 1;
+		handle->item = handle->buffer->count - 1;
+		handle->element = handle->buffer->items[0].size - 1;
 		handle->bof = false;
 		handle->eof = false;
 	}
@@ -1138,7 +1240,7 @@ static int cheat_read(cheat_handle const* const handle) {
 	if (handle->eof)
 		return CHEAT_EOF;
 
-	return (int )(unsigned char )handle->list->items[handle->item].elements[handle->element];
+	return (int )(unsigned char )handle->buffer->items[handle->item].elements[handle->element];
 }
 
 /*
@@ -1154,7 +1256,7 @@ static int cheat_advancing_read(cheat_handle* const handle) {
 		return CHEAT_EOF;
 
 	if (value == CHEAT_BOF) {
-		if (cheat_list_is_empty(handle->list))
+		if (cheat_list_is_empty(handle->buffer))
 			handle->eof = true;
 		else {
 			handle->item = 0;
@@ -1165,9 +1267,9 @@ static int cheat_advancing_read(cheat_handle* const handle) {
 		return CHEAT_BOF;
 	}
 
-	if (handle->element < handle->list->items[handle->item].size - 1)
+	if (handle->element < handle->buffer->items[handle->item].size - 1)
 		++handle->element;
-	else if (handle->item < handle->list->count - 1) {
+	else if (handle->item < handle->buffer->count - 1) {
 		++handle->item;
 		handle->element = 0;
 	} else
@@ -1189,11 +1291,11 @@ static int cheat_retreating_read(cheat_handle* const handle) {
 		return CHEAT_BOF;
 
 	if (value == CHEAT_EOF) {
-		if (cheat_list_is_empty(handle->list))
+		if (cheat_list_is_empty(handle->buffer))
 			handle->bof = true;
 		else {
-			handle->item = handle->list->count - 1;
-			handle->element = handle->list->items[handle->item].size - 1;
+			handle->item = handle->buffer->count - 1;
+			handle->element = handle->buffer->items[handle->item].size - 1;
 		}
 		handle->eof = false;
 
@@ -1204,7 +1306,7 @@ static int cheat_retreating_read(cheat_handle* const handle) {
 		--handle->element;
 	else if (handle->item > 0) {
 		--handle->item;
-		handle->element = handle->list->items[handle->item].size - 1;
+		handle->element = handle->buffer->items[handle->item].size - 1;
 	} else
 		handle->bof = true;
 
@@ -1216,12 +1318,12 @@ Runs a predicate through a captured stream and returns its value or
 terminates the program in case of a failure.
 */
 __attribute__ ((__nonnull__, __unused__))
-static CHEAT_SCAN_TYPE cheat_scan(struct cheat_character_array_list* const list,
+static CHEAT_SCAN_TYPE cheat_scan(struct cheat_buffer* const buffer,
 		cheat_scanner const scanner) {
 	cheat_handle handle;
 
 	cheat_initialize_handle(&handle);
-	handle.list = list;
+	handle.buffer = buffer;
 	cheat_rewind(&handle);
 
 	return scanner(&handle);
@@ -1297,13 +1399,13 @@ Prints the contents of a list or
 terminates the program in case of a failure.
 */
 __attribute__ ((__io__, __nonnull__))
-static void cheat_print_list(struct cheat_character_array_list const* const list) {
+static void cheat_print_list(struct cheat_buffer const* const buffer) {
 	size_t index;
 
 	for (index = 0;
-			index < list->count;
+			index < buffer->count;
 			++index)
-		(void )fwrite(list->items[index].elements, 1, list->items[index].size, stdout);
+		(void )fwrite(buffer->items[index].elements, 1, buffer->items[index].size, stdout);
 }
 
 /*
@@ -1980,7 +2082,7 @@ static bool cheat_multiplex(struct cheat_channel* const channels,
 			if (size == 0)
 				channels[index].active = false;
 			else
-				cheat_append_list(channels[index].list, buffer, (size_t )size);
+				cheat_append_list(channels[index].buffer, buffer, (size_t )size);
 		}
 	} while (result != 0);
 
@@ -2029,9 +2131,9 @@ static void cheat_isolate_test(struct cheat_suite* const suite,
 		channels[index].active = true;
 	}
 
-	channels[0].list = &suite->messages;
-	channels[1].list = &suite->outputs;
-	channels[2].list = &suite->errors;
+	channels[0].buffer = &suite->messages;
+	channels[1].buffer = &suite->outputs;
+	channels[2].buffer = &suite->errors;
 
 	pid = fork();
 	if (pid == -1)
