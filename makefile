@@ -1,4 +1,5 @@
 CFLAGS=-I .
+LDLIBS=-lm
 
 build: example examples
 
@@ -15,6 +16,6 @@ example: cheat.h example.c
 
 examples: cheat.h cheats.h examples.c
 	$(CC) $(CFLAGS) \
-		-o examples examples.c
+		-o examples examples.c $(LDLIBS)
 
 .PHONY: build clean test
