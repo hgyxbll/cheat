@@ -324,9 +324,9 @@ writing to the standard streams.
 However streams are still captured and
 subsequent tests may scan them with
 
-* `CHEAT_SCAN_TYPE cheat_scan_messages(cheat_scanner)`,
-* `CHEAT_SCAN_TYPE cheat_scan_outputs(cheat_scanner)` and
-* `CHEAT_SCAN_TYPE cheat_scan_errors(cheat_scanner)`.
+* `CHEAT_SCAN_TYPE cheat_scan_messages(cheat_scanner scanner)`,
+* `CHEAT_SCAN_TYPE cheat_scan_outputs(cheat_scanner scanner)` and
+* `CHEAT_SCAN_TYPE cheat_scan_errors(cheat_scanner scanner)`.
 
 The procedures refer to
 
@@ -341,16 +341,16 @@ The return type `CHEAT_SCAN_TYPE` is arbitrary and
 the handle type `cheat_handle` is like `FILE` from the standard library,
 except that its instances are bidirectional and
 need not be opened or closed manually.
-The instances are needed by the actual stream processing procedures that
+The instances are needed by the stream processing procedures that
 are similar to `fgetc` from the standard library, but
 instead of `EOF` there are `CHEAT_EOF == EOF` and `CHEAT_BOF != EOF`.
-The stream processing procedures are
+The stream processing procedures have the type `cheat_reader` and are
 
-* `int cheat_read(cheat_handle const*)`,
-* `int cheat_advancing_read(cheat_handle*)`,
-* `int cheat_retreating_read(cheat_handle*)`,
-* `void cheat_rewind(cheat_handle*)` and
-* `void cheat_fast_forward(cheat_handle*)`.
+* `int cheat_read(cheat_handle const* handle)`,
+* `int cheat_advancing_read(cheat_handle* handle)`,
+* `int cheat_retreating_read(cheat_handle* handle)`,
+* `void cheat_rewind(cheat_handle* handle)` and
+* `void cheat_fast_forward(cheat_handle* handle)`.
 
 Their use is quite obvious, but for the sake of completeness, they
 
@@ -645,17 +645,22 @@ run in the default shell of FreeDOS.
 
  
 
-* `CHEAT_SCAN_TYPE cheat_scan_messages(cheat_scanner)` scans the captured assertions
-* `CHEAT_SCAN_TYPE cheat_scan_outputs(cheat_scanner)` scans the captured standard output stream
-* `CHEAT_SCAN_TYPE cheat_scan_errors(cheat_scanner)` scans the captured standard error stream
+* `cheat_scanner` is `int (*)(cheat_handle const*)`,
+* `cheat_reader` is `CHEAT_SCAN_TYPE (*)(cheat_handle*)`.
 
  
 
-* `int cheat_read(cheat_handle const*)` reads a byte without moving
-* `int cheat_advancing_read(cheat_handle*)` reads a byte and moves forward
-* `int cheat_retreating_read(cheat_handle*)` reads a byte and moves backward
-* `void cheat_rewind(cheat_handle*)` moves backward
-* `void cheat_fast_forward(cheat_handle*)` moves forward
+* `CHEAT_SCAN_TYPE cheat_scan_messages(cheat_scanner scanner)` scans the captured assertions
+* `CHEAT_SCAN_TYPE cheat_scan_outputs(cheat_scanner scanner)` scans the captured standard output stream
+* `CHEAT_SCAN_TYPE cheat_scan_errors(cheat_scanner scanner)` scans the captured standard error stream
+
+ 
+
+* `int cheat_read(cheat_handle const* handle)` reads a byte without moving
+* `int cheat_advancing_read(cheat_handle* handle)` reads a byte and moves forward
+* `int cheat_retreating_read(cheat_handle* handle)` reads a byte and moves backward
+* `void cheat_rewind(cheat_handle* handle)` moves backward
+* `void cheat_fast_forward(cheat_handle* handle)` moves forward
 
  
 

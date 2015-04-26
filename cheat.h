@@ -464,6 +464,8 @@ struct cheat_suite {
 	bool quiet; /* Whether to show captured output from
 			stdout and stderr (changes for each execution). */
 
+	/* bool padding; */
+
 	FILE* message_stream; /* The auxiliary stream that
 			gathers internal messages (changes for each test). */
 
@@ -872,7 +874,7 @@ static bool cheat_buffer_remove(struct cheat_buffer* const buffer) {
 /* Add to the end. */
 __attribute__ ((__nonnull__))
 static bool cheat_buffer_add(struct cheat_buffer* const buffer,
-		char* elements,
+		char const* elements,
 		size_t size) {
 	size_t data_size;
 	void* data;
@@ -3276,6 +3278,7 @@ static size_t cheat_printed_length(char const* const format,
 		va_list list) {
 	va_list another_list;
 
+	/* TODO There is an option! */
 	va_copy(another_list, list); /* This is a big compatibility bottleneck. */
 	return (size_t )vsnprintf(NULL, 0, format, another_list);
 
@@ -3316,7 +3319,8 @@ static int CHEAT_WRAP(vfprintf)(FILE* const stream,
 				cheat_buffer_add(&cheat_suite.errors, buffer, length);
 
 			free(buffer);
-		}
+		} else
+			result = -1; /* TODO What is this? */
 
 		return result;
 
