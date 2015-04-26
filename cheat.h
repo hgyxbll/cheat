@@ -3271,6 +3271,15 @@ static void CHEAT_WRAP(_exit)(__attribute__ ((__unused__))
 
 #endif
 
+/*
+Finding the length of a printed string requires both va_copy and vsnprintf.
+There is simply no way around it.
+The same va_list cannot be used twice, because the first use mangles it, and
+it is not possible to call va_start to get two copies, because
+the result may be undefined and even when it is not,
+there is no way to guarantee that vsprintf does not overflow its buffer.
+*/
+
 #ifdef CHEAT_MODERN
 
 __attribute__ ((__unused__))
@@ -3278,7 +3287,6 @@ static size_t cheat_printed_length(char const* const format,
 		va_list list) {
 	va_list another_list;
 
-	/* TODO There is an option! */
 	va_copy(another_list, list); /* This is a big compatibility bottleneck. */
 	return (size_t )vsnprintf(NULL, 0, format, another_list);
 

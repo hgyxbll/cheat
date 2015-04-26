@@ -117,6 +117,7 @@ CHEAT_SKIP(pointless,
 CHEAT_TEST(story,
 	(void )puts("Here's a touching story.");
 	(void )puts("Once upon a time I ran a test.");
+	printf("I bet %f this fucks up.\n", 0.95);
 )
 
 CHEAT_DECLARE(
