@@ -1559,7 +1559,7 @@ __attribute__ ((__io__, __nonnull__))
 static void cheat_print_separator(struct cheat_suite const* const suite) {
 	bool strip = false;
 	bool print_separator = false;
-	char separator_string[] = CHEAT_FG_GRAY "---"
+	char separator_string[] = CHEAT_FG_GRAY "----"
 		CHEAT_RESET;
 
 	switch (suite->style) {

@@ -3,7 +3,7 @@
 for i in tests/*.c
 do
 	o=`printf "%s" "$i" | sed "s/\.[^.]\+\$//"`
-	printf "%s %s %s\n" --- "`basename "$o"`" ---
+	printf "%s %s %s\n" ---- "`basename "$o"`" ----
 	cc -D "__BASE_FILE__=\"$i\""  -I . -o "$o" -w "$i" $2 && {
 		"$o" $1
 		rm "$o"
