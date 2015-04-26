@@ -90,12 +90,13 @@ The resulting executable runs tests in a security harness if possible, so
 the suite does not crash or hang if one of its tests does.
 
 	[user@computer:~/project]$ ./tests
-	..:..??..!..
-	---
-	tests.c:81: assertion in 'philosophy_never_worked' failed: 'heap == stack'
-	tests.c:104: assertion in 'important' failed: 'THIS_TEST == IMPORTANT_TEST'
-	---
-	8 successful and 2 failed of 12 run
+	..:..??.:.!..
+	----
+	example.c:84: assertion in 'philosophy_never_worked' failed: 'heap == stack'
+	example.c:107: assertion in 'important' failed: 'THIS_TEST == IMPORTANT_TEST'
+	example.c:169: assertion in 'streams_get_captured' failed: 'cheat_scan_errors(find_fopen)'
+	----
+	8 successful and 3 failed of 13 run
 	FAILURE
 
 The results are reported in five parts.
@@ -111,7 +112,7 @@ The first part is the progress bar, where
 The second part contains diagnostic messages in
 a format similar to what many popular C compilers produce.
 
-The third and fourth parts, which are omitted here, hold the contents of
+The third and fourth parts, omitted here for brevity, hold the contents of
 the captured standard output and error streams.
 
 The fifth and last part, which is always shown, briefly summarizes what
@@ -127,13 +128,14 @@ You can change the behavior of the test suite with command line options or
 force running individual tests by giving their names as arguments.
 
 	[user@computer:~/project]$ ./tests --list --minimal | xargs ./tests
-	..:..:.:..!..
-	---
-	example.c:81: assertion in 'philosophy_never_worked' failed: 'heap == stack'
-	example.c:104: assertion in 'important' failed: 'THIS_TEST == IMPORTANT_TEST'
-	example.c:112: assertion in 'pointless' failed: '(0 | ~0) == 0'
-	---
-	9 successful and 4 failed of 13 run
+	..:..:.:.:.!..
+	----
+	example.c:84: assertion in 'philosophy_never_worked' failed: 'heap == stack'
+	example.c:107: assertion in 'important' failed: 'THIS_TEST == IMPORTANT_TEST'
+	example.c:115: assertion in 'pointless' failed: '(0 | ~0) == 0'
+	example.c:169: assertion in 'streams_get_captured' failed: 'cheat_scan_errors(find_fopen)'
+	----
+	9 successful and 5 failed of 14 run
 	FAILURE
 
 The option syntax is specified in section 3.3.
@@ -364,7 +366,7 @@ For example `CHEAT_COMMAS(int x, y;)`, `int x CHEAT_COMMA y;` and
 
 #### 3.2.1   New Features
 
-There will be a way to limit captured streams,
+There is a way to limit captured streams,
 
 	void cheat_cap_messages(size_t)
 	void cheat_cap_outputs(size_t)
@@ -373,10 +375,10 @@ There will be a way to limit captured streams,
 clear them
 
 	void cheat_purge_messages(void)
-	void cheat_purge_outputs(size_t)
-	void cheat_purge_errors(size_t)
+	void cheat_purge_outputs(void)
+	void cheat_purge_errors(void)
 
-and scan them with a custom parser.
+and scan them with custom parsers.
 
 	CHEAT_SCAN_TYPE cheat_scan_messages(cheat_scanner)
 	CHEAT_SCAN_TYPE cheat_scan_outputs(cheat_scanner)
@@ -506,9 +508,10 @@ Some problems are impossible to fix, so they are collected into this section.
 
 ### 5.1   Identifiers
 
-Identifiers starting with `CHEAT_` and `cheat_` are reserved for
-internal use as C does not have namespaces.
+Identifiers starting with `CHEAT_` and `cheat_` are reserved for internal use.
 Extensions reserve identifiers starting with `CHEATS_` and `cheats_` as well.
+
+This is intrinsic to C as it does not have namespaces.
 
 ### 5.2   Base File
 
@@ -534,9 +537,13 @@ described in section 3.2.
 
 ### 5.4   Expressions
 
-The expressions given to `cheat_assert(bool expected)` and friends should be
-at most 509 characters long since they are converted into string literals and
-the limit of their length may be that low.
+The expressions given to `cheat_assert(bool expected)` and
+friends should be at most 509 characters long, because
+they are converted into string literals and
+the their maximum length may be that low.
+
+The limit may be higher, but depends on the compiler and
+its supported standard revisions.
 
 ### 5.5   Broken Compiler
 
@@ -544,7 +551,7 @@ If the compiler works like Microsoft C/C++ (commonly known as `cl.exe`) and
 defines both `__BASE_FILE__` and `__FILE__` wrong, then
 the test suite will be empty.
 
-The definition should be fed to the compiler manually.
+In that case the definition must be fed to the compiler manually.
 
 ### 5.6   Debugging
 
@@ -561,6 +568,13 @@ it is not possible to print things on the screen while the tests are running.
 
 However using the `CHEAT_NO_WRAP` option with
 the `--dangerous` option allows bypassing stream capturing.
+
+### 5.8   Scanning Captured Streams
+
+Captured streams may not become available for inspection until
+the test case that generates the streams has finished.
+
+Tests that make use of captured streams should be placed at the end.
 
 ## 6   Screenshots
 
