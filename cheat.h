@@ -362,21 +362,11 @@ struct cheat_linked_list {
 	struct cheat_link* last;
 };
 
-struct cheat_buffer_bounds {
-	size_t size;
-	size_t element_size;
-};
-
-struct cheat_buffer_cache {
-	size_t element_size;
-	size_t link_count;
-};
-
 /* A bounded buffer for captured character streams. */
 struct cheat_buffer {
 	struct cheat_linked_list list;
-	struct cheat_buffer_bounds bounds;
-	struct cheat_buffer_cache cache;
+	size_t cap_size;
+	size_t total_size;
 };
 
 struct cheat_statistics {
@@ -391,9 +381,9 @@ This is defined unlike other types, because
 pointers to it are meant for external use.
 */
 typedef struct {
-	size_t item;
-	size_t element;
 	struct cheat_buffer* buffer;
+	struct cheat_link* link;
+	size_t element;
 	bool bof;
 	bool eof;
 } cheat_handle;
@@ -810,66 +800,8 @@ __attribute__ ((__nonnull__))
 static void cheat_buffer_initialize(struct cheat_buffer* const buffer) {
 	buffer->list.first = NULL;
 	buffer->list.last = NULL;
-	buffer->bounds.size = SIZE_MAX;
-	buffer->bounds.element_size = SIZE_MAX;
-	buffer->cache.element_size = 0;
-	buffer->cache.link_count = 0;
-}
-
-/* Add to the end. */
-__attribute__ ((__nonnull__))
-static bool cheat_buffer_add(struct cheat_buffer* const buffer,
-		char* const elements,
-		size_t const size) {
-	void* data;
-	struct cheat_link* link;
-	char* copy;
-
-	/* TODO Manage bounds. */
-	/* ...and like:
-	size_t total_size;
-
-	total_size = cheat_list_size(buffer);
-
-	while (total_size + size > buffer->cap) {
-		size_t surplus;
-
-		surplus = total_size + size - buffer->cap;
-
-		if (buffer->count != 0 && buffer->items[0].size < surplus) {
-			surplus -= buffer->items[0].size;
-			pop_item(buffer, 0);
-		}
-	}
-	if (first chunk exists)
-		from first chunk cut surplus
-	else
-		from new chunk cut surplus
-	add new chunk
-	*/
-
-	data = malloc(sizeof *link + size);
-	if (data == NULL)
-		return false;
-
-	link = CHEAT_CAST(struct cheat_link*, data);
-	copy = (char* )&((unsigned char* )data)[sizeof *link];
-
-	memcpy(copy, elements, size);
-
-	link->next = NULL;
-	link->previous = buffer->list.last;
-	link->item.elements = copy;
-	link->item.size = size;
-
-	buffer->list.last = link;
-	if (buffer->list.first == NULL)
-		buffer->list.first = link;
-
-	buffer->cache.element_size += size;
-	++buffer->cache.link_count;
-
-	return true;
+	buffer->cap_size = SIZE_MAX;
+	buffer->total_size = 0;
 }
 
 /* Remove from the beginning. */
@@ -889,6 +821,55 @@ static bool cheat_buffer_remove(struct cheat_buffer* const buffer) {
 		buffer->list.last = NULL;
 
 	free(link);
+
+	return true;
+}
+
+/* Add to the end. */
+__attribute__ ((__nonnull__))
+static bool cheat_buffer_add(struct cheat_buffer* const buffer,
+		char* elements,
+		size_t size) {
+	void* data;
+	struct cheat_link* link;
+	char* copy;
+
+	while (buffer->total_size + size > buffer->cap_size) {
+		size_t surplus;
+
+		surplus = buffer->total_size + size - buffer->cap_size;
+
+		if (buffer->list.first == NULL) {
+			elements = &elements[surplus];
+			size -= surplus;
+		} else if (buffer->list.first->item.size < surplus) {
+			buffer->list.first->item.elements = &buffer->list.first->item.elements[surplus];
+			buffer->list.first->item.size -= surplus;
+		} else
+			cheat_buffer_remove(buffer);
+	}
+
+	data = malloc(sizeof *link + size);
+	if (data == NULL)
+		return false;
+
+	/* This casting happens to satisfy alignment requirements. */
+
+	link = CHEAT_CAST(struct cheat_link*, data);
+	copy = (char* )&((unsigned char* )data)[sizeof *link];
+
+	memcpy(copy, elements, size);
+
+	link->next = NULL;
+	link->previous = buffer->list.last;
+	link->item.elements = copy;
+	link->item.size = size;
+
+	buffer->list.last = link;
+	if (buffer->list.first == NULL)
+		buffer->list.first = link;
+
+	buffer->total_size += size;
 
 	return true;
 }
@@ -998,26 +979,7 @@ Checks whether a character array list is empty.
 */
 __attribute__ ((__pure__))
 static bool cheat_list_is_empty(struct cheat_buffer const* const buffer) {
-	return buffer == NULL || buffer->count == 0 || buffer->items[0].size == 0;
-}
-
-/*
-Calculates the length of an array list.
-*/
-__attribute__ ((__pure__))
-static size_t cheat_list_size(struct cheat_buffer const* const buffer) {
-	size_t size;
-	size_t index;
-
-	if (cheat_list_is_empty(buffer))
-		return 0;
-
-	for (index = 0;
-			index < buffer->count;
-			++index)
-		size += buffer->items[index].size; /* TODO Check overflows elsewhere. */
-
-	return size;
+	return buffer == NULL || buffer->total_size == 0;
 }
 
 /*
@@ -1055,51 +1017,6 @@ static void cheat_append_string_list(struct cheat_string_list* const list,
 }
 
 /*
-Copies a message form a character array to the end of a list or
-terminates the program in case of a failure.
-*/
-__attribute__ ((__nonnull__ (1)))
-static void cheat_append_list(struct cheat_buffer* const buffer,
-		char const* const buffer,
-		size_t const size) {
-	size_t count;
-	char* elements;
-
-	if (buffer == NULL || size == 0)
-		return;
-
-	if (buffer->count == SIZE_MAX)
-		cheat_death("too many items", buffer->count);
-	count = buffer->count + 1;
-
-	if (buffer->count == buffer->capacity) {
-		size_t capacity;
-		struct cheat_string* items;
-
-		capacity = cheat_expand(buffer->capacity);
-		if (capacity == buffer->capacity)
-			cheat_death("item capacity exceeded", buffer->capacity);
-
-		items = CHEAT_CAST(struct cheat_string*, cheat_reallocate_array(buffer->items,
-					capacity, sizeof *buffer->items));
-		if (items == NULL)
-			cheat_death("failed to allocate more memory", errno);
-
-		buffer->capacity = capacity;
-		buffer->items = items;
-	}
-
-	elements = CHEAT_CAST(char*, malloc(size));
-	if (elements == NULL)
-		cheat_death("failed to allocate memory", errno);
-	memcpy(elements, buffer, size);
-
-	buffer->items[buffer->count].size = size;
-	buffer->items[buffer->count].elements = elements;
-	buffer->count = count;
-}
-
-/*
 Checks whether a stream should be captured.
 */
 __attribute__ ((__pure__, __unused__, __warn_unused_result__))
@@ -1133,22 +1050,19 @@ terminates the program in case of a failure.
 __attribute__ ((__nonnull__, __unused__))
 static void cheat_cap(struct cheat_buffer* const buffer,
 		size_t const size) {
-	buffer->cap = size;
-	/* ...and purge the rest:
-	if (actual size < capped size)
-		nothing
-	the droppening:
-	extra size = actual size - capped size
-	if (extra size == first chunk size)
-		drop first chunk
-	if (extra size < first chunk size)
-		shift first chunk back by extra size
-	if (extra size > first chunk size)
-		drop first chunk
-		go back to the droppening
-	*/
-	cheat_death("not implemented", __LINE__); /* TODO Definitely needs
-			a data structure overhaul (linked lists instead of array lists). */
+	buffer->cap_size = size;
+
+	while (buffer->total_size > buffer->cap_size) {
+		size_t surplus;
+
+		surplus = buffer->total_size - buffer->cap_size;
+
+		if (buffer->list.first->item.size < surplus) {
+			buffer->list.first->item.elements = &buffer->list.first->item.elements[surplus];
+			buffer->list.first->item.size -= surplus;
+		} else
+			cheat_buffer_remove(buffer);
+	}
 }
 
 /*
@@ -1157,11 +1071,7 @@ terminates the program in case of a failure.
 */
 __attribute__ ((__nonnull__, __unused__))
 static void cheat_purge(struct cheat_buffer* const buffer) {
-	size_t cap;
-
-	cap = buffer->cap;
-	cheat_cap(buffer, 0);
-	cheat_cap(buffer, cap);
+	cheat_buffer_clear(buffer);
 }
 
 /*
@@ -1174,7 +1084,7 @@ static void cheat_rewind(cheat_handle* const handle) {
 		handle->bof = false;
 		handle->eof = true;
 	} else {
-		handle->item = 0;
+		handle->link = handle->buffer->list.first;
 		handle->element = 0;
 		handle->bof = false;
 		handle->eof = false;
@@ -1191,8 +1101,8 @@ static void cheat_fast_forward(cheat_handle* const handle) {
 		handle->bof = true;
 		handle->eof = false;
 	} else {
-		handle->item = handle->buffer->count - 1;
-		handle->element = handle->buffer->items[0].size - 1;
+		handle->link = handle->buffer->list.last;
+		handle->element = handle->link->item.size - 1;
 		handle->bof = false;
 		handle->eof = false;
 	}
@@ -1209,7 +1119,7 @@ static int cheat_read(cheat_handle const* const handle) {
 	if (handle->eof)
 		return CHEAT_EOF;
 
-	return (int )(unsigned char )handle->buffer->items[handle->item].elements[handle->element];
+	return (int )(unsigned char )handle->link->item.elements[handle->element];
 }
 
 /*
@@ -1228,7 +1138,7 @@ static int cheat_advancing_read(cheat_handle* const handle) {
 		if (cheat_list_is_empty(handle->buffer))
 			handle->eof = true;
 		else {
-			handle->item = 0;
+			handle->link = handle->buffer->list.first;
 			handle->element = 0;
 		}
 		handle->bof = false;
@@ -1236,10 +1146,10 @@ static int cheat_advancing_read(cheat_handle* const handle) {
 		return CHEAT_BOF;
 	}
 
-	if (handle->element < handle->buffer->items[handle->item].size - 1)
+	if (handle->element < handle->link->item.size - 1)
 		++handle->element;
-	else if (handle->item < handle->buffer->count - 1) {
-		++handle->item;
+	else if (handle->link->next != NULL) {
+		handle->link = handle->link->next;
 		handle->element = 0;
 	} else
 		handle->eof = true;
@@ -1263,8 +1173,8 @@ static int cheat_retreating_read(cheat_handle* const handle) {
 		if (cheat_list_is_empty(handle->buffer))
 			handle->bof = true;
 		else {
-			handle->item = handle->buffer->count - 1;
-			handle->element = handle->buffer->items[handle->item].size - 1;
+			handle->link = handle->link->previous;
+			handle->element = handle->link->item.size - 1;
 		}
 		handle->eof = false;
 
@@ -1273,9 +1183,9 @@ static int cheat_retreating_read(cheat_handle* const handle) {
 
 	if (handle->element > 0)
 		--handle->element;
-	else if (handle->item > 0) {
-		--handle->item;
-		handle->element = handle->buffer->items[handle->item].size - 1;
+	else if (handle->link->previous != NULL) {
+		handle->link = handle->link->previous;
+		handle->element = handle->link->item.size - 1;
 	} else
 		handle->bof = true;
 
@@ -1369,12 +1279,15 @@ terminates the program in case of a failure.
 */
 __attribute__ ((__io__, __nonnull__))
 static void cheat_print_list(struct cheat_buffer const* const buffer) {
-	size_t index;
+	struct cheat_link const* link;
 
-	for (index = 0;
-			index < buffer->count;
-			++index)
-		(void )fwrite(buffer->items[index].elements, 1, buffer->items[index].size, stdout);
+	link = buffer->list.first;
+
+	while (link != NULL) {
+		(void )fwrite(link->item.elements, 1, link->item.size, stdout);
+
+		link = link->next;
+	}
 }
 
 /*
@@ -1750,9 +1663,9 @@ static void cheat_print_summary(struct cheat_suite const* const suite) {
 	any_successes = suite->tests.successful != 0;
 	any_failures = suite->tests.failed != 0;
 	any_run = suite->tests.run != 0;
-	any_messages = suite->messages.count != 0;
-	any_outputs = suite->outputs.count != 0;
-	any_errors = suite->errors.count != 0;
+	any_messages = suite->messages.total_size != 0;
+	any_outputs = suite->outputs.total_size != 0;
+	any_errors = suite->errors.total_size != 0;
 
 	if (print_outcomes && any_run) {
 		separate = true;
@@ -1891,7 +1804,7 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 						file, (CHEAT_SIZE_TYPE )line,
 						suite->test_name, truncation) < 0)
 				cheat_death("failed to build a string", errno);
-			cheat_append_list(&suite->messages, buffer, strlen(buffer));
+			cheat_buffer_add(&suite->messages, buffer, strlen(buffer));
 
 			free(buffer);
 			break;
@@ -2051,7 +1964,7 @@ static bool cheat_multiplex(struct cheat_channel* const channels,
 			if (size == 0)
 				channels[index].active = false;
 			else
-				cheat_append_list(channels[index].buffer, buffer, (size_t )size);
+				cheat_buffer_add(channels[index].buffer, buffer, (size_t )size);
 		}
 	} while (result != 0);
 
@@ -2309,7 +2222,7 @@ Windows makes working with pipes a hassle, so not all streams are captured.
 		if (size == 0)
 			break;
 
-		cheat_append_list(&suite->messages, buffer, (size_t )size);
+		cheat_buffer_add(&suite->messages, buffer, (size_t )size);
 	} while (TRUE);
 
 	/*
@@ -3357,9 +3270,9 @@ static int CHEAT_WRAP(vfprintf)(FILE* const stream,
 
 			result = vsprintf(buffer, format, list);
 			if (stream == stdout)
-				cheat_append_list(&cheat_suite.outputs, buffer, length);
+				cheat_buffer_add(&cheat_suite.outputs, buffer, length);
 			else if (stream == stderr)
-				cheat_append_list(&cheat_suite.errors, buffer, length);
+				cheat_buffer_add(&cheat_suite.errors, buffer, length);
 
 			free(buffer);
 		}
@@ -3557,9 +3470,9 @@ static size_t CHEAT_WRAP(fwrite)(void const* const buffer,
 
 		if (cheat_capture(&cheat_suite, stream)) {
 			if (stream == stdout)
-				cheat_append_list(&cheat_suite.outputs, buffer, size * count);
+				cheat_buffer_add(&cheat_suite.outputs, buffer, size * count);
 			else if (stream == stderr)
-				cheat_append_list(&cheat_suite.errors, buffer, size * count);
+				cheat_buffer_add(&cheat_suite.errors, buffer, size * count);
 		}
 
 		return count;
