@@ -1,4 +1,5 @@
 #include <cheat.h>
+#include <stdbool.h>
 
 CHEAT_TEST(success,
 	cheat_assert(false);

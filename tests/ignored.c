@@ -1,4 +1,5 @@
 #include <cheat.h>
+#include <stdbool.h>
 
 CHEAT_IGNORE(success, {})
 

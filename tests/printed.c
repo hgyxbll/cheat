@@ -1,4 +1,5 @@
 #include <cheat.h>
+#include <stdbool.h>
 #include <stdio.h>
 
 CHEAT_SET_UP(

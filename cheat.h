@@ -8,7 +8,7 @@ under certain conditions; see the LICENSE file for details.
 
 /*
 Identifiers starting with CHEAT_ and cheat_ are reserved for internal use and
-identifiers starting with cheat_test_, cheat_wrapped_ or cheat_unwrapped_ for
+identifiers starting with cheat_test_, cheat_wrapped_ and cheat_unwrapped_ for
 external use.
 */
 
@@ -287,6 +287,22 @@ Bidirectional stream operations make use of these.
 #endif
 
 /*
+Captured streams are limited to these sizes.
+*/
+
+#ifndef CHEAT_MESSAGE_CAP
+#define CHEAT_MESSAGE_CAP ((size_t )SIZE_MAX)
+#endif
+
+#ifndef CHEAT_OUTPUT_CAP
+#define CHEAT_OUTPUT_CAP ((size_t )SIZE_MAX)
+#endif
+
+#ifndef CHEAT_ERROR_CAP
+#define CHEAT_ERROR_CAP ((size_t )SIZE_MAX)
+#endif
+
+/*
 This sets the return type of scanners.
 */
 #ifndef CHEAT_SCAN_TYPE
@@ -356,17 +372,18 @@ struct cheat_link {
 	struct cheat_string item;
 };
 
-/* A two-way unrolled linked list. */
 struct cheat_linked_list {
 	struct cheat_link* first;
 	struct cheat_link* last;
 };
 
-/* A bounded buffer for captured character streams. */
+/* This is an unrolled two-way linked list with
+		automatic neighbor compacting. */
 struct cheat_buffer {
 	struct cheat_linked_list list;
-	size_t cap_size;
 	size_t total_size;
+	size_t cap_size;
+	size_t atom_size;
 };
 
 struct cheat_statistics {
@@ -483,6 +500,24 @@ struct cheat_channel { /* TODO Use this with pipes. */
 Procedures are ordered from more pure and general to
 more effectful and domain specific.
 */
+
+__attribute__ ((__const__, __warn_unused_result__))
+static size_t cheat_min(size_t const size,
+		size_t const another_size) {
+	if (another_size < size)
+		return another_size;
+
+	return size;
+}
+
+__attribute__ ((__const__, __warn_unused_result__))
+static size_t cheat_max(size_t const size,
+		size_t const another_size) {
+	if (another_size > size)
+		return another_size;
+
+	return size;
+}
 
 /*
 Calculates the arithmetic mean of two sizes and returns it.
@@ -800,8 +835,15 @@ __attribute__ ((__nonnull__))
 static void cheat_buffer_initialize(struct cheat_buffer* const buffer) {
 	buffer->list.first = NULL;
 	buffer->list.last = NULL;
-	buffer->cap_size = SIZE_MAX;
 	buffer->total_size = 0;
+	buffer->cap_size = SIZE_MAX;
+	buffer->atom_size = BUFSIZ - sizeof *buffer->list.first;
+}
+
+/* Check whether a stream buffer is empty. */
+__attribute__ ((__nonnull__, __pure__))
+static bool cheat_buffer_is_empty(struct cheat_buffer const* const buffer) {
+	return buffer->list.first == NULL;
 }
 
 /* Remove from the beginning. */
@@ -817,8 +859,10 @@ static bool cheat_buffer_remove(struct cheat_buffer* const buffer) {
 	}
 
 	buffer->list.first = link->next;
-	if (buffer->list.first == NULL)
+	if (cheat_buffer_is_empty(buffer))
 		buffer->list.last = NULL;
+
+	buffer->total_size -= link->item.size;
 
 	free(link);
 
@@ -830,31 +874,58 @@ __attribute__ ((__nonnull__))
 static bool cheat_buffer_add(struct cheat_buffer* const buffer,
 		char* elements,
 		size_t size) {
+	size_t data_size;
 	void* data;
 	struct cheat_link* link;
 	char* copy;
 
+	/* Remove data that is over the cap. */
 	while (buffer->total_size + size > buffer->cap_size) {
 		size_t surplus;
 
 		surplus = buffer->total_size + size - buffer->cap_size;
 
-		if (buffer->list.first == NULL) {
+		if (cheat_buffer_is_empty(buffer)) {
 			elements = &elements[surplus];
 			size -= surplus;
-		} else if (buffer->list.first->item.size < surplus) {
+		} else if (buffer->list.first->item.size > surplus) {
 			buffer->list.first->item.elements = &buffer->list.first->item.elements[surplus];
 			buffer->list.first->item.size -= surplus;
+			buffer->total_size -= surplus;
 		} else
 			cheat_buffer_remove(buffer);
 	}
 
-	data = malloc(sizeof *link + size);
+	/* Compact the tail if it is small enough. */
+	if (!cheat_buffer_is_empty(buffer)
+			&& buffer->list.last->item.size < buffer->atom_size) {
+		size_t surplus;
+		size_t lesser;
+
+		surplus = buffer->atom_size - buffer->list.last->item.size;
+		lesser = cheat_min(surplus, size);
+
+		memcpy(&buffer->list.last->item.elements[buffer->list.last->item.size],
+				elements, lesser);
+
+		buffer->list.last->item.size += lesser;
+		buffer->total_size += lesser;
+
+		if (surplus >= size)
+			return true;
+
+		elements = &elements[surplus /* == lesser */];
+		size -= surplus;
+	}
+
+	/* Add a new link to the chain. */
+	data_size = cheat_max(size, buffer->atom_size);
+
+	data = malloc(sizeof *link + data_size);
 	if (data == NULL)
 		return false;
 
-	/* This casting happens to satisfy alignment requirements. */
-
+	/* This casting indicates that alignment requirements are satisfied. */
 	link = CHEAT_CAST(struct cheat_link*, data);
 	copy = (char* )&((unsigned char* )data)[sizeof *link];
 
@@ -865,13 +936,13 @@ static bool cheat_buffer_add(struct cheat_buffer* const buffer,
 	link->item.elements = copy;
 	link->item.size = size;
 
+	buffer->total_size += size;
+
 	if (buffer->list.last != NULL)
 		buffer->list.last->next = link;
 	buffer->list.last = link;
 	if (buffer->list.first == NULL)
 		buffer->list.first = link;
-
-	buffer->total_size += size;
 
 	return true;
 }
@@ -951,6 +1022,9 @@ static void cheat_initialize(struct cheat_suite* const suite) {
 	cheat_buffer_initialize(&suite->messages);
 	cheat_buffer_initialize(&suite->outputs);
 	cheat_buffer_initialize(&suite->errors);
+	suite->messages.cap_size = CHEAT_MESSAGE_CAP;
+	suite->outputs.cap_size = CHEAT_OUTPUT_CAP;
+	suite->errors.cap_size = CHEAT_ERROR_CAP;
 
 	/* Do not touch suite->environment either. */
 }
@@ -1022,7 +1096,8 @@ static void cheat_append_string_list(struct cheat_string_list* const list,
 Checks whether a stream should be captured.
 */
 __attribute__ ((__pure__, __unused__, __warn_unused_result__))
-static bool cheat_capture(struct cheat_suite const* const suite,
+static bool cheat_capture(__attribute__ ((__unused__))
+		struct cheat_suite const* const suite,
 		FILE const* const stream) {
 	return stream == stdout || stream == stderr;
 }
@@ -1043,37 +1118,6 @@ static bool cheat_hide(struct cheat_suite const* const suite,
 	default:
 		cheat_death("invalid harness", suite->harness);
 	}
-}
-
-/*
-Sets a length limit for a captured stream or
-terminates the program in case of a failure.
-*/
-__attribute__ ((__nonnull__, __unused__))
-static void cheat_cap(struct cheat_buffer* const buffer,
-		size_t const size) {
-	buffer->cap_size = size;
-
-	while (buffer->total_size > buffer->cap_size) {
-		size_t surplus;
-
-		surplus = buffer->total_size - buffer->cap_size;
-
-		if (buffer->list.first->item.size < surplus) {
-			buffer->list.first->item.elements = &buffer->list.first->item.elements[surplus];
-			buffer->list.first->item.size -= surplus;
-		} else
-			cheat_buffer_remove(buffer);
-	}
-}
-
-/*
-Clears a captured stream or
-terminates the program in case of a failure.
-*/
-__attribute__ ((__nonnull__, __unused__))
-static void cheat_purge(struct cheat_buffer* const buffer) {
-	cheat_buffer_clear(buffer);
 }
 
 /*
@@ -1113,7 +1157,7 @@ static void cheat_fast_forward(cheat_handle* const handle) {
 /*
 Reads a character from a handle.
 */
-__attribute__ ((__nonnull__, __pure__))
+__attribute__ ((__nonnull__, __pure__, __unused__))
 static int cheat_read(cheat_handle const* const handle) {
 	if (handle->bof)
 		return CHEAT_BOF;
@@ -1127,7 +1171,7 @@ static int cheat_read(cheat_handle const* const handle) {
 /*
 Reads a character from a handle and moves the position of the handle forward.
 */
-__attribute__ ((__nonnull__))
+__attribute__ ((__nonnull__, __unused__))
 static int cheat_advancing_read(cheat_handle* const handle) {
 	int value;
 
@@ -1162,7 +1206,7 @@ static int cheat_advancing_read(cheat_handle* const handle) {
 /*
 Reads a character from a handle and moves the position of the handle backward.
 */
-__attribute__ ((__nonnull__))
+__attribute__ ((__nonnull__, __unused__))
 static int cheat_retreating_read(cheat_handle* const handle) {
 	int value;
 
@@ -1261,6 +1305,7 @@ terminates the program in case of a failure.
 */
 __attribute__ ((__nonnull__))
 static void cheat_exit(struct cheat_suite* const suite,
+		__attribute__ ((__unused__))
 		int const status) {
 	switch (suite->harness) {
 	case CHEAT_UNSAFE:
@@ -2617,15 +2662,6 @@ This stops a test if it has already failed.
 /*
 These allow scanning captured streams.
 */
-
-#define cheat_cap_messages(size) cheat_cap(&cheat_suite.messages, size)
-#define cheat_cap_outputs(size) cheat_cap(&cheat_suite.outputs, size)
-#define cheat_cap_errors(size) cheat_cap(&cheat_suite.errors, size)
-
-#define cheat_purge_messages() cheat_purge(&cheat_suite.messages)
-#define cheat_purge_outputs() cheat_purge(&cheat_suite.outputs)
-#define cheat_purge_errors() cheat_purge(&cheat_suite.errors)
-
 #define cheat_scan_messages(scanner) cheat_scan(&cheat_suite.messages, scanner)
 #define cheat_scan_outputs(scanner) cheat_scan(&cheat_suite.outputs, scanner)
 #define cheat_scan_errors(scanner) cheat_scan(&cheat_suite.errors, scanner)
@@ -3192,7 +3228,8 @@ static void CHEAT_UNWRAP(exit)(int const status) {
 }
 
 __attribute__ ((__unused__))
-static void CHEAT_WRAP(exit)(int const status) {
+static void CHEAT_WRAP(exit)(__attribute__ ((__unused__))
+		int const status) {
 	cheat_exit(&cheat_suite, CHEAT_EXITED);
 }
 
@@ -3206,7 +3243,8 @@ static void CHEAT_UNWRAP(_Exit)(int const status) {
 }
 
 __attribute__ ((__unused__))
-static void CHEAT_WRAP(_Exit)(int const status) {
+static void CHEAT_WRAP(_Exit)(__attribute__ ((__unused__))
+		int const status) {
 	cheat_exit(&cheat_suite, CHEAT_EXITED);
 }
 
@@ -3222,7 +3260,8 @@ static void CHEAT_UNWRAP(_exit)(int const status) {
 }
 
 __attribute__ ((__unused__))
-static void CHEAT_WRAP(_exit)(int const status) {
+static void CHEAT_WRAP(_exit)(__attribute__ ((__unused__))
+		int const status) {
 	cheat_exit(&cheat_suite, CHEAT_EXITED);
 }
 
@@ -3288,6 +3327,8 @@ static int CHEAT_WRAP(vfprintf)(FILE* const stream,
 #endif
 
 	}
+
+	/* TODO Also print into the local message buffer for scanning. */
 
 	return vfprintf(stream, format, list);
 }

@@ -366,17 +366,11 @@ For example `CHEAT_COMMAS(int x, y;)`, `int x CHEAT_COMMA y;` and
 
 #### 3.2.1   New Features
 
-There is a way to limit captured streams,
+There is a way to limit captured streams
 
-	void cheat_cap_messages(size_t)
-	void cheat_cap_outputs(size_t)
-	void cheat_cap_errors(size_t)
-
-clear them
-
-	void cheat_purge_messages(void)
-	void cheat_purge_outputs(void)
-	void cheat_purge_errors(void)
+	size_t CHEAT_MESSAGE_CAP
+	size_t CHEAT_OUTPUT_CAP
+	size_t CHEAT_ERROR_CAP
 
 and scan them with custom parsers.
 
