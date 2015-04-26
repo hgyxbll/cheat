@@ -865,6 +865,8 @@ static bool cheat_buffer_add(struct cheat_buffer* const buffer,
 	link->item.elements = copy;
 	link->item.size = size;
 
+	if (buffer->list.last != NULL)
+		buffer->list.last->next = link;
 	buffer->list.last = link;
 	if (buffer->list.first == NULL)
 		buffer->list.first = link;
