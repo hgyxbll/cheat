@@ -311,7 +311,7 @@ Running code before and after each test can be done with
 `statements` is a list of statements with the same restrictions as before.
 There can be only one set up and one tear down in a test suite.
 
-The names given to tests are not directly used identifiers, but
+The names given to tests are not directly used as identifiers, but
 the identifier of a test can be retrieved with `CHEAT_GET(name)`, where
 `name` must match the name of the test.
 Pointers to test procedures have the type `cheat_procedure` or
@@ -319,9 +319,52 @@ equivalently `void (*)(void)`.
 
 The convenient `CHEAT_CALL(name)` is equivalent to `CHEAT_GET(name)()`.
 
+Tests are generally advised to avoid side effects like
+writing to the standard streams.
+However streams are still captured and
+subsequent tests may scan them with
+
+* `CHEAT_SCAN_TYPE cheat_scan_messages(cheat_scanner)`,
+* `CHEAT_SCAN_TYPE cheat_scan_outputs(cheat_scanner)` and
+* `CHEAT_SCAN_TYPE cheat_scan_errors(cheat_scanner)`.
+
+The procedures refer to
+
+* the assertion stream,
+* the standard output stream and
+* the standard error stream
+
+respectively.
+Their only arguments have the type `cheat_scanner`, which
+is another name for `CHEAT_SCAN_TYPE (*)(cheat_handle*)`.
+The return type `CHEAT_SCAN_TYPE` is arbitrary and
+the handle type `cheat_handle` is like `FILE` from the standard library,
+except that its instances are bidirectional and
+need not be opened or closed manually.
+The instances are needed by the actual stream processing procedures that
+are similar to `fgetc` from the standard library, but
+instead of `EOF` there are `CHEAT_EOF == EOF` and `CHEAT_BOF != EOF`.
+The stream processing procedures are
+
+* `int cheat_read(cheat_handle const*)`,
+* `int cheat_advancing_read(cheat_handle*)`,
+* `int cheat_retreating_read(cheat_handle*)`,
+* `void cheat_rewind(cheat_handle*)` and
+* `void cheat_fast_forward(cheat_handle*)`.
+
+Their use is quite obvious, but for the sake of completeness, they
+
+* read a byte without moving anywhere,
+* read a byte and move forward one byte,
+* read a byte and move backward one byte,
+* move backward one byte and
+* move forward one byte
+
+respectively.
+
 The behavior of the test suite is primarly controlled with command line options.
-However some of the options are compiled into the test suite and
-their default values can be overridden by
+However some of the options must be compiled into the test suite.
+They have certain default values that can be overridden by
 defining them before including the main header.
 
 The `size_t CHEAT_REPETITIONS` option controls the amount of
@@ -337,6 +380,14 @@ The `CHEAT_TIME` option sets the maximum time after which
 unresponsive tests are terminated if such a thing is possible.
 It is always stored in milliseconds, but its type is implementation defined.
 The default value is two thousand and therefore equal to two seconds.
+
+The `size_t CHEAT_MESSAGE_CAP`, `size_t CHEAT_OUTPUT_CAP` and
+`size_t CHEAT_ERROR_CAP` options limit the captured stream buffer sizes.
+Their default values are all `SIZE_MAX`.
+
+The `CHEAT_SCAN_TYPE` options determines the type returned by
+scanners of captured streams.
+Its default value is `bool`.
 
 The `int CHEAT_OFFSET` option changes the range of
 exit codes used for internal interprocess communication.
@@ -363,35 +414,6 @@ the matching `CHEAT_COMMAS_` n `(x1, x2,` ... `)`, where
 n is the amount of commas in the argument list.
 For example `CHEAT_COMMAS(int x, y;)`, `int x CHEAT_COMMA y;` and
 `CHEAT_COMMAS_1(int x, y;)` all expand to `int x, y;`.
-
-#### 3.2.1   New Features
-
-There is a way to limit captured streams
-
-	size_t CHEAT_MESSAGE_CAP
-	size_t CHEAT_OUTPUT_CAP
-	size_t CHEAT_ERROR_CAP
-
-and scan them with custom parsers.
-
-	CHEAT_SCAN_TYPE cheat_scan_messages(cheat_scanner)
-	CHEAT_SCAN_TYPE cheat_scan_outputs(cheat_scanner)
-	CHEAT_SCAN_TYPE cheat_scan_errors(cheat_scanner)
-
-The scanner has the type `cheat_scanner` or
-equivalently `CHEAT_SCAN_TYPE (*)(cheat_handle*)`, where
-`CHEAT_SCAN_TYPE` is (kind of) polymorphic.
-The handle can be used with bidirectional stream functions that
-are similar to `fgetc` from the standard library
-(however instead of `EOF` there are `CHEAT_EOF == EOF` and `CHEAT_BOF != EOF`).
-
-	int cheat_read(cheat_handle const*)
-	int cheat_advancing_read(cheat_handle*)
-	int cheat_retreating_read(cheat_handle*)
-	void cheat_rewind(cheat_handle*)
-	void cheat_fast_forward(cheat_handle*)
-
-Fun times.
 
 ### 3.3   Options
 
@@ -623,9 +645,36 @@ run in the default shell of FreeDOS.
 
  
 
+* `CHEAT_SCAN_TYPE cheat_scan_messages(cheat_scanner)` scans the captured assertions
+* `CHEAT_SCAN_TYPE cheat_scan_outputs(cheat_scanner)` scans the captured standard output stream
+* `CHEAT_SCAN_TYPE cheat_scan_errors(cheat_scanner)` scans the captured standard error stream
+
+ 
+
+* `int cheat_read(cheat_handle const*)` reads a byte without moving
+* `int cheat_advancing_read(cheat_handle*)` reads a byte and moves forward
+* `int cheat_retreating_read(cheat_handle*)` reads a byte and moves backward
+* `void cheat_rewind(cheat_handle*)` moves backward
+* `void cheat_fast_forward(cheat_handle*)` moves forward
+
+ 
+
 * `size_t CHEAT_REPETITIONS` controls the amount of repetitions
 * `size_t CHEAT_LIMIT` determines the maximum length of string literals
 * `CHEAT_TIME` sets the time after which unresponsive tests are terminated
+
+ 
+
+* `size_t CHEAT_MESSAGE_CAP` sets the buffer size of the captured assertions
+* `size_t CHEAT_OUTPUT_CAP` sets the buffer size of the captured standard output stream
+* `size_t CHEAT_ERROR_CAP` sets the buffer size of the captured standard error stream
+
+ 
+
+* `CHEAT_SCAN_TYPE` determines the type returned by stream scanners
+
+ 
+
 * `int CHEAT_OFFSET` changes the range of internal exit codes
 * `CHEAT_NO_MAIN` does not compile `main()`
 * `CHEAT_NO_WRAP` disables wrapping certain procedures

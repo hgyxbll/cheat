@@ -2678,7 +2678,7 @@ These help the user place commas.
 
 /*
 These are automatically generated with
-$ tcc -run meta.c 127
+  $ tcc -run meta.c 127
 or equivalent.
 */
 #define CHEAT_COMMAS_1(x1, x2) x1, x2
