@@ -382,8 +382,9 @@ struct cheat_linked_list {
 struct cheat_buffer {
 	struct cheat_linked_list list;
 	size_t total_size;
-	size_t cap_size;
 	size_t atom_size;
+	size_t cap_size;
+	bool capped;
 };
 
 struct cheat_statistics {
@@ -838,8 +839,9 @@ static void cheat_buffer_initialize(struct cheat_buffer* const buffer) {
 	buffer->list.first = NULL;
 	buffer->list.last = NULL;
 	buffer->total_size = 0;
-	buffer->cap_size = SIZE_MAX;
 	buffer->atom_size = BUFSIZ - sizeof *buffer->list.first;
+	buffer->cap_size = SIZE_MAX;
+	buffer->capped = false;
 }
 
 /* Check whether a stream buffer is empty. */
@@ -895,7 +897,9 @@ static bool cheat_buffer_add(struct cheat_buffer* const buffer,
 			buffer->list.first->item.size -= surplus;
 			buffer->total_size -= surplus;
 		} else
-			cheat_buffer_remove(buffer);
+			(void )cheat_buffer_remove(buffer);
+
+		buffer->capped = true;
 	}
 
 	/* Compact the tail if it is small enough. */
@@ -952,7 +956,7 @@ static bool cheat_buffer_add(struct cheat_buffer* const buffer,
 __attribute__ ((__nonnull__))
 static void cheat_buffer_clear(struct cheat_buffer* const buffer) {
 	while (buffer->list.first != NULL)
-		cheat_buffer_remove(buffer);
+		(void )cheat_buffer_remove(buffer);
 }
 
 /*
@@ -1323,12 +1327,42 @@ static void cheat_exit(struct cheat_suite* const suite,
 }
 
 /*
+Prints a stream truncation indicator or
+terminates the program in case of a failure.
+*/
+__attribute__ ((__io__, __nonnull__))
+static void cheat_print_cut(struct cheat_suite const* const suite) {
+	bool strip = false;
+	char cut_string[] = CHEAT_FG_GRAY "..."
+		CHEAT_RESET;
+
+	switch (suite->style) {
+	case CHEAT_PLAIN:
+	case CHEAT_MINIMAL:
+		strip = true;
+	case CHEAT_COLORFUL:
+		break;
+	default:
+		cheat_death("invalid style", suite->style);
+	}
+
+	if (strip)
+		(void )cheat_strip(cut_string);
+
+	(void )fputs(cut_string, stdout);
+}
+
+/*
 Prints the contents of a list or
 terminates the program in case of a failure.
 */
 __attribute__ ((__io__, __nonnull__))
-static void cheat_print_list(struct cheat_buffer const* const buffer) {
+static void cheat_print_list(struct cheat_suite const* const suite,
+		struct cheat_buffer const* const buffer) {
 	struct cheat_link const* link;
+
+	if (buffer->capped)
+		cheat_print_cut(suite);
 
 	link = buffer->list.first;
 
@@ -1425,7 +1459,7 @@ static void cheat_print_usage(struct cheat_suite const* const suite) {
 
 	if (print_usage) {
 		if (strip)
-			cheat_strip(usage_format);
+			(void )cheat_strip(usage_format);
 
 		if (print_labels)
 			(void )fputs("Usage: ", stdout);
@@ -1441,7 +1475,7 @@ static void cheat_print_usage(struct cheat_suite const* const suite) {
 				option_strings[index][0] != '\0';
 				++index) {
 			if (strip)
-				cheat_strip(option_strings[index]);
+				(void )cheat_strip(option_strings[index]);
 
 			if (print_labels) {
 				if (index == 0)
@@ -1490,7 +1524,7 @@ static void cheat_print_tests(struct cheat_suite const* const suite) {
 			continue;
 
 		if (strip)
-			cheat_strip(name_format);
+			(void )cheat_strip(name_format);
 
 		if (print_labels) {
 			if (first) {
@@ -1591,7 +1625,7 @@ static void cheat_print_outcome(struct cheat_suite const* const suite) {
 		}
 
 		if (strip)
-			cheat_strip(outcome_string);
+			(void )cheat_strip(outcome_string);
 
 		(void )fputs(outcome_string, stdout);
 		(void )fflush(stdout);
@@ -1628,7 +1662,7 @@ static void cheat_print_separator(struct cheat_suite const* const suite) {
 
 	if (print_separator) {
 		if (strip)
-			cheat_strip(separator_string);
+			(void )cheat_strip(separator_string);
 
 		(void )fputs(separator_string, stdout);
 		(void )fputc('\n', stdout);
@@ -1726,7 +1760,7 @@ static void cheat_print_summary(struct cheat_suite const* const suite) {
 			cheat_print_separator(suite);
 		separate = true;
 
-		cheat_print_list(&suite->messages);
+		cheat_print_list(suite, &suite->messages);
 	}
 	if (print_outputs && any_outputs) {
 		if (separate)
@@ -1734,7 +1768,7 @@ static void cheat_print_summary(struct cheat_suite const* const suite) {
 		separate = true;
 
 		if (!suite->quiet)
-			cheat_print_list(&suite->outputs);
+			cheat_print_list(suite, &suite->outputs);
 	}
 	if (print_errors && any_errors) {
 		if (separate)
@@ -1742,7 +1776,7 @@ static void cheat_print_summary(struct cheat_suite const* const suite) {
 		separate = true;
 
 		if (!suite->quiet)
-			cheat_print_list(&suite->errors);
+			cheat_print_list(suite, &suite->errors);
 	}
 	if (print_summary) {
 		if (separate)
@@ -1750,32 +1784,32 @@ static void cheat_print_summary(struct cheat_suite const* const suite) {
 
 		if (regular || any_successes) {
 			if (strip)
-				cheat_strip(successful_format);
+				(void )cheat_strip(successful_format);
 
 			(void )cheat_print(stdout, successful_format, 1,
 					(CHEAT_SIZE_TYPE )suite->tests.successful);
 		}
 		if (regular || (any_successes && any_failures)) {
 			if (strip)
-				cheat_strip(and_string);
+				(void )cheat_strip(and_string);
 
 			(void )fputs(and_string, stdout);
 		}
 		if (regular || any_failures) {
 			if (strip)
-				cheat_strip(failed_format);
+				(void )cheat_strip(failed_format);
 
 			(void )cheat_print(stdout, failed_format, 1,
 					(CHEAT_SIZE_TYPE )suite->tests.failed);
 		}
 		if (regular || (any_successes || any_failures)) {
 			if (strip)
-				cheat_strip(of_string);
+				(void )cheat_strip(of_string);
 
 			(void )fputs(of_string, stdout);
 		}
 		if (strip)
-			cheat_strip(run_format);
+			(void )cheat_strip(run_format);
 
 		(void )cheat_print(stdout, run_format, 1,
 				(CHEAT_SIZE_TYPE )suite->tests.run);
@@ -1784,12 +1818,12 @@ static void cheat_print_summary(struct cheat_suite const* const suite) {
 	if (print_conclusion) {
 		if (!any_failures) {
 			if (strip)
-				cheat_strip(success_string);
+				(void )cheat_strip(success_string);
 
 			(void )fputs(success_string, stdout);
 		} else {
 			if (strip)
-				cheat_strip(failure_string);
+				(void )cheat_strip(failure_string);
 
 			(void )fputs(failure_string, stdout);
 		}
@@ -1837,7 +1871,7 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 			cheat_death("failed to allocate memory", errno);
 
 		if (strip)
-			cheat_strip(assertion_format);
+			(void )cheat_strip(assertion_format);
 
 		switch (suite->harness) {
 		case CHEAT_UNSAFE:
@@ -1853,7 +1887,8 @@ static void cheat_print_failure(struct cheat_suite* const suite,
 						file, (CHEAT_SIZE_TYPE )line,
 						suite->test_name, truncation) < 0)
 				cheat_death("failed to build a string", errno);
-			cheat_buffer_add(&suite->messages, buffer, strlen(buffer));
+			if (!cheat_buffer_add(&suite->messages, buffer, strlen(buffer)))
+				cheat_death("failed to capture a string", errno);
 
 			free(buffer);
 			break;
@@ -2012,8 +2047,8 @@ static bool cheat_multiplex(struct cheat_channel* const channels,
 				cheat_death("failed to read from a pipe", errno);
 			if (size == 0)
 				channels[index].active = false;
-			else
-				cheat_buffer_add(channels[index].buffer, buffer, (size_t )size);
+			else if (!cheat_buffer_add(channels[index].buffer, buffer, (size_t )size))
+				cheat_death("failed to capture a string", errno);
 		}
 	} while (result != 0);
 
@@ -2271,7 +2306,8 @@ Windows makes working with pipes a hassle, so not all streams are captured.
 		if (size == 0)
 			break;
 
-		cheat_buffer_add(&suite->messages, buffer, (size_t )size);
+		if (!cheat_buffer_add(&suite->messages, buffer, (size_t )size))
+			cheat_death("failed to capture a string", errno);
 	} while (TRUE);
 
 	/*
@@ -3321,10 +3357,13 @@ static int CHEAT_WRAP(vfprintf)(FILE* const stream,
 				return -1;
 
 			result = vsprintf(buffer, format, list);
-			if (stream == stdout)
-				cheat_buffer_add(&cheat_suite.outputs, buffer, length);
-			else if (stream == stderr)
-				cheat_buffer_add(&cheat_suite.errors, buffer, length);
+			if (stream == stdout) {
+				if (!cheat_buffer_add(&cheat_suite.outputs, buffer, length))
+					cheat_death("failed to capture a string", errno);
+			} else if (stream == stderr) {
+				if (!cheat_buffer_add(&cheat_suite.errors, buffer, length))
+					cheat_death("failed to capture a string", errno);
+			}
 
 			free(buffer);
 		} else
@@ -3524,10 +3563,13 @@ static size_t CHEAT_WRAP(fwrite)(void const* const buffer,
 #ifdef CHEAT_MODERN
 
 		if (cheat_capture(&cheat_suite, stream)) {
-			if (stream == stdout)
-				cheat_buffer_add(&cheat_suite.outputs, buffer, size * count);
-			else if (stream == stderr)
-				cheat_buffer_add(&cheat_suite.errors, buffer, size * count);
+			if (stream == stdout) {
+				if (!cheat_buffer_add(&cheat_suite.outputs, buffer, size * count))
+					cheat_death("failed to capture a string", errno);
+			} else if (stream == stderr) {
+				if (!cheat_buffer_add(&cheat_suite.errors, buffer, size * count))
+					cheat_death("failed to capture a string", errno);
+			}
 		}
 
 		return count;
