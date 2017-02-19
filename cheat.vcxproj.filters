@@ -29,8 +29,5 @@
     <ClCompile Include="example.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="examples.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
 </Project>
